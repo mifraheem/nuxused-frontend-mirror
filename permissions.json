@@ -1,0 +1,131 @@
+[
+  "users.add_school",
+  "users.change_school",
+  "users.delete_school",
+  "users.view_school",
+
+  "users.add_user",
+  "users.change_user",
+  "users.delete_user",
+  "users.view_user",
+
+  "users.add_schoolgroup",
+  "users.change_schoolgroup",
+  "users.delete_schoolgroup",
+  "users.view_schoolgroup",
+
+  "users.add_teacherprofile",
+  "users.change_teacherprofile",
+  "users.delete_teacherprofile",
+  "users.view_teacherprofile",
+
+  "users.add_staffprofile",
+  "users.change_staffprofile",
+  "users.delete_staffprofile",
+  "users.view_staffprofile",
+
+  "users.add_studentprofile",
+  "users.change_studentprofile",
+  "users.delete_studentprofile",
+  "users.view_studentprofile",
+
+  "users.add_parentprofile",
+  "users.change_parentprofile",
+  "users.delete_parentprofile",
+  "users.view_parentprofile",
+
+  "users.add_classname",
+  "users.change_classname",
+  "users.delete_classname",
+  "users.view_classname",
+
+  "users.add_groupclasspermission",
+  "users.change_groupclasspermission",
+  "users.delete_groupclasspermission",
+  "users.view_groupclasspermission",
+
+  "users.add_feetype",
+  "users.change_feetype",
+  "users.delete_feetype",
+  "users.view_feetype",
+
+  "users.add_feestructure",
+  "users.change_feestructure",
+  "users.delete_feestructure",
+  "users.view_feestructure",
+
+  "users.add_studentfee",
+  "users.change_studentfee",
+  "users.delete_studentfee",
+  "users.view_studentfee",
+
+  "users.add_feepayment",
+  "users.change_feepayment",
+  "users.delete_feepayment",
+  "users.view_feepayment",
+
+  "users.add_latepaymentfine",
+  "users.change_latepaymentfine",
+  "users.delete_latepaymentfine",
+  "users.view_latepaymentfine",
+
+  "users.add_feediscount",
+  "users.change_feediscount",
+  "users.delete_feediscount",
+  "users.view_feediscount",
+
+  "users.add_subject",
+  "users.change_subject",
+  "users.delete_subject",
+  "users.view_subject",
+
+  "users.add_room",
+  "users.change_room",
+  "users.delete_room",
+  "users.view_room",
+
+  "users.add_timetable",
+  "users.change_timetable",
+  "users.delete_timetable",
+  "users.view_timetable",
+
+  "users.add_announcement",
+  "users.change_announcement",
+  "users.delete_announcement",
+  "users.view_announcement",
+
+  "users.add_classannouncement",
+  "users.change_classannouncement",
+  "users.delete_classannouncement",
+  "users.view_classannouncement",
+
+  "users.add_classtask",
+  "users.change_classtask",
+  "users.delete_classtask",
+  "users.view_classtask",
+
+  "users.add_facultytask",
+  "users.change_facultytask",
+  "users.delete_facultytask",
+  "users.view_facultytask",
+
+  "users.add_studentattendance",
+  "users.change_studentattendance",
+  "users.delete_studentattendance",
+  "users.view_studentattendance",
+
+  "users.add_staffattendance",
+  "users.change_staffattendance",
+  "users.delete_staffattendance",
+  "users.view_staffattendance",
+
+  "users.add_exam",
+  "users.change_exam",
+  "users.delete_exam",
+  "users.view_exam",
+
+  "users.add_examdatesheet",
+  "users.change_examdatesheet",
+  "users.delete_examdatesheet",
+  "users.view_examdatesheet"
+]

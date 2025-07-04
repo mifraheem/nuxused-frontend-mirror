@@ -196,21 +196,31 @@ const FeePayments = () => {
         fetchPayments();
     }, [page, pageSize]);
 
+    const permissions = Cookies.get("permissions")?.split(",") || [];
+
+    const canAdd = permissions.includes("users.add_feepayment");
+    const canDelete = permissions.includes("users.delete_feepayment");
+    const canEdit = permissions.includes("users.change_feepayment");
+
+
     return (
         <div className="p-6">
             <Toaster position="top-center" />
             <div className="bg-blue-900 text-white py-2 px-6 rounded-md flex justify-between items-center mb-6">
                 <h1 className="text-xl font-bold">Manage Fee Payments</h1>
-                <button
-                    onClick={() => (showForm ? resetForm() : setShowForm(true))}
-                    className="flex items-center px-3 py-2 bg-cyan-400 text-white font-semibold rounded-lg shadow-md hover:bg-cyan-500"
-                >
-                    <span className="text-xl font-bold mr-2">{showForm ? "-" : "+"}</span>
-                    {showForm ? "Close Form" : "Add Payment"}
-                </button>
+                {canAdd && (
+                    <button
+                        onClick={() => (showForm ? resetForm() : setShowForm(true))}
+                        className="flex items-center px-3 py-2 bg-cyan-400 text-white font-semibold rounded-lg shadow-md hover:bg-cyan-500"
+                    >
+                        <span className="text-xl font-bold mr-2">{showForm ? "-" : "+"}</span>
+                        {showForm ? "Close Form" : "Add Payment"}
+                    </button>
+                )}
+
             </div>
 
-            {showForm && (
+            {showForm && canAdd && (
                 <div className="p-6 bg-blue-50 rounded-md mb-6">
                     <h2 className="text-lg font-semibold text-blue-900">
                         {editingPaymentId ? "Update Fee Payment" : "Create Fee Payment"}
@@ -401,8 +411,8 @@ const FeePayments = () => {
                             onClick={() => setPage((prev) => Math.max(prev - 1, 1))}
                             disabled={page === 1}
                             className={`px-3 py-1 rounded-md font-semibold ${page === 1
-                                    ? "bg-gray-200 text-gray-500 cursor-not-allowed"
-                                    : "bg-white hover:bg-gray-100"
+                                ? "bg-gray-200 text-gray-500 cursor-not-allowed"
+                                : "bg-white hover:bg-gray-100"
                                 }`}
                         >
                             Prev
@@ -414,8 +424,8 @@ const FeePayments = () => {
                             onClick={() => setPage((prev) => Math.min(prev + 1, totalPages))}
                             disabled={page === totalPages}
                             className={`px-3 py-1 rounded-md font-semibold ${page === totalPages
-                                    ? "bg-gray-200 text-gray-500 cursor-not-allowed"
-                                    : "bg-white hover:bg-gray-100"
+                                ? "bg-gray-200 text-gray-500 cursor-not-allowed"
+                                : "bg-white hover:bg-gray-100"
                                 }`}
                         >
                             Next

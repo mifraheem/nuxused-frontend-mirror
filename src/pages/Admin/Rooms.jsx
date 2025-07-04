@@ -92,9 +92,26 @@ const Rooms = () => {
   };
 
   const handleDeleteRoom = async (id) => {
+    if (!canDelete) {
+      toast((t) => (
+        <div className="text-center font-semibold p-4 bg-red-100 border border-red-400 rounded shadow-md">
+          🚫 You do not have permission to delete rooms.
+          <div className="mt-3">
+            <button
+              onClick={() => toast.dismiss(t.id)}
+              className="mt-2 px-4 py-1 bg-red-500 text-white rounded hover:bg-red-600"
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      ));
+      return;
+    }
+
     toast((t) => (
       <div>
-        <p className="text-grey-600">Are you sure you want to delete?</p>
+        <p className="text-gray-600">Are you sure you want to delete?</p>
         <div className="flex justify-end mt-2">
           <button
             onClick={async () => {
@@ -132,6 +149,7 @@ const Rooms = () => {
     ), { duration: 5000 });
   };
 
+
   const handleEditRoom = (room) => {
     setEditingRoom(room);
     setNewRoom(room);
@@ -151,28 +169,38 @@ const Rooms = () => {
     { label: "Room Type", key: "room_type" },
   ];
 
+  // Add this near the top (after useState)
+  const permissions = JSON.parse(localStorage.getItem("user_permissions") || "[]");
+  const canAdd = permissions.includes("users.add_room");
+  const canEdit = permissions.includes("users.change_room");
+  const canDelete = permissions.includes("users.delete_room");
+
+
   return (
     <div>
       <Toaster position="top-center" reverseOrder={false} />
       <div className="bg-blue-900 text-white py-2 px-6 rounded-md flex justify-between items-center mt-5">
         <h1 className="text-xl font-bold">Manage Rooms</h1>
-        <button
-          onClick={() => {
-            setShowForm((prev) => !prev);
-            setEditingRoom(null);
-            setNewRoom({ room_name: "", room_type: "room" });
-          }}
-          className="flex items-center px-3 py-2 bg-cyan-400 text-white font-semibold rounded-lg shadow-md hover:bg-cyan-500 transition"
-        >
-          <div className="flex items-center justify-center w-8 h-8 bg-black rounded-full mr-3">
-            <span className="text-cyan-500 text-xl font-bold">{showForm ? "-" : "+"}</span>
-          </div>
-          {showForm ? "Close Form" : "Add New Room"}
-        </button>
+        {canAdd && (
+          <button
+            onClick={() => {
+              setShowForm((prev) => !prev);
+              setEditingRoom(null);
+              setNewRoom({ room_name: "", room_type: "room" });
+            }}
+            className="flex items-center px-3 py-2 bg-cyan-400 text-white font-semibold rounded-lg shadow-md hover:bg-cyan-500 transition"
+          >
+            <div className="flex items-center justify-center w-8 h-8 bg-black rounded-full mr-3">
+              <span className="text-cyan-500 text-xl font-bold">{showForm ? "-" : "+"}</span>
+            </div>
+            {showForm ? "Close Form" : "Add New Room"}
+          </button>
+        )}
+
       </div>
 
       <div className="p-6">
-        {showForm && (
+        {canAdd && showForm && (
           <div className="p-6 bg-blue-50 rounded-md mb-6">
             <h2 className="text-lg font-semibold text-blue-900">{editingRoom ? "Edit Room" : "Create Room"}</h2>
             <div className="grid grid-cols-2 gap-4 mt-4">
@@ -214,7 +242,10 @@ const Rooms = () => {
                   <th className="border border-gray-300 p-2">#ID</th>
                   <th className="border border-gray-300 p-2">Room Name</th>
                   <th className="border border-gray-300 p-2">Room Type</th>
-                  <th className="border border-gray-300 p-2">Actions</th>
+                  {(canEdit || canDelete) && (
+                    <th className="border border-gray-300 p-2">Actions</th>
+                  )}
+
                 </tr>
               </thead>
               <tbody>
@@ -223,16 +254,23 @@ const Rooms = () => {
                     <td className="border border-gray-300 p-2 text-center">{room.id}</td>
                     <td className="border border-gray-300 p-2">{room.room_name}</td>
                     <td className="border border-gray-300 p-2 text-center">{room.room_type}</td>
-                    <td className="border border-gray-300 p-2 flex justify-center">
-                      <MdEdit
-                        onClick={() => handleEditRoom(room)}
-                        className="text-yellow-500 text-2xl cursor-pointer mx-2 hover:text-yellow-700"
-                      />
-                      <MdDelete
-                        onClick={() => handleDeleteRoom(room.id)}
-                        className="text-red-500 text-2xl cursor-pointer mx-2 hover:text-red-700"
-                      />
-                    </td>
+                    {(canEdit || canDelete) && (
+                      <td className="border border-gray-300 p-2 flex justify-center">
+                        {canEdit && (
+                          <MdEdit
+                            onClick={() => handleEditRoom(room)}
+                            className="text-yellow-500 text-2xl cursor-pointer mx-2 hover:text-yellow-700"
+                          />
+                        )}
+                        {canDelete && (
+                          <MdDelete
+                            onClick={() => handleDeleteRoom(room.id)}
+                            className="text-red-500 text-2xl cursor-pointer mx-2 hover:text-red-700"
+                          />
+                        )}
+                      </td>
+                    )}
+
                   </tr>
                 ))}
               </tbody>

@@ -136,10 +136,16 @@ const StudentInfo = () => {
       toast.error("Invalid student ID.");
       return;
     }
+
+    if (!canDelete) {
+      toast.error("🚫 You don’t have permission to delete student profiles.");
+      return;
+    }
+
     toast((t) => (
-      <div>
+      <div className="text-center">
         <p className="font-semibold">Are you sure you want to delete this student?</p>
-        <div className="flex justify-between mt-3">
+        <div className="flex justify-center gap-4 mt-3">
           <button
             onClick={() => {
               deleteStudent(id);
@@ -159,6 +165,7 @@ const StudentInfo = () => {
       </div>
     ), { duration: 5000 });
   };
+
 
   const openViewModal = (student) => {
     if (!student || !student.user_id) {
@@ -187,6 +194,13 @@ const StudentInfo = () => {
   useEffect(() => {
     fetchStudents(1, pageSize);
   }, [pageSize]);
+
+  // Permission checks (near top of component)
+  const permissions = JSON.parse(localStorage.getItem("user_permissions") || "[]");
+
+  const canEdit = permissions.includes("users.change_studentprofile");
+  const canDelete = permissions.includes("users.delete_studentprofile");
+
 
   return (
     <div>
@@ -225,10 +239,27 @@ const StudentInfo = () => {
                   <td className="border border-gray-300 px-4 py-2">{student.last_name}</td>
                   <td className="border border-gray-300 px-4 py-2">{student.email}</td>
                   <td className="border border-gray-300 px-4 py-2 flex justify-center gap-3">
-                    <FiEye className="text-blue-500 cursor-pointer" onClick={() => openViewModal(student)} />
-                    <FiEdit className="text-green-500 cursor-pointer" onClick={() => openEditModal(student)} />
-                    <FiTrash className="text-red-500 cursor-pointer" onClick={() => confirmDeleteStudent(student.user_id)} />
+                    <FiEye
+                      className="text-blue-500 cursor-pointer"
+                      onClick={() => openViewModal(student)}
+                      title="View Student"
+                    />
+                    {canEdit && (
+                      <FiEdit
+                        className="text-green-500 cursor-pointer"
+                        onClick={() => openEditModal(student)}
+                        title="Edit Student"
+                      />
+                    )}
+                    {canDelete && (
+                      <FiTrash
+                        className="text-red-500 cursor-pointer"
+                        onClick={() => confirmDeleteStudent(student.user_id)}
+                        title="Delete Student"
+                      />
+                    )}
                   </td>
+
                 </tr>
               ))}
             </tbody>

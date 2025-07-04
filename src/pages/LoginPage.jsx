@@ -9,7 +9,6 @@ import toast, { Toaster } from "react-hot-toast";
 import Cookies from "js-cookie";
 
 export default function LoginPage() {
-  const [role, setRole] = useState("");
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
 
@@ -21,48 +20,46 @@ export default function LoginPage() {
   const API_URL = `${API}api/auth/login/`;
 
   const handleLogin = async () => {
-    if (!username || !password || !role) {
-      toast.error("All fields are required!");
+  if (!username || !password) {
+    toast.error("Username and password are required!");
+    return;
+  }
+
+  try {
+    const response = await axios.post(API_URL, {
+      username,
+      password,
+    });
+
+    const { access, refresh, role: userRole, permissions } = response.data.data;
+
+    if (!permissions || permissions.length === 0) {
+      toast.error("You are not authorized to access the system.");
       return;
     }
 
-    try {
-      const response = await axios.post(API_URL, {
-        username,
-        password,
-      });
+    // Store tokens and role in cookies
+    Cookies.set("access_token", access, { expires: 7, secure: true, sameSite: "Strict" });
+    Cookies.set("refresh_token", refresh, { expires: 7, secure: true, sameSite: "Strict" });
+    Cookies.set("user_role", userRole, { expires: 7, secure: true, sameSite: "Strict" });
 
-      // Store tokens in cookies
-      Cookies.set("access_token", response.data.data.access, { expires: 7, secure: true, sameSite: "Strict" });
-      Cookies.set("refresh_token", response.data.data.refresh, { expires: 7, secure: true, sameSite: "Strict" });
-      const userRole = response.data.data.role;
-      console.log("Received role from backend:", userRole);
+    // Store permissions in localStorage
+    localStorage.setItem("user_permissions", JSON.stringify(permissions));
 
-      Cookies.set("user_role", userRole, {
-        expires: 7,
-        secure: true,
-        sameSite: "Strict"
-      });
+    toast.success("Login successful! Redirecting...");
 
-      console.log("Cookie value saved:", Cookies.get("user_role"));
+    // Redirect to a universal dashboard
+    setTimeout(() => {
+      navigate("/admin"); // or "/home"
+    }, 500);
+  } catch (err) {
+    console.error("Login Error:", err);
+    toast.error("Login failed. Please check your credentials.");
+  }
+};
 
 
-      // Show success toast
-      toast.success("Login successful! Redirecting...");
 
-      // Redirect user after a short delay
-      setTimeout(() => {
-        if (role === "Accountant") {
-          navigate("/accountant");
-        } else if (role === "Admin") {
-          navigate("/admin");
-        }
-      }, 500);
-    } catch (err) {
-      console.error("Login Error:", err);
-      toast.error("Login failed. Please try again.");
-    }
-  };
 
   return (
     <div className="flex items-center justify-center min-h-screen p-5 bg-slate-50">
@@ -75,21 +72,7 @@ export default function LoginPage() {
         <div className="w-full lg:w-1/2">
           <h1 className="text-xl font-extrabold text-center mb-6 text-blue-950">Login</h1>
 
-          <div className="mb-4">
-            <label className="block text-gray-700 mb-2 font-medium" htmlFor="role">
-              Role
-            </label>
-            <select
-              id="role"
-              className="w-full px-4 py-2 border rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-300"
-              value={role}
-              onChange={(e) => setRole(e.target.value)}
-            >
-              <option value="">Select Role</option>
-              <option value="Admin">Admin</option>
-              <option value="Accountant">Accountant</option>
-            </select>
-          </div>
+         
 
           <div className="mb-4">
             <label className="block text-gray-700 mb-2 font-medium" htmlFor="username">

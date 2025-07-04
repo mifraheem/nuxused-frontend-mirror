@@ -166,6 +166,11 @@ const TimetableManagement = () => {
 
   // ✅ Delete with Confirmation
   const handleDelete = async (id) => {
+    if (!canDelete) {
+      toast.error("You do not have permission to delete timetables.");
+      return;
+    }
+
     toast((t) => (
       <div>
         <p className="text-gray-600">Are you sure you want to delete this timetable?</p>
@@ -195,6 +200,7 @@ const TimetableManagement = () => {
       </div>
     ));
   };
+
 
   // ✅ View Details in Modal
   const handleView = (timetable) => {
@@ -236,6 +242,12 @@ const TimetableManagement = () => {
     }
   }, [token, page, pageSize]);
 
+  const permissions = Cookies.get("permissions")?.split(",") || [];
+  const canAdd = permissions.includes("users.add_timetable");
+  const canEdit = permissions.includes("users.change_timetable");
+  const canDelete = permissions.includes("users.delete_timetable");
+
+
   return (
     <div >
       <Toaster position="top-center" />
@@ -243,24 +255,27 @@ const TimetableManagement = () => {
       {/* Header */}
       <div className="bg-blue-900 text-white py-2 px-8 rounded-lg shadow-md flex justify-between items-center mt-5">
         <h1 className="text-2xl font-bold tracking-wide">Timetable Management</h1>
-        <button
-          onClick={() => {
-            setShowForm((prev) => !prev); // ✅ Toggle the form state
-            resetForm(); // ✅ Reset form when opening
-          }}
-          className="flex items-center px-4 py-2 bg-cyan-400 text-white font-semibold rounded-lg shadow-md hover:bg-cyan-600 transition duration-300"
-        >
-          <div className="flex items-center justify-center w-8 h-8 bg-black rounded-full mr-2">
-            <span className="text-cyan-500 text-xl font-bold">+</span>
-          </div>
-          {showForm ? "Cancel" : "Add Timetable"} {/* ✅ Change text based on state */}
-        </button>
+        {canAdd && (
+          <button
+            onClick={() => {
+              setShowForm((prev) => !prev);
+              resetForm();
+            }}
+            className="flex items-center px-4 py-2 bg-cyan-400 text-white font-semibold rounded-lg shadow-md hover:bg-cyan-600 transition duration-300"
+          >
+            <div className="flex items-center justify-center w-8 h-8 bg-black rounded-full mr-2">
+              <span className="text-cyan-500 text-xl font-bold">+</span>
+            </div>
+            {showForm ? "Cancel" : "Add Timetable"}
+          </button>
+        )}
+
 
       </div>
 
       <div className="p-6">
         {/* Form */}
-        {showForm && (
+        {canAdd && showForm && (
           <form onSubmit={handleSubmit} className=" p-6 mt-6 rounded-md ">
 
             <div className="grid grid-cols-2 gap-6">
@@ -433,7 +448,7 @@ const TimetableManagement = () => {
               <th className="border p-2">Class</th>
               <th className="border p-2">Start Time</th>
               <th className="border p-2">End Time</th>
-              <th className="border p-2">Actions</th>
+              {(canEdit || canDelete) && <th className="border p-2">Actions</th>}
             </tr>
           </thead>
           <tbody>
@@ -457,20 +472,28 @@ const TimetableManagement = () => {
                 <td className="border p-2">{timetable.end_time || "N/A"}</td>
 
                 {/* Actions */}
-                <td className="border p-2 flex space-x-2 justify-center">
-                  {/* Edit Button */}
-                  <MdVisibility onClick={() => handleView(timetable)} className="text-blue-500 cursor-pointer" />
-                  <MdEdit
-                    onClick={() => handleEdit(timetable)}
-                    className="text-yellow-500 text-2xl cursor-pointer hover:text-yellow-700"
-                  />
+                {(canEdit || canDelete) && (
+                  <td className="border p-2 flex space-x-2 justify-center">
+                    {/* Edit Button */}
+                    <MdVisibility
+                      onClick={() => handleView(timetable)}
+                      className="text-blue-500 cursor-pointer"
+                    />
+                    {canEdit && (
+                      <MdEdit
+                        onClick={() => handleEdit(timetable)}
+                        className="text-yellow-500 text-2xl cursor-pointer hover:text-yellow-700"
+                      />
+                    )}
+                    {canDelete && (
+                      <MdDelete
+                        onClick={() => handleDelete(timetable.id)}
+                        className="text-red-500 text-2xl cursor-pointer hover:text-red-700"
+                      />
+                    )}
 
-                  {/* Delete Button */}
-                  <MdDelete
-                    onClick={() => handleDelete(timetable.id)}
-                    className="text-red-500 text-2xl cursor-pointer hover:text-red-700"
-                  />
-                </td>
+                  </td>
+                )}
               </tr>
             ))}
           </tbody>

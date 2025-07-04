@@ -100,6 +100,23 @@ const Noticeboard = () => {
 
   // Delete a notice with confirmation
   const handleDeleteNotice = async (id) => {
+    if (!canDelete) {
+      toast((t) => (
+        <div className="text-center font-semibold p-4 bg-red-100 border border-red-400 rounded shadow-md">
+          🚫 You do not have permission to delete announcements.
+          <div className="mt-3">
+            <button
+              onClick={() => toast.dismiss(t.id)}
+              className="mt-2 px-4 py-1 bg-red-500 text-white rounded hover:bg-red-600"
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      ));
+      return;
+    }
+
     toast((t) => (
       <div>
         <p>Are you sure you want to delete this notice?</p>
@@ -123,6 +140,7 @@ const Noticeboard = () => {
       </div>
     ));
   };
+
   // Function to delete notice
   const deleteNotice = async (id) => {
     try {
@@ -196,33 +214,42 @@ const Noticeboard = () => {
     fetchNotices();
   }, [page, pageSize]);
 
+  // Get permissions from localStorage
+  const permissions = JSON.parse(localStorage.getItem("user_permissions") || "[]");
+
+  const canAdd = permissions.includes("users.add_announcement");
+  const canEdit = permissions.includes("users.change_announcement");
+  const canDelete = permissions.includes("users.delete_announcement");
+
+
   return (
     <div>
       <Toaster position="top-center" reverseOrder={false} />
       <div className="bg-blue-900 text-white py-2 px-6 rounded-md flex justify-between items-center mt-5">
         <h1 className="text-xl font-bold">School Noticeboard</h1>
-        <button
-          onClick={() => {
-            // ✅ Toggle form visibility on double click
-            setShowForm((prev) => !prev);
-            setEditingNotice(null);
-            setNewNotice({ title: "", description: "", announced_for: "all" });
-          }}
-          className="flex items-center px-3 py-2 bg-cyan-400 text-white font-semibold rounded-lg shadow-md hover:bg-cyan-500 transition"
-        >
-          <div className="flex items-center justify-center w-8 h-8 bg-black rounded-full mr-3">
-            <span className="text-cyan-500 text-xl font-bold">
-              {showForm ? "-" : "+"}
-            </span>
-          </div>
-          {showForm ? "Close Form" : "Add New Notice"}
-        </button>
+        {canAdd && (
+          <button
+            onClick={() => {
+              setShowForm((prev) => !prev);
+              setEditingNotice(null);
+              setNewNotice({ title: "", description: "", announced_for: "all" });
+            }}
+            className="flex items-center px-3 py-2 bg-cyan-400 text-white font-semibold rounded-lg shadow-md hover:bg-cyan-500 transition"
+          >
 
+            <div className="flex items-center justify-center w-8 h-8 bg-black rounded-full mr-3">
+              <span className="text-cyan-500 text-xl font-bold">
+                {showForm ? "-" : "+"}
+              </span>
+            </div>
+            {showForm ? "Close Form" : "Add New Notice"}
+          </button>
+        )}
       </div>
 
       <div className="p-6">
         {/* Notice Form */}
-        {showForm && (
+        {(canAdd || canEdit) && showForm && (
           <div className="p-6 bg-blue-50 rounded-md mb-6">
             <h2 className="text-lg font-semibold text-blue-900">
               {editingNotice ? "Edit Notice" : "Create Notice"}
@@ -313,7 +340,10 @@ const Noticeboard = () => {
                   <th className="border border-gray-300 p-2">Title</th>
                   <th className="border border-gray-300 p-2">Description</th>
                   <th className="border border-gray-300 p-2">Audience</th>
-                  <th className="border border-gray-300 p-2">Actions</th>
+                  {(canEdit || canDelete) && (
+                    <th className="border border-gray-300 p-2">Actions</th>
+                  )}
+
                 </tr>
               </thead>
               <tbody>
@@ -340,25 +370,31 @@ const Noticeboard = () => {
                     </td>
 
                     {/* ✅ Actions */}
-                    <td className="border border-gray-300 p-2 flex justify-center gap-2">
-                      {/* ✅ View Icon */}
-                      <MdVisibility
-                        onClick={() => handleViewNotice(notice)}
-                        className="text-blue-500 text-2xl cursor-pointer hover:text-blue-700"
-                      />
+                    {(canEdit || canDelete) && (
+                      <td className="border border-gray-300 p-2 flex justify-center gap-2">
+                        {/* ✅ View Icon */}
+                        <MdVisibility
+                          onClick={() => handleViewNotice(notice)}
+                          className="text-blue-500 text-2xl cursor-pointer hover:text-blue-700"
+                        />
 
-                      {/* ✅ Edit Icon */}
-                      <MdEdit
-                        onClick={() => handleEditNotice(notice)}
-                        className="text-yellow-500 text-2xl cursor-pointer hover:text-yellow-700"
-                      />
+                        {/* ✅ Edit Icon */}
+                        {canEdit && (
+                          <MdEdit
+                            onClick={() => handleEditNotice(notice)}
+                            className="text-yellow-500 text-2xl cursor-pointer hover:text-yellow-700"
+                          />
+                        )}
 
-                      {/* ✅ Delete Icon */}
-                      <MdDelete
-                        onClick={() => handleDeleteNotice(notice.id)}
-                        className="text-red-500 text-2xl cursor-pointer hover:text-red-700"
-                      />
-                    </td>
+                        {canDelete && (
+                          <MdDelete
+                            onClick={() => handleDeleteNotice(notice.id)}
+                            className="text-red-500 text-2xl cursor-pointer hover:text-red-700"
+                          />
+                        )}
+
+                      </td>
+                    )}
                   </tr>
                 ))}
               </tbody>
@@ -387,8 +423,8 @@ const Noticeboard = () => {
                   onClick={() => setPage((prev) => Math.max(prev - 1, 1))}
                   disabled={page === 1}
                   className={`px-3 py-1 rounded-md font-semibold ${page === 1
-                      ? "bg-gray-200 text-gray-500 cursor-not-allowed"
-                      : "bg-white hover:bg-gray-100"
+                    ? "bg-gray-200 text-gray-500 cursor-not-allowed"
+                    : "bg-white hover:bg-gray-100"
                     }`}
                 >
                   Prev
@@ -400,8 +436,8 @@ const Noticeboard = () => {
                   onClick={() => setPage((prev) => Math.min(prev + 1, totalPages))}
                   disabled={page === totalPages}
                   className={`px-3 py-1 rounded-md font-semibold ${page === totalPages
-                      ? "bg-gray-200 text-gray-500 cursor-not-allowed"
-                      : "bg-white hover:bg-gray-100"
+                    ? "bg-gray-200 text-gray-500 cursor-not-allowed"
+                    : "bg-white hover:bg-gray-100"
                     }`}
                 >
                   Next

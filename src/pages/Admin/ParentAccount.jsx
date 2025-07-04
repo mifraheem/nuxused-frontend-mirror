@@ -52,10 +52,15 @@ const ParentAccount = () => {
   };
 
   const confirmDeleteParent = (id) => {
+    if (!canDelete) {
+      toast.error("🚫 You do not have permission to delete parent profiles.");
+      return;
+    }
+
     toast((t) => (
-      <div>
+      <div className="text-center">
         <p className="font-semibold">Are you sure you want to delete this parent?</p>
-        <div className="flex justify-between mt-3">
+        <div className="flex justify-center mt-3 gap-4">
           <button
             onClick={() => {
               deleteParent(id);
@@ -76,21 +81,22 @@ const ParentAccount = () => {
     ), { duration: 5000 });
   };
 
-const deleteParent = async (id) => {
-  try {
-    const token = Cookies.get("access_token");
-    await axios.delete(`${API}api/auth/users/${id}/delete_user/`, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
 
-    // Remove parent from the current state without refetching
-    setParents((prev) => prev.filter((p) => p.user_id !== id));
+  const deleteParent = async (id) => {
+    try {
+      const token = Cookies.get("access_token");
+      await axios.delete(`${API}api/auth/users/${id}/delete_user/`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
 
-    toast.success("Parent deleted successfully.");
-  } catch (error) {
-    toast.error("Failed to delete parent.");
-  }
-};
+      // Remove parent from the current state without refetching
+      setParents((prev) => prev.filter((p) => p.user_id !== id));
+
+      toast.success("Parent deleted successfully.");
+    } catch (error) {
+      toast.error("Failed to delete parent.");
+    }
+  };
 
 
   const openViewModal = (parent) => {
@@ -157,6 +163,15 @@ const deleteParent = async (id) => {
     setCurrentPage(1);
   };
 
+  // Get user permissions from localStorage
+  const permissions = JSON.parse(localStorage.getItem("user_permissions") || "[]");
+
+  // Permission flags
+  const canView = permissions.includes("users.view_parentprofile");
+  const canEdit = permissions.includes("users.change_parentprofile");
+  const canDelete = permissions.includes("users.delete_parentprofile") && permissions.includes("users.delete_user");
+
+
   return (
     <div>
       <Toaster position="top-center" reverseOrder={false} />
@@ -186,10 +201,29 @@ const deleteParent = async (id) => {
                   <td className="border border-gray-300 px-4 py-2">{parent.last_name}</td>
                   <td className="border border-gray-300 px-4 py-2">{parent.email}</td>
                   <td className="border border-gray-300 px-4 py-2 flex justify-center gap-3">
-                    <FiEye className="text-blue-500 cursor-pointer" onClick={() => openViewModal(parent)} />
-                    <FiEdit className="text-green-500 cursor-pointer" onClick={() => openEditModal(parent)} />
-                    <FiTrash className="text-red-500 cursor-pointer" onClick={() => confirmDeleteParent(parent.user_id)} />
+                    {canView && (
+                      <FiEye
+                        className="text-blue-500 cursor-pointer"
+                        onClick={() => openViewModal(parent)}
+                        title="View Parent"
+                      />
+                    )}
+                    {canEdit && (
+                      <FiEdit
+                        className="text-green-500 cursor-pointer"
+                        onClick={() => openEditModal(parent)}
+                        title="Edit Parent"
+                      />
+                    )}
+                    {canDelete && (
+                      <FiTrash
+                        className="text-red-500 cursor-pointer"
+                        onClick={() => confirmDeleteParent(parent.user_id)}
+                        title="Delete Parent"
+                      />
+                    )}
                   </td>
+
                 </tr>
               ))}
             </tbody>

@@ -25,7 +25,7 @@ const WeeklyTaskManager = () => {
     teacher: "", // ✅ Added teacher field
   });
 
-const API = import.meta.env.VITE_SERVER_URL;
+  const API = import.meta.env.VITE_SERVER_URL;
 
   const API_URL = `${API}faculty-tasks/`;
   const TEACHER_API_URL = `${API}api/auth/users/list_profiles/teacher/`;
@@ -181,16 +181,13 @@ const API = import.meta.env.VITE_SERVER_URL;
   };
 
 
-
-
-
-
-
-
-
-
   // Delete a task
   const handleDeleteTask = (id) => {
+    if (!canDelete) {
+      toast.error("You do not have permission to delete faculty tasks.");
+      return;
+    }
+
     toast(
       (t) => (
         <div>
@@ -231,6 +228,7 @@ const API = import.meta.env.VITE_SERVER_URL;
       { duration: 5000 }
     );
   };
+
 
 
   const handleEditTask = (task) => {
@@ -309,15 +307,16 @@ const API = import.meta.env.VITE_SERVER_URL;
   };
 
 
-
-
-
-
-
   useEffect(() => {
     fetchTasks();
     fetchTeachers();
   }, [page, pageSize]);
+
+  const permissions = JSON.parse(localStorage.getItem("permissions") || "[]");
+
+  const canAdd = permissions.includes("users.add_facultytask");
+  const canEdit = permissions.includes("users.change_facultytask");
+  const canDelete = permissions.includes("users.delete_facultytask");
 
 
   return (
@@ -326,21 +325,24 @@ const API = import.meta.env.VITE_SERVER_URL;
       {/* Header and Add Task Button */}
       <div className="bg-blue-900 text-white py-2 px-6 rounded-md flex justify-between items-center mt-5">
         <h1 className="text-xl font-bold">Weekly Task Manager</h1>
-        <button
-          onClick={handleToggleForm}
-          className="flex items-center px-3 py-2 bg-cyan-400 text-white font-semibold rounded-lg shadow-md hover:bg-cyan-500 transition"
-        >
-          <div className="flex items-center justify-center w-8 h-8 bg-black rounded-full mr-3">
-            <span className="text-cyan-500 text-xl font-bold">
-              {showForm ? "-" : "+"}
-            </span>
-          </div>
-          {showForm ? "Close Form" : "Add New Task"}
-        </button>
+        {canAdd && (
+          <button
+            onClick={handleToggleForm}
+            className="flex items-center px-3 py-2 bg-cyan-400 text-white font-semibold rounded-lg shadow-md hover:bg-cyan-500 transition"
+          >
+            <div className="flex items-center justify-center w-8 h-8 bg-black rounded-full mr-3">
+              <span className="text-cyan-500 text-xl font-bold">
+                {showForm ? "-" : "+"}
+              </span>
+            </div>
+            {showForm ? "Close Form" : "Add New Task"}
+          </button>
+        )}
+
       </div>
 
       {/* ✅ Form Logic */}
-      {showForm && (
+      {canAdd && showForm && (
         <div className="p-6 bg-blue-50 rounded-md mb-6">
           <h2 className="text-lg font-semibold text-blue-900">
             {editingTask ? "Edit Task" : "Create Task"}
@@ -466,7 +468,7 @@ const API = import.meta.env.VITE_SERVER_URL;
               <th className="border border-gray-300 p-2">Start Date</th>
               <th className="border border-gray-300 p-2">Due Date</th>
               <th className="border border-gray-300 p-2">File</th>
-              <th className="border border-gray-300 p-2">Actions</th>
+              {(canEdit || canDelete) && <th className="border border-gray-300 p-2">Actions</th>}
             </tr>
           </thead>
           <tbody>
@@ -495,21 +497,27 @@ const API = import.meta.env.VITE_SERVER_URL;
                     "No File"
                   )}
                 </td>
-                <td className="border border-gray-300 p-2 flex justify-center gap-2">
-                  {/* ✅ View Task */}
-                  <MdVisibility
-                    onClick={() => handleViewTask(task)}
-                    className="text-blue-500 cursor-pointer hover:text-blue-700"
-                    size={24}
-                  />
-                  {/* ✅ Edit Task */}
-                  <MdEdit onClick={() => handleEditTask(task)} className="text-yellow-500 text-2xl cursor-pointer hover:text-yellow-700" />
-                  {/* ✅ Delete Task */}
-                  <MdDelete
-                    onClick={() => handleDeleteTask(task.id)}
-                    className="text-red-500 text-2xl cursor-pointer hover:text-red-700"
-                  />
-                </td>
+                {(canEdit || canDelete) && (
+                  <td className="border border-gray-300 p-2 flex justify-center gap-2">
+                    <MdVisibility
+                      onClick={() => handleViewTask(task)}
+                      className="text-blue-500 cursor-pointer hover:text-blue-700"
+                      size={24}
+                    />
+                    {canEdit && (
+                      <MdEdit
+                        onClick={() => handleEditTask(task)}
+                        className="text-yellow-500 text-2xl cursor-pointer hover:text-yellow-700"
+                      />
+                    )}
+                    {canDelete && (
+                      <MdDelete
+                        onClick={() => handleDeleteTask(task.id)}
+                        className="text-red-500 text-2xl cursor-pointer hover:text-red-700"
+                      />
+                    )}
+                  </td>
+                )}
               </tr>
             ))}
           </tbody>
@@ -539,8 +547,8 @@ const API = import.meta.env.VITE_SERVER_URL;
               onClick={() => setPage((prev) => Math.max(prev - 1, 1))}
               disabled={page === 1}
               className={`px-3 py-1 rounded-md font-semibold ${page === 1
-                  ? "bg-gray-200 text-gray-500 cursor-not-allowed"
-                  : "bg-white hover:bg-gray-100"
+                ? "bg-gray-200 text-gray-500 cursor-not-allowed"
+                : "bg-white hover:bg-gray-100"
                 }`}
             >
               Prev
@@ -552,8 +560,8 @@ const API = import.meta.env.VITE_SERVER_URL;
               onClick={() => setPage((prev) => Math.min(prev + 1, totalPages))}
               disabled={page === totalPages}
               className={`px-3 py-1 rounded-md font-semibold ${page === totalPages
-                  ? "bg-gray-200 text-gray-500 cursor-not-allowed"
-                  : "bg-white hover:bg-gray-100"
+                ? "bg-gray-200 text-gray-500 cursor-not-allowed"
+                : "bg-white hover:bg-gray-100"
                 }`}
             >
               Next

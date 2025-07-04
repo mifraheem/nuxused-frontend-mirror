@@ -102,6 +102,23 @@ const ClassManagement = () => {
   };
 
   const handleDeleteClass = (id) => {
+    if (!canDelete) {
+      toast((t) => (
+        <div className="text-center font-semibold p-4 bg-red-100 border border-red-400 rounded shadow-md">
+          🚫 You do not have permission to delete classes.
+          <div className="mt-3">
+            <button
+              onClick={() => toast.dismiss(t.id)}
+              className="mt-2 px-4 py-1 bg-red-500 text-white rounded hover:bg-red-600"
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      ));
+      return;
+    }
+
     toast((t) => (
       <div>
         <p className="text-gray-600">Are you sure you want to delete this class?</p>
@@ -142,6 +159,7 @@ const ClassManagement = () => {
     ));
   };
 
+
   useEffect(() => {
     fetchClasses(1, pageSize);
   }, [pageSize]);
@@ -152,26 +170,35 @@ const ClassManagement = () => {
     { label: "Session", key: "session" },
   ];
 
+  const permissions = JSON.parse(localStorage.getItem("user_permissions") || "[]");
+
+  const canAdd = permissions.includes("users.add_classname");
+  const canEdit = permissions.includes("users.change_classname");
+  const canDelete = permissions.includes("users.delete_classname");
+
   return (
     <div>
       <Toaster position="top-center" reverseOrder={false} />
       <div className="bg-blue-900 text-white py-2 px-6 rounded-md flex justify-between items-center mt-5">
         <h1 className="text-xl font-bold">Class Management</h1>
-        <button
-          onClick={() => {
-            setShowForm((prev) => !prev);
-            if (showForm) {
-              setEditClass(null);
-              setNewClass({ class_name: "", section: "", session: "" });
-            }
-          }}
-          className="flex items-center px-3 py-2 bg-cyan-400 text-white font-semibold rounded-lg shadow-md hover:bg-cyan-500 transition"
-        >
-          <div className="flex items-center justify-center w-8 h-8 bg-black rounded-full mr-3">
-            <span className="text-cyan-500 text-xl font-bold">{showForm ? "-" : "+"}</span>
-          </div>
-          {showForm ? "Close Form" : "Add New Class"}
-        </button>
+        {canAdd && (
+          <button
+            onClick={() => {
+              setShowForm((prev) => !prev);
+              if (showForm) {
+                setEditClass(null);
+                setNewClass({ class_name: "", section: "", session: "" });
+              }
+            }}
+            className="flex items-center px-3 py-2 bg-cyan-400 text-white font-semibold rounded-lg shadow-md hover:bg-cyan-500 transition"
+          >
+            <div className="flex items-center justify-center w-8 h-8 bg-black rounded-full mr-3">
+              <span className="text-cyan-500 text-xl font-bold">{showForm ? "-" : "+"}</span>
+            </div>
+            {showForm ? "Close Form" : "Add New Class"}
+          </button>
+        )}
+
       </div>
 
       <div className="p-6">
@@ -225,7 +252,10 @@ const ClassManagement = () => {
                   <th className="border border-gray-300 p-2">Class</th>
                   <th className="border border-gray-300 p-2">Section</th>
                   <th className="border border-gray-300 p-2">Session</th>
-                  <th className="border border-gray-300 p-2">Actions</th>
+                  {(canEdit || canDelete) && (
+                    <th className="border border-gray-300 p-2">Actions</th>
+                  )}
+
                 </tr>
               </thead>
               <tbody>
@@ -235,24 +265,32 @@ const ClassManagement = () => {
                     <td className="border border-gray-300 p-2">{cls.class_name}</td>
                     <td className="border border-gray-300 p-2">{cls.section}</td>
                     <td className="border border-gray-300 p-2">{cls.session}</td>
-                    <td className="border border-gray-300 p-2 flex justify-center">
-                      <MdEdit
-                        onClick={() => {
-                          setEditClass(cls);
-                          setNewClass({
-                            class_name: cls.class_name,
-                            section: cls.section,
-                            session: cls.session,
-                          });
-                          setShowForm(true);
-                        }}
-                        className="text-yellow-500 text-2xl cursor-pointer mx-2 hover:text-yellow-700"
-                      />
-                      <MdDelete
-                        onClick={() => handleDeleteClass(cls.id)}
-                        className="text-red-500 text-2xl cursor-pointer mx-2 hover:text-red-700"
-                      />
-                    </td>
+                    {(canEdit || canDelete) && (
+                      <td className="border border-gray-300 p-2 flex justify-center">
+                        {canEdit && (
+                          <MdEdit
+                            onClick={() => {
+                              setEditClass(cls);
+                              setNewClass({
+                                class_name: cls.class_name,
+                                section: cls.section,
+                                session: cls.session,
+                              });
+                              setShowForm(true);
+                            }}
+                            className="text-yellow-500 text-2xl cursor-pointer mx-2 hover:text-yellow-700"
+                          />
+                        )}
+                        {canDelete && (
+                          <MdDelete
+                            onClick={() => handleDeleteClass(cls.id)}
+                            className="text-red-500 text-2xl cursor-pointer mx-2 hover:text-red-700"
+                          />
+                        )}
+                      </td>
+                    )}
+
+
                   </tr>
                 ))}
               </tbody>

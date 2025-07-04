@@ -42,7 +42,7 @@ const CreateExam = () => {
 
   const printRef = useRef();
 
-const API = import.meta.env.VITE_SERVER_URL;
+  const API = import.meta.env.VITE_SERVER_URL;
   const API_URL = `${API}exams/`;
 
   useEffect(() => {
@@ -180,6 +180,23 @@ const API = import.meta.env.VITE_SERVER_URL;
   }, [form]);
 
   const handleDeleteExam = (id) => {
+    if (!canDelete) {
+      toast((t) => (
+        <div className="text-center font-semibold p-4 bg-red-100 border border-red-400 rounded shadow-md">
+          🚫 You do not have permission to delete exams.
+          <div className="mt-3">
+            <button
+              onClick={() => toast.dismiss(t.id)}
+              className="mt-2 px-4 py-1 bg-red-500 text-white rounded hover:bg-red-600"
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      ), { position: 'top-center' });
+      return;
+    }
+
     toast((t) => (
       <div>
         <p className="text-gray-800">Are you sure you want to delete this exam?</p>
@@ -212,6 +229,7 @@ const API = import.meta.env.VITE_SERVER_URL;
       </div>
     ), { position: 'top-center', duration: 5000 });
   };
+
   useEffect(() => {
     getClasses();
     getSubjects();
@@ -223,27 +241,38 @@ const API = import.meta.env.VITE_SERVER_URL;
     getExams();
   }, [page, pageSize]);
 
+  // Get permissions from localStorage
+  const permissions = JSON.parse(localStorage.getItem("user_permissions") || "[]");
+
+  // Define what the user can do
+  const canAdd = permissions.includes("users.add_exam");
+  const canEdit = permissions.includes("users.change_exam");
+  const canDelete = permissions.includes("users.delete_exam");
+
+
   return (
     <div>
       <Toaster />
       <div className="bg-blue-900 text-white py-2 px-6 rounded-md flex justify-between items-center mt-5">
         <h1 className="text-xl font-bold">Manage Exams</h1>
-        <button
-          onClick={() => {
-            setShowForm(!showForm);
-            if (showForm) setSelectedExam(null); // reset edit mode on closing
-          }}
+        {canAdd && (
+          <button
+            onClick={() => {
+              setShowForm(!showForm);
+              if (showForm) setSelectedExam(null); // reset edit mode on closing
+            }}
+            className="flex items-center px-3 py-2 bg-cyan-400 text-white font-semibold rounded-lg shadow-md hover:bg-cyan-500 transition"
+          >
+            <div className="flex items-center justify-center w-8 h-8 bg-black rounded-full mr-3">
+              <span className="text-cyan-500 text-xl font-bold">{showForm ? '-' : '+'}</span>
+            </div>
+            {showForm ? 'Close Form' : 'Create Exam'}
+          </button>
+        )}
 
-          className="flex items-center px-3 py-2 bg-cyan-400 text-white font-semibold rounded-lg shadow-md hover:bg-cyan-500 transition"
-        >
-          <div className="flex items-center justify-center w-8 h-8 bg-black rounded-full mr-3">
-            <span className="text-cyan-500 text-xl font-bold">{showForm ? '-' : '+'}</span>
-          </div>
-          {showForm ? 'Close Form' : 'Create Exam'}
-        </button>
       </div>
 
-      {showForm && (
+      {(canAdd || canEdit) && showForm && (
         <div className="p-6 bg-blue-50 rounded-md mt-4">
           <div className="grid grid-cols-2 gap-4">
             <input placeholder="Term Name" value={form.term_name} onChange={(e) => setForm({ ...form, term_name: e.target.value })} className="border p-2 rounded" />
@@ -331,7 +360,10 @@ const API = import.meta.env.VITE_SERVER_URL;
               <th className="border p-2">Class ID</th>
               <th className="border p-2">Start</th>
               <th className="border p-2">End</th>
-              <th className="border p-2">Action</th>
+              {(canEdit || canDelete) && (
+                <th className="border p-2">Action</th>
+              )}
+
             </tr>
           </thead>
           <tbody>
@@ -343,44 +375,49 @@ const API = import.meta.env.VITE_SERVER_URL;
                 <td className="border p-2 text-center">{exam.class_id}</td>
                 <td className="border p-2 text-center">{exam.start_date}</td>
                 <td className="border p-2 text-center">{exam.end_date}</td>
-                <td className="border p-2 text-center">
-                  <div className="flex justify-center items-center gap-2">
-                    <MdVisibility
-                      className="text-blue-500 text-xl cursor-pointer hover:text-blue-700"
-                      onClick={() => setViewExam(exam)}
-                    />
-                    <MdEdit
-                      onClick={() => {
-                        setForm({
-                          term_name: exam.term_name,
-                          session: exam.session,
-                          class_id: exam.class_id,
-                          start_date: exam.start_date,
-                          end_date: exam.end_date,
-                          subjects: exam.subjects.map(s => ({
-                            subject_id: s.subject_id,
-                            exam_date: s.exam_date,
-                            start_time: s.start_time,
-                            end_time: s.end_time,
-                            room_id: s.room_id,
-                            invigilator_id: s.invigilator_id?.id || s.invigilator_id || null
-                          }))
-                        });
-                        setSelectedExam(exam);  // for tracking the edited exam
-                        setShowForm(true);      // open the form
-                        setViewExam(null);      // hide modal if it was open
-                      }}
-                    />
+                {(canEdit || canDelete) && (
+                  <td className="border p-2 text-center">
+                    <div className="flex justify-center items-center gap-2">
+                      <MdVisibility
+                        className="text-blue-500 text-xl cursor-pointer hover:text-blue-700"
+                        onClick={() => setViewExam(exam)}
+                      />
+                      {canEdit && (
+                        <MdEdit
+                          onClick={() => {
+                            setForm({
+                              term_name: exam.term_name,
+                              session: exam.session,
+                              class_id: exam.class_id,
+                              start_date: exam.start_date,
+                              end_date: exam.end_date,
+                              subjects: exam.subjects.map(s => ({
+                                subject_id: s.subject_id,
+                                exam_date: s.exam_date,
+                                start_time: s.start_time,
+                                end_time: s.end_time,
+                                room_id: s.room_id,
+                                invigilator_id: s.invigilator_id?.id || s.invigilator_id || null
+                              }))
+                            });
+                            setSelectedExam(exam);
+                            setShowForm(true);
+                            setViewExam(null);
+                          }}
+                          className="text-yellow-500 text-xl cursor-pointer hover:text-yellow-700"
+                        />
+                      )}
 
+                      {canDelete && (
+                        <MdDelete
+                          className="text-red-500 text-xl cursor-pointer hover:text-red-700"
+                          onClick={() => handleDeleteExam(exam.exam_id)}
+                        />
+                      )}
 
-
-                    <MdDelete
-                      className="text-red-500 text-xl cursor-pointer hover:text-red-700"
-                      onClick={() => handleDeleteExam(exam.exam_id)}
-                    />
-                  </div>
-                </td>
-
+                    </div>
+                  </td>
+                )}
               </tr>
             ))}
           </tbody>

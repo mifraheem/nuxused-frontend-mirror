@@ -59,46 +59,62 @@ const StaffDetails = () => {
   };
 
   const confirmDeleteTeacher = (id) => {
-    toast(
-      (t) => (
-        <div>
-          <p className="font-semibold">Are you sure you want to delete this teacher?</p>
-          <div className="flex justify-between mt-3">
-            <button
-              onClick={() => {
-                deleteTeacher(id);
-                toast.dismiss(t.id);
-              }}
-              className="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700"
-            >
-              Yes, Delete
-            </button>
+    if (!canDelete) {
+      toast((t) => (
+        <div className="text-center font-semibold p-4 bg-red-100 border border-red-400 rounded shadow-md">
+          🚫 You do not have permission to delete teacher profiles.
+          <div className="mt-3">
             <button
               onClick={() => toast.dismiss(t.id)}
-              className="bg-gray-300 text-black px-4 py-2 rounded hover:bg-gray-400"
+              className="mt-2 px-4 py-1 bg-red-500 text-white rounded hover:bg-red-600"
             >
-              Cancel
+              Close
             </button>
           </div>
         </div>
-      ),
-      { duration: 5000 }
-    );
+      ));
+      return;
+    }
+
+    toast((t) => (
+      <div className="text-center">
+        <p className="font-semibold">Are you sure you want to delete this teacher?</p>
+        <div className="flex justify-center gap-4 mt-3">
+          <button
+            onClick={() => {
+              deleteTeacher(id);
+              toast.dismiss(t.id);
+            }}
+            className="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700"
+          >
+            Yes, Delete
+          </button>
+          <button
+            onClick={() => toast.dismiss(t.id)}
+            className="bg-gray-300 text-black px-4 py-2 rounded hover:bg-gray-400"
+          >
+            Cancel
+          </button>
+        </div>
+      </div>
+    ), { duration: 5000 });
   };
 
-const deleteTeacher = async (id) => {
-  try {
-    const token = Cookies.get("access_token");
-    await axios.delete(`${API}api/auth/users/${id}/delete_user/`, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
 
-    toast.success("Teacher deleted successfully.");
-    setTeachers((prev) => prev.filter((teacher) => teacher.user_id !== id));
-  } catch (error) {
-    toast.error("Failed to delete teacher.");
-  }
-};
+
+  const deleteTeacher = async (id) => {
+    try {
+      const token = Cookies.get("access_token");
+      await axios.delete(`${API}api/auth/users/${id}/delete_user/`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      toast.success("Teacher deleted successfully.");
+      setTeachers((prev) => prev.filter((teacher) => teacher.user_id !== id));
+    } catch (error) {
+      toast.error("Failed to delete teacher.");
+    }
+  };
 
 
   const openEditModal = (teacher) => {
@@ -158,6 +174,12 @@ const deleteTeacher = async (id) => {
     setCurrentPage(1);
   };
 
+  const permissions = JSON.parse(localStorage.getItem("user_permissions") || "[]");
+
+  const canView = permissions.includes("users.view_teacherprofile");
+  const canEdit = permissions.includes("users.change_staffprofile");
+  const canDelete = permissions.includes("users.delete_teacherprofile") && permissions.includes("users.delete_user");
+
   return (
     <div>
       <Toaster position="top-center" reverseOrder={false} />
@@ -187,10 +209,29 @@ const deleteTeacher = async (id) => {
                   <td className="border border-gray-300 px-4 py-2">{teacher.email || "N/A"}</td>
                   <td className="border border-gray-300 px-4 py-2">{teacher.phone_number || "N/A"}</td>
                   <td className="border border-gray-300 px-4 py-2 flex justify-center gap-3">
-                    <FiEye className="text-blue-500 cursor-pointer" onClick={() => openViewModal(teacher)} />
-                    <FiEdit className="text-green-500 cursor-pointer" onClick={() => openEditModal(teacher)} />
-                    <FiTrash className="text-red-500 cursor-pointer" onClick={() => confirmDeleteTeacher(teacher.user_id)} />
+                    {canView && (
+                      <FiEye
+                        className="text-blue-500 cursor-pointer"
+                        onClick={() => openViewModal(teacher)}
+                        title="View Teacher"
+                      />
+                    )}
+                    {canEdit && (
+                      <FiEdit
+                        className="text-green-500 cursor-pointer"
+                        onClick={() => openEditModal(teacher)}
+                        title="Edit Teacher"
+                      />
+                    )}
+                    {canDelete && (
+                      <FiTrash
+                        className="text-red-500 cursor-pointer"
+                        onClick={() => confirmDeleteTeacher(teacher.user_id)}
+                        title="Delete Teacher"
+                      />
+                    )}
                   </td>
+
                 </tr>
               ))}
             </tbody>
@@ -227,8 +268,8 @@ const deleteTeacher = async (id) => {
                 key={pageNum + 1}
                 onClick={() => handlePageChange(pageNum + 1)}
                 className={`px-3 py-1 rounded ${currentPage === pageNum + 1
-                    ? "bg-blue-600 text-white"
-                    : "bg-gray-200 text-black"
+                  ? "bg-blue-600 text-white"
+                  : "bg-gray-200 text-black"
                   }`}
               >
                 {pageNum + 1}

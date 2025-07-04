@@ -74,6 +74,11 @@ const SubjectManagement = () => {
   };
 
   const handleDeleteSubject = (id) => {
+    if (!canDelete) {
+      toast.error("You do not have permission to delete subjects.");
+      return;
+    }
+
     toast((t) => (
       <div>
         <p className="text-gray-600">Are you sure you want to delete this subject?</p>
@@ -95,12 +100,20 @@ const SubjectManagement = () => {
               }
             }}
             className="bg-red-500 text-white px-3 py-1 rounded shadow hover:bg-red-700 mr-2"
-          >Yes</button>
-          <button onClick={() => toast.dismiss(t.id)} className="bg-gray-500 text-white px-3 py-1 rounded shadow hover:bg-gray-700">No</button>
+          >
+            Yes
+          </button>
+          <button
+            onClick={() => toast.dismiss(t.id)}
+            className="bg-gray-500 text-white px-3 py-1 rounded shadow hover:bg-gray-700"
+          >
+            No
+          </button>
         </div>
       </div>
     ));
   };
+
 
   useEffect(() => { fetchSubjects(1, pageSize); }, [pageSize]);
 
@@ -113,27 +126,40 @@ const SubjectManagement = () => {
     { label: "Course Code", key: "course_code" },
   ];
 
+  const permissions = JSON.parse(localStorage.getItem("user_permissions") || "[]");
+
+  const canAdd = permissions.includes("users.add_subject");
+  const canEdit = permissions.includes("users.change_subject");
+  const canDelete = permissions.includes("users.delete_subject");
+
+
   return (
     <div>
       <Toaster position="top-center" reverseOrder={false} />
       <div className="bg-blue-900 text-white py-2 px-6 rounded-md flex justify-between items-center mt-5">
         <h1 className="text-xl font-bold">Subject Management</h1>
-        <button onClick={() => {
-          setShowForm((prev) => !prev);
-          if (showForm) {
-            setEditSubject(null);
-            setNewSubject({ subject_name: "", course_code: "" });
-          }
-        }} className="flex items-center px-3 py-2 bg-cyan-400 text-white font-semibold rounded-lg shadow-md hover:bg-cyan-500 transition">
-          <div className="flex items-center justify-center w-8 h-8 bg-black rounded-full mr-3">
-            <span className="text-cyan-500 text-xl font-bold">{showForm ? "-" : "+"}</span>
-          </div>
-          {showForm ? "Close Form" : "Add Subject"}
-        </button>
+        {canAdd && (
+          <button
+            onClick={() => {
+              setShowForm((prev) => !prev);
+              if (showForm) {
+                setEditSubject(null);
+                setNewSubject({ subject_name: "", course_code: "" });
+              }
+            }}
+            className="flex items-center px-3 py-2 bg-cyan-400 text-white font-semibold rounded-lg shadow-md hover:bg-cyan-500 transition"
+          >
+            <div className="flex items-center justify-center w-8 h-8 bg-black rounded-full mr-3">
+              <span className="text-cyan-500 text-xl font-bold">{showForm ? "-" : "+"}</span>
+            </div>
+            {showForm ? "Close Form" : "Add Subject"}
+          </button>
+        )}
+
       </div>
 
       <div className="p-6">
-        {showForm && (
+        {canAdd && showForm && (
           <div className="p-6 bg-blue-50 rounded-md mb-6">
             <h2 className="text-lg font-semibold text-blue-900">{editSubject ? "Edit Subject" : "Create Subject"}</h2>
             <div className="grid grid-cols-2 gap-4 mt-4">
@@ -156,7 +182,8 @@ const SubjectManagement = () => {
                   <th className="border border-gray-300 p-2">#ID</th>
                   <th className="border border-gray-300 p-2">Subject Name</th>
                   <th className="border border-gray-300 p-2">Course Code</th>
-                  <th className="border border-gray-300 p-2">Actions</th>
+                  {(canEdit || canDelete) && <th className="border border-gray-300 p-2">Actions</th>}
+
                 </tr>
               </thead>
               <tbody>
@@ -166,13 +193,24 @@ const SubjectManagement = () => {
                     <td className="border border-gray-300 p-2">{subject.subject_name}</td>
                     <td className="border border-gray-300 p-2">{subject.course_code}</td>
                     <td className="border border-gray-300 p-2 flex justify-center">
-                      <MdEdit onClick={() => {
-                        setEditSubject(subject);
-                        setNewSubject(subject);
-                        setShowForm(true);
-                      }} className="text-yellow-500 text-2xl cursor-pointer mx-2 hover:text-yellow-700" />
-                      <MdDelete onClick={() => handleDeleteSubject(subject.id)} className="text-red-500 text-2xl cursor-pointer mx-2 hover:text-red-700" />
+                      {canEdit && (
+                        <MdEdit
+                          onClick={() => {
+                            setEditSubject(subject);
+                            setNewSubject(subject);
+                            setShowForm(true);
+                          }}
+                          className="text-yellow-500 text-2xl cursor-pointer mx-2 hover:text-yellow-700"
+                        />
+                      )}
+                      {canDelete && (
+                        <MdDelete
+                          onClick={() => handleDeleteSubject(subject.id)}
+                          className="text-red-500 text-2xl cursor-pointer mx-2 hover:text-red-700"
+                        />
+                      )}
                     </td>
+
                   </tr>
                 ))}
               </tbody>

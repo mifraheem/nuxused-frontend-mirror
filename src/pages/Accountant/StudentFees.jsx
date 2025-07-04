@@ -59,6 +59,11 @@ const StudentFees = () => {
 
 
     const handleDelete = (id) => {
+        if (!canDelete) {
+            toast.error("You do not have permission to delete this record.");
+            return;
+        }
+
         toast((t) => (
             <span>
                 Confirm delete?
@@ -69,6 +74,7 @@ const StudentFees = () => {
             </span>
         ), { position: "top-center" });
     };
+
 
     const confirmDelete = async (id, toastId) => {
         try {
@@ -125,6 +131,11 @@ const StudentFees = () => {
         fetchFees();
         fetchClasses();
     }, [page, pageSize]);
+
+    const permissions = Cookies.get("permissions")?.split(",") || [];
+    const canView = permissions.includes("users.view_studentfee");
+    const canEdit = permissions.includes("users.change_studentfee");
+    const canDelete = permissions.includes("users.delete_studentfee");
 
 
     return (
@@ -223,7 +234,8 @@ const StudentFees = () => {
                                 <th className="border p-2">Net Payable</th>
                                 <th className="border p-2">Status</th>
                                 <th className="border p-2">Payment Date</th>
-                                <th className="border p-2">Actions</th>
+                                {(canView || canEdit || canDelete) && <th className="border p-2">Actions</th>}
+
                             </tr>
                         </thead>
                         <tbody>
@@ -234,11 +246,26 @@ const StudentFees = () => {
                                     <td className="border p-2">{fee.net_payable}</td>
                                     <td className="border p-2 text-center">{fee.is_paid ? "✅ Paid" : "❌ Pending"}</td>
                                     <td className="border p-2">{fee.payment_date || "—"}</td>
-                                    <td className="border p-2 flex justify-center gap-2">
-                                        <button onClick={() => setViewModalData(fee)} className="text-blue-600"><MdVisibility /></button>
-                                        {/* <button onClick={() => handleEdit(fee)} className="text-green-600"><MdEdit /></button> */}
-                                        <button onClick={() => handleDelete(fee.id)} className="text-red-600"><MdDelete /></button>
-                                    </td>
+                                    {(canView || canEdit || canDelete) && (
+                                        <td className="border p-2 flex justify-center gap-2">
+                                            {canView && (
+                                                <button onClick={() => setViewModalData(fee)} className="text-blue-600">
+                                                    <MdVisibility />
+                                                </button>
+                                            )}
+                                            {canEdit && (
+                                                <button onClick={() => handleEdit(fee)} className="text-green-600">
+                                                    <MdEdit />
+                                                </button>
+                                            )}
+                                            {canDelete && (
+                                                <button onClick={() => handleDelete(fee.id)} className="text-red-600">
+                                                    <MdDelete />
+                                                </button>
+                                            )}
+                                        </td>
+                                    )}
+
                                 </tr>
                             )) : (
                                 <tr>

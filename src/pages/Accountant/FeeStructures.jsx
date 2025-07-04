@@ -113,6 +113,11 @@ const FeeStructures = () => {
     };
 
     const handleDelete = (id) => {
+        if (!canDelete) {
+            toast.error("You do not have permission to delete fee structures.");
+            return;
+        }
+
         toast((t) => (
             <div>
                 <p>Delete this Fee Structure?</p>
@@ -146,6 +151,7 @@ const FeeStructures = () => {
         ));
     };
 
+
     const handleEdit = (structure) => {
         setEditingStructure(structure);
         setNewFeeStructure({
@@ -175,35 +181,48 @@ const FeeStructures = () => {
         { label: "Active", key: "is_active" },
     ];
 
+    const permissions = Cookies.get("permissions")?.split(",") || [];
+
+    const canAdd = permissions.includes("users.add_feestructure");
+    const canEdit = permissions.includes("users.change_feestructure");
+    const canDelete = permissions.includes("users.delete_feestructure");
+
+    const canPerformActions = canEdit || canDelete;
+
 
     return (
         <div>
             <Toaster position="top-center" />
             <div className="bg-blue-900 text-white py-2 px-6 rounded-md flex justify-between items-center mt-5">
                 <h1 className="text-xl font-bold">Manage Fee Structures</h1>
-                <button
-                    onClick={() => {
-                        setShowForm((prev) => !prev);
-                        setEditingStructure(null);
-                        setNewFeeStructure({
-                            class_assigned_id: "",
-                            fee_type_id: "",
-                            amount: "",
-                            due_date: "",
-                            is_active: true,
-                        });
-                    }}
-                    className="flex items-center px-3 py-2 bg-cyan-400 text-white font-semibold rounded-lg shadow-md hover:bg-cyan-500"
-                >
-                    <div className="flex items-center justify-center w-8 h-8 bg-black rounded-full mr-3">
-                        <span className="text-cyan-500 text-xl font-bold">{showForm ? "-" : "+"}</span>
-                    </div>
-                    {showForm ? "Close Form" : "Add Fee Structure"}
-                </button>
+                {canAdd && (
+                    <button
+                        onClick={() => {
+                            setShowForm((prev) => !prev);
+                            setEditingStructure(null);
+                            setNewFeeStructure({
+                                class_assigned_id: "",
+                                fee_type_id: "",
+                                amount: "",
+                                due_date: "",
+                                is_active: true,
+                            });
+                        }}
+                        className="flex items-center px-3 py-2 bg-cyan-400 text-white font-semibold rounded-lg shadow-md hover:bg-cyan-500"
+                    >
+                        <div className="flex items-center justify-center w-8 h-8 bg-black rounded-full mr-3">
+                            <span className="text-cyan-500 text-xl font-bold">
+                                {showForm ? "-" : "+"}
+                            </span>
+                        </div>
+                        {showForm ? "Close Form" : "Add Fee Structure"}
+                    </button>
+                )}
+
             </div>
 
             <div className="p-6">
-                {showForm && (
+                {showForm && canAdd && (
                     <div className="p-6 bg-blue-50 rounded-md mb-6">
                         <h2 className="text-lg font-semibold text-blue-900">
                             {editingStructure ? "Edit Fee Structure" : "Create Fee Structure"}
@@ -296,7 +315,9 @@ const FeeStructures = () => {
                                     <th className="border border-gray-300 p-2">Amount</th>
                                     <th className="border border-gray-300 p-2">Due Date</th>
                                     <th className="border border-gray-300 p-2">Active</th>
-                                    <th className="border border-gray-300 p-2">Actions</th>
+                                    {canPerformActions && (
+                                        <th className="border border-gray-300 p-2">Actions</th>
+                                    )}
                                 </tr>
                             </thead>
 
@@ -314,16 +335,23 @@ const FeeStructures = () => {
                                         <td className="border border-gray-300 p-2 text-center">
                                             {f.is_active ? "✅" : "❌"}
                                         </td>
-                                        <td className="border border-gray-300 p-2 flex justify-center">
-                                            <MdEdit
-                                                onClick={() => handleEdit(f)}
-                                                className="text-yellow-500 text-2xl cursor-pointer mx-2 hover:text-yellow-700"
-                                            />
-                                            <MdDelete
-                                                onClick={() => handleDelete(f.id)}
-                                                className="text-red-500 text-2xl cursor-pointer mx-2 hover:text-red-700"
-                                            />
-                                        </td>
+                                        {canPerformActions && (
+                                            <td className="border border-gray-300 p-2 flex justify-center">
+                                                {canEdit && (
+                                                    <MdEdit
+                                                        onClick={() => handleEdit(f)}
+                                                        className="text-yellow-500 text-2xl cursor-pointer mx-2 hover:text-yellow-700"
+                                                    />
+                                                )}
+                                                {canDelete && (
+                                                    <MdDelete
+                                                        onClick={() => handleDelete(f.id)}
+                                                        className="text-red-500 text-2xl cursor-pointer mx-2 hover:text-red-700"
+                                                    />
+                                                )}
+                                            </td>
+                                        )}
+
                                     </tr>
                                 ))}
                             </tbody>
@@ -354,8 +382,8 @@ const FeeStructures = () => {
                                     onClick={() => setPage((prev) => Math.max(prev - 1, 1))}
                                     disabled={page === 1}
                                     className={`px-3 py-1 rounded-md font-semibold ${page === 1
-                                            ? "bg-gray-200 text-gray-500 cursor-not-allowed"
-                                            : "bg-white hover:bg-gray-100"
+                                        ? "bg-gray-200 text-gray-500 cursor-not-allowed"
+                                        : "bg-white hover:bg-gray-100"
                                         }`}
                                 >
                                     Prev
@@ -367,8 +395,8 @@ const FeeStructures = () => {
                                     onClick={() => setPage((prev) => Math.min(prev + 1, totalPages))}
                                     disabled={page === totalPages}
                                     className={`px-3 py-1 rounded-md font-semibold ${page === totalPages
-                                            ? "bg-gray-200 text-gray-500 cursor-not-allowed"
-                                            : "bg-white hover:bg-gray-100"
+                                        ? "bg-gray-200 text-gray-500 cursor-not-allowed"
+                                        : "bg-white hover:bg-gray-100"
                                         }`}
                                 >
                                     Next

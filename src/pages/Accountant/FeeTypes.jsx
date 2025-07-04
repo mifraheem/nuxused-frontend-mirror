@@ -78,6 +78,11 @@ const FeeTypes = () => {
   };
 
   const handleDeleteFeeType = async (id) => {
+    if (!canDelete) {
+      toast.error("You do not have permission to delete fee types.");
+      return;
+    }
+
     toast((t) => (
       <div>
         <p>Delete this Fee Type?</p>
@@ -111,6 +116,7 @@ const FeeTypes = () => {
     ));
   };
 
+
   const handleEditFeeType = (feeType) => {
     setEditingFeeType(feeType);
     setNewFeeType(feeType);
@@ -119,33 +125,51 @@ const FeeTypes = () => {
 
   useEffect(() => {
     fetchFeeTypes();
+    try {
+      const perms = JSON.parse(localStorage.getItem("user_permissions") || "[]");
+      setPermissions(perms);
+    } catch (e) {
+      setPermissions([]);
+    }
   }, [page, pageSize]);
+
+
 
   const columns = [
     { label: "Name", key: "name" },
     { label: "Description", key: "description" },
   ];
 
+  const [permissions, setPermissions] = useState([]);
+  const canAdd = permissions.includes("users.add_feetype");
+  const canEdit = permissions.includes("users.change_feetype");
+  const canDelete = permissions.includes("users.delete_feetype");
+  const canPerformActions = canEdit || canDelete;
+
+
   return (
     <div>
       <Toaster position="top-center" />
       <div className="bg-blue-900 text-white py-2 px-6 rounded-md flex justify-between items-center mt-5">
         <h1 className="text-xl font-bold">Manage Fee Types</h1>
-        <button
-          onClick={() => {
-            setShowForm((prev) => !prev);
-            setEditingFeeType(null);
-            setNewFeeType({ name: "", description: "" });
-          }}
-          className="flex items-center px-3 py-2 bg-cyan-400 text-white font-semibold rounded-lg shadow-md hover:bg-cyan-500 transition"
-        >
-          <div className="flex items-center justify-center w-8 h-8 bg-black rounded-full mr-3">
-            <span className="text-cyan-500 text-xl font-bold">
-              {showForm ? "-" : "+"}
-            </span>
-          </div>
-          {showForm ? "Close Form" : "Add Fee Type"}
-        </button>
+        {canAdd && (
+          <button
+            onClick={() => {
+              setShowForm((prev) => !prev);
+              setEditingFeeType(null);
+              setNewFeeType({ name: "", description: "" });
+            }}
+            className="flex items-center px-3 py-2 bg-cyan-400 text-white font-semibold rounded-lg shadow-md hover:bg-cyan-500 transition"
+          >
+            <div className="flex items-center justify-center w-8 h-8 bg-black rounded-full mr-3">
+              <span className="text-cyan-500 text-xl font-bold">
+                {showForm ? "-" : "+"}
+              </span>
+            </div>
+            {showForm ? "Close Form" : "Add Fee Type"}
+          </button>
+        )}
+
       </div>
 
       <div className="p-6">
@@ -175,12 +199,15 @@ const FeeTypes = () => {
               />
             </div>
             <div className="flex justify-end mt-4">
-              <button
-                onClick={handleSaveFeeType}
-                className="bg-green-500 text-white px-4 py-2 rounded-md shadow hover:bg-green-700"
-              >
-                {editingFeeType ? "Update" : "Save"}
-              </button>
+              {canAdd || canEdit ? (
+                <button
+                  onClick={handleSaveFeeType}
+                  className="bg-green-500 text-white px-4 py-2 rounded-md shadow hover:bg-green-700"
+                >
+                  {editingFeeType ? "Update" : "Save"}
+                </button>
+              ) : null}
+
             </div>
           </div>
         )}
@@ -197,7 +224,9 @@ const FeeTypes = () => {
                   <th className="border border-gray-300 p-2">#ID</th>
                   <th className="border border-gray-300 p-2">Name</th>
                   <th className="border border-gray-300 p-2">Description</th>
-                  <th className="border border-gray-300 p-2">Actions</th>
+                  {canPerformActions && (
+                    <th className="border border-gray-300 p-2">Actions</th>
+                  )}
                 </tr>
               </thead>
               <tbody>
@@ -208,16 +237,22 @@ const FeeTypes = () => {
                     </td>
                     <td className="border border-gray-300 p-2">{f.name}</td>
                     <td className="border border-gray-300 p-2">{f.description}</td>
-                    <td className="border border-gray-300 p-2 flex justify-center">
-                      <MdEdit
-                        onClick={() => handleEditFeeType(f)}
-                        className="text-yellow-500 text-2xl cursor-pointer mx-2 hover:text-yellow-700"
-                      />
-                      <MdDelete
-                        onClick={() => handleDeleteFeeType(f.id)}
-                        className="text-red-500 text-2xl cursor-pointer mx-2 hover:text-red-700"
-                      />
-                    </td>
+                    {canPerformActions && (
+                      <td className="border border-gray-300 p-2 flex justify-center">
+                        {canEdit && (
+                          <MdEdit
+                            onClick={() => handleEditFeeType(f)}
+                            className="text-yellow-500 text-2xl cursor-pointer mx-2 hover:text-yellow-700"
+                          />
+                        )}
+                        {canDelete && (
+                          <MdDelete
+                            onClick={() => handleDeleteFeeType(f.id)}
+                            className="text-red-500 text-2xl cursor-pointer mx-2 hover:text-red-700"
+                          />
+                        )}
+                      </td>
+                    )}
                   </tr>
                 ))}
               </tbody>
@@ -246,8 +281,8 @@ const FeeTypes = () => {
                   onClick={() => setPage((prev) => Math.max(prev - 1, 1))}
                   disabled={page === 1}
                   className={`px-3 py-1 rounded-md font-semibold ${page === 1
-                      ? "bg-gray-200 text-gray-500 cursor-not-allowed"
-                      : "bg-white hover:bg-gray-100"
+                    ? "bg-gray-200 text-gray-500 cursor-not-allowed"
+                    : "bg-white hover:bg-gray-100"
                     }`}
                 >
                   Prev
@@ -259,8 +294,8 @@ const FeeTypes = () => {
                   onClick={() => setPage((prev) => Math.min(prev + 1, totalPages))}
                   disabled={page === totalPages}
                   className={`px-3 py-1 rounded-md font-semibold ${page === totalPages
-                      ? "bg-gray-200 text-gray-500 cursor-not-allowed"
-                      : "bg-white hover:bg-gray-100"
+                    ? "bg-gray-200 text-gray-500 cursor-not-allowed"
+                    : "bg-white hover:bg-gray-100"
                     }`}
                 >
                   Next
