@@ -175,6 +175,7 @@ const ClassManagement = () => {
   const canAdd = permissions.includes("users.add_classname");
   const canEdit = permissions.includes("users.change_classname");
   const canDelete = permissions.includes("users.delete_classname");
+  const canView = permissions.includes("users.view_classname");
 
   return (
     <div>
@@ -241,7 +242,7 @@ const ClassManagement = () => {
 
         {loading ? (
           <p className="text-center text-gray-500">Loading...</p>
-        ) : classes.length > 0 ? (
+        ) : canView && classes.length > 0 ? (
           <div className="mt-6">
             <Buttons data={classes} columns={columns} filename="Classes" />
             <h2 className="text-lg font-semibold text-white bg-blue-900 px-4 py-2 rounded-t-md">Classes</h2>
@@ -329,9 +330,12 @@ const ClassManagement = () => {
               </div>
             </div>
           </div>
-        ) : (
+        ) : canView ? (
           <p className="text-center text-gray-500">No classes available.</p>
+        ) : (
+          <p className="text-center text-red-500">You do not have permission to view classes.</p>
         )}
+
       </div>
     </div>
   );

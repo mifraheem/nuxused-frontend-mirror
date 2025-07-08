@@ -192,25 +192,26 @@ const SubjectManagement = () => {
                     <td className="border border-gray-300 p-2">{subject.id}</td>
                     <td className="border border-gray-300 p-2">{subject.subject_name}</td>
                     <td className="border border-gray-300 p-2">{subject.course_code}</td>
-                    <td className="border border-gray-300 p-2 flex justify-center">
-                      {canEdit && (
-                        <MdEdit
-                          onClick={() => {
-                            setEditSubject(subject);
-                            setNewSubject(subject);
-                            setShowForm(true);
-                          }}
-                          className="text-yellow-500 text-2xl cursor-pointer mx-2 hover:text-yellow-700"
-                        />
-                      )}
-                      {canDelete && (
-                        <MdDelete
-                          onClick={() => handleDeleteSubject(subject.id)}
-                          className="text-red-500 text-2xl cursor-pointer mx-2 hover:text-red-700"
-                        />
-                      )}
-                    </td>
-
+                    {(canEdit || canDelete) &&
+                      <td className="border border-gray-300 p-2 flex justify-center">
+                        {canEdit && (
+                          <MdEdit
+                            onClick={() => {
+                              setEditSubject(subject);
+                              setNewSubject(subject);
+                              setShowForm(true);
+                            }}
+                            className="text-yellow-500 text-2xl cursor-pointer mx-2 hover:text-yellow-700"
+                          />
+                        )}
+                        {canDelete && (
+                          <MdDelete
+                            onClick={() => handleDeleteSubject(subject.id)}
+                            className="text-red-500 text-2xl cursor-pointer mx-2 hover:text-red-700"
+                          />
+                        )}
+                      </td>
+                    }
                   </tr>
                 ))}
               </tbody>
@@ -235,7 +236,7 @@ const SubjectManagement = () => {
           </div>
         ) : <p className="text-center text-gray-500">No subjects available.</p>}
       </div>
-    </div>
+    </div >
   );
 };
 

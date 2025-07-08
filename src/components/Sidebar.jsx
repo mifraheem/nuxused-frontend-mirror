@@ -122,36 +122,49 @@ const Sidebar = () => {
                         )}
 
                         {/* Attendance */}
-                        {permissions.includes("users.view_studentattendance") && (
-
+                        {(permissions.includes("users.view_studentattendance") || permissions.includes("users.view_staffattendance")) && (
                             <li>
                                 <button onClick={() => toggleTab('attendance')} className="flex items-center w-full px-4 py-2 hover:bg-blue-700 rounded-lg">
                                     <i className="pi pi-calendar mr-2"></i> Manage Attendance
                                     <i className={`pi ${activeTab === 'attendance' ? 'pi-chevron-up' : 'pi-chevron-down'} ml-auto`}></i>
                                 </button>
+
                                 {activeTab === 'attendance' && (
                                     <ul className="ml-6 mt-2 space-y-2">
-                                        <li><Link to="/admin/track-students-attendance" className="block px-4 py-2 hover:bg-blue-700 rounded-lg">Student Attendance</Link></li>
-                                        <li><Link to="/admin/track-staff-attendance" className="block px-4 py-2 hover:bg-blue-700 rounded-lg">Staff Attendance</Link></li>
+                                        {permissions.includes("users.view_studentattendance") && (
+                                            <li>
+                                                <Link to="/admin/track-students-attendance" className="block px-4 py-2 hover:bg-blue-700 rounded-lg">
+                                                    Student Attendance
+                                                </Link>
+                                            </li>
+                                        )}
+                                        {permissions.includes("users.view_staffattendance") && (
+                                            <li>
+                                                <Link to="/admin/track-staff-attendance" className="block px-4 py-2 hover:bg-blue-700 rounded-lg">
+                                                    Staff Attendance
+                                                </Link>
+                                            </li>
+                                        )}
                                     </ul>
                                 )}
                             </li>
                         )}
 
+
                         {/* Exam */}
                         {permissions.includes("users.view_exam") && (
 
-                        <li>
-                            <button onClick={() => toggleTab('exam')} className="flex items-center w-full px-4 py-2 hover:bg-blue-700 rounded-lg">
-                                <i className="pi pi-pencil mr-2"></i> Exam Management
-                                <i className={`pi ${activeTab === 'exam' ? 'pi-chevron-up' : 'pi-chevron-down'} ml-auto`}></i>
-                            </button>
-                            {activeTab === 'exam' && (
-                                <ul className="ml-6 mt-2 space-y-2">
-                                    <li><Link to="/admin/create-exam" className="block px-4 py-2 hover:bg-blue-700 rounded-lg">Create Exam</Link></li>
-                                </ul>
-                            )}
-                        </li>
+                            <li>
+                                <button onClick={() => toggleTab('exam')} className="flex items-center w-full px-4 py-2 hover:bg-blue-700 rounded-lg">
+                                    <i className="pi pi-pencil mr-2"></i> Exam Management
+                                    <i className={`pi ${activeTab === 'exam' ? 'pi-chevron-up' : 'pi-chevron-down'} ml-auto`}></i>
+                                </button>
+                                {activeTab === 'exam' && (
+                                    <ul className="ml-6 mt-2 space-y-2">
+                                        <li><Link to="/admin/create-exam" className="block px-4 py-2 hover:bg-blue-700 rounded-lg">Create Exam</Link></li>
+                                    </ul>
+                                )}
+                            </li>
                         )}
 
                         {/* Timetable */}
@@ -191,7 +204,7 @@ const Sidebar = () => {
 
 
                         {/* 🔹 Merged Accountant Section - Manage Salary */}
-                        {permissions.includes("users.view_staffprofile") && (
+                        {permissions.includes("users.change_staffprofile") && (
 
                             <li>
                                 <button onClick={() => toggleTab('staffSalary')} className="flex items-center w-full px-4 py-2 hover:bg-blue-700 rounded-lg">
@@ -216,6 +229,22 @@ const Sidebar = () => {
 
                             <li><Link to="/admin/weekly-task-manager" className="block px-4 py-2 hover:bg-blue-700 rounded-lg"><i className="pi pi-cog mr-2"></i> Task Manager</Link></li>
                         )}
+                        {permissions.includes("users.view_classannouncement") && (
+                            <li>
+                                <Link to="/admin/class-announcements" className="block px-4 py-2 hover:bg-blue-700 rounded-lg">
+                                    <i className="pi pi-bell mr-2"></i> Class Announcements
+                                </Link>
+                            </li>
+                        )}
+
+                        {permissions.includes("users.view_classtask") && (
+                            <li>
+                                <Link to="/admin/class-tasks" className="block px-4 py-2 hover:bg-blue-700 rounded-lg">
+                                    <i className="pi pi-list mr-2"></i> Class Tasks
+                                </Link>
+                            </li>
+                        )}
+
                     </ul>
                 </nav>
             </div>

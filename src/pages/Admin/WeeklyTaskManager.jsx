@@ -312,7 +312,7 @@ const WeeklyTaskManager = () => {
     fetchTeachers();
   }, [page, pageSize]);
 
-  const permissions = JSON.parse(localStorage.getItem("permissions") || "[]");
+  const permissions = JSON.parse(localStorage.getItem("user_permissions") || "[]");
 
   const canAdd = permissions.includes("users.add_facultytask");
   const canEdit = permissions.includes("users.change_facultytask");
@@ -475,7 +475,12 @@ const WeeklyTaskManager = () => {
             {tasks.map((task, index) => (
               <tr key={task.id}>
                 <td className="border border-gray-300 p-2">{task.id}</td>
-                <td className="border border-gray-300 p-2">{task.title}</td>
+                <td className="border border-gray-300 p-2">
+                  <span className="block max-w-[200px] truncate" title={task.title}>
+                    {task.title}
+                  </span>
+                </td>
+
                 <td className="border border-gray-300 p-2">{getTeacherNames(task.teachers)}</td>
                 <td className="border border-gray-300 p-2">
                   {task.start_date?.split("T")[0] || "N/A"}

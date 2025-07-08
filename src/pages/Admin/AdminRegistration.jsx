@@ -34,9 +34,26 @@ export function AdminRegistration() {
     }
 
     const API_URL = formData.role === "student" ? API_URLS.student : API_URLS.default;
-    const requestData = formData.role === "student" ?
-      { username: formData.username, first_name: formData.first_name, last_name: formData.last_name, email: formData.email, password: formData.password, class_id: formData.class_id, parent_email: formData.parent_email } :
-      { username: formData.username, first_name: formData.first_name, last_name: formData.last_name, email: formData.email, password: formData.password, role: formData.role };
+    const requestData =
+      formData.role === "student"
+        ? {
+          username: formData.username,
+          first_name: formData.first_name,
+          last_name: formData.last_name,
+          email: formData.email,
+          password: formData.password,
+          class_id: formData.class_id,
+          ...(formData.parent_email && { parent_email: formData.parent_email }), // ✅ only include if not empty
+        }
+        : {
+          username: formData.username,
+          first_name: formData.first_name,
+          last_name: formData.last_name,
+          email: formData.email,
+          password: formData.password,
+          role: formData.role,
+        };
+
 
     try {
       const token = Cookies.get("access_token");
@@ -85,17 +102,17 @@ export function AdminRegistration() {
       }
     };
 
-const fetchParentOptions = async () => {
-  try {
-    const token = Cookies.get("access_token");
-    const response = await axios.get(`${API}api/auth/users/list_profiles/parent/?page_size=1000`, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    setParentOptions(response.data?.data?.results || []);
-  } catch (error) {
-    toast.error("Failed to load parents.");
-  }
-};
+    const fetchParentOptions = async () => {
+      try {
+        const token = Cookies.get("access_token");
+        const response = await axios.get(`${API}api/auth/users/list_profiles/parent/?page_size=1000`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        setParentOptions(response.data?.data?.results || []);
+      } catch (error) {
+        toast.error("Failed to load parents.");
+      }
+    };
 
 
     fetchClassOptions();
@@ -143,7 +160,7 @@ const fetchParentOptions = async () => {
                 <label className="block text-gray-700 font-semibold">Email:</label>
                 <input type="email" name="email" value={formData.email} onChange={handleChange} required className="w-full p-2 border border-gray-300 rounded" placeholder="Enter email" />
               </div>
-              {(formData.role === "teacher" || formData.role === "accountant" || formData.role === "parent" || formData.role === "student") && (
+              {(formData.role === "staff" || formData.role === "parent" || formData.role === "student") && (
                 <>
                   <div>
                     <label className="block text-gray-700 font-semibold">First Name:</label>
@@ -170,8 +187,7 @@ const fetchParentOptions = async () => {
                 >
                   <option value="">-- Select Role --</option>
                   <option value="admin">Admin</option>
-                  <option value="accountant">Accountant</option>
-                  <option value="teacher">Teacher</option>
+                  <option value="staff">Staff</option>
                   <option value="student">Student</option>
                   <option value="parent">Parent</option>
                 </select>
@@ -202,15 +218,17 @@ const fetchParentOptions = async () => {
                     <label className="block text-gray-700 font-semibold mb-1">Parent Email:</label>
                     <Select
                       options={parentOptionsMapped}
-                      value={parentOptionsMapped.find(opt => opt.value === formData.parent_email)}
+                      value={parentOptionsMapped.find(opt => opt.value === formData.parent_email) || null}
                       onChange={(selectedOption) =>
-                        setFormData({ ...formData, parent_email: selectedOption.value })
+                        setFormData({ ...formData, parent_email: selectedOption ? selectedOption.value : "" })
                       }
-                      placeholder="Search and select parent email"
+                      placeholder=" (optional)"
                       className="basic-single"
                       classNamePrefix="select"
                       isSearchable
+                      isClearable // ✅ Allow clearing
                     />
+
                   </div>
                 </>
               )}

@@ -65,6 +65,8 @@ import FeeDiscounts from "./pages/Accountant/FeeDiscounts";
 import CreateExam from "./pages/Admin/CreateExam";
 import FeePayments from "./pages/Accountant/FeePayments";
 import LatePaymentFines from "./pages/Accountant/LatePaymentFines";
+import ClassAnnouncements from "./pages/Admin/ClassAnnouncements";
+import ClassTasks from "./pages/Admin/ClassTasks";
 
 const router = createBrowserRouter([
   {
@@ -230,6 +232,14 @@ const router = createBrowserRouter([
           {
             path: "/admin/staff-salary",
             element: <StaffSalary />,
+          },
+          {
+            path: "/admin/class-announcements",
+            element: <ClassAnnouncements/>,
+          },
+          {
+            path: "/admin/class-tasks",
+            element: <ClassTasks/>,
           },
 
         ],
