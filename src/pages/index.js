@@ -29,7 +29,7 @@ import IdCards from "./Admin/IdCards";
 import BirthdayManagement from "./Admin/BirthdayManagement";
 import ParentAccount from "./Admin/ParentAccount";
 import HandleParentRequest from "./Admin/HandleParentRequest";
-import StaffDetails from "./Admin/StaffDetails";
+import StaffDetails from "./Admin/TeacherDetails";
 import StaffCards from "./Admin/StaffCards";
 import AttendanceStd from "./Admin/AttendanceStd";
 import AttendanceStaff from "./Admin/AttendanceStaff";

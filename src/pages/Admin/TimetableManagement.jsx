@@ -242,10 +242,12 @@ const TimetableManagement = () => {
     }
   }, [token, page, pageSize]);
 
-  const permissions = Cookies.get("permissions")?.split(",") || [];
+  const permissions = JSON.parse(localStorage.getItem("user_permissions") || "[]");
+
   const canAdd = permissions.includes("users.add_timetable");
   const canEdit = permissions.includes("users.change_timetable");
   const canDelete = permissions.includes("users.delete_timetable");
+  const canView = permissions.includes("users.view_timetable");
 
 
   return (
@@ -438,66 +440,67 @@ const TimetableManagement = () => {
         <h2 className="text-lg font-semibold text-white bg-blue-900 px-4 py-2 rounded-t-md">
           Timetable
         </h2>
-
-        <table className="w-full  border-collapse border bg-white">
-          <thead className="bg-gray-200">
-            <tr>
-              <th className="border p-2">#ID</th>
-              <th className="border p-2">Teacher</th>
-              <th className="border p-2">Subject</th>
-              <th className="border p-2">Class</th>
-              <th className="border p-2">Start Time</th>
-              <th className="border p-2">End Time</th>
-              {(canEdit || canDelete) && <th className="border p-2">Actions</th>}
-            </tr>
-          </thead>
-          <tbody>
-            {timetables.map((timetable) => (
-              <tr className="text-center" key={timetable.id}>
-                {/* #ID */}
-                <td className="border p-2">{timetable.id}</td>
-                {/* Teacher */}
-                <td className="border p-2">{timetable.teacher_name}</td>
-
-                {/* Subject */}
-                <td className="border p-2">{timetable.subject_name}</td>
-
-                {/* Class */}
-                <td className="border p-2">{timetable.class_name || "N/A"}</td>
-
-                {/* Start Time */}
-                <td className="border p-2">{timetable.start_time || "N/A"}</td>
-
-                {/* End Time */}
-                <td className="border p-2">{timetable.end_time || "N/A"}</td>
-
-                {/* Actions */}
-                {(canEdit || canDelete) && (
-                  <td className="border p-2 flex space-x-2 justify-center">
-                    {/* Edit Button */}
-                    <MdVisibility
-                      onClick={() => handleView(timetable)}
-                      className="text-blue-500 cursor-pointer"
-                    />
-                    {canEdit && (
-                      <MdEdit
-                        onClick={() => handleEdit(timetable)}
-                        className="text-yellow-500 text-2xl cursor-pointer hover:text-yellow-700"
-                      />
-                    )}
-                    {canDelete && (
-                      <MdDelete
-                        onClick={() => handleDelete(timetable.id)}
-                        className="text-red-500 text-2xl cursor-pointer hover:text-red-700"
-                      />
-                    )}
-
-                  </td>
-                )}
+        {canView && (
+          <table className="w-full  border-collapse border bg-white">
+            <thead className="bg-gray-200">
+              <tr>
+                <th className="border p-2">#ID</th>
+                <th className="border p-2">Teacher</th>
+                <th className="border p-2">Subject</th>
+                <th className="border p-2">Class</th>
+                <th className="border p-2">Start Time</th>
+                <th className="border p-2">End Time</th>
+                {(canEdit || canDelete) && <th className="border p-2">Actions</th>}
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {timetables.map((timetable) => (
+                <tr className="text-center" key={timetable.id}>
+                  {/* #ID */}
+                  <td className="border p-2">{timetable.id}</td>
+                  {/* Teacher */}
+                  <td className="border p-2">{timetable.teacher_name}</td>
+
+                  {/* Subject */}
+                  <td className="border p-2">{timetable.subject_name}</td>
+
+                  {/* Class */}
+                  <td className="border p-2">{timetable.class_name || "N/A"}</td>
+
+                  {/* Start Time */}
+                  <td className="border p-2">{timetable.start_time || "N/A"}</td>
+
+                  {/* End Time */}
+                  <td className="border p-2">{timetable.end_time || "N/A"}</td>
+
+                  {/* Actions */}
+                  {(canEdit || canDelete) && (
+                    <td className="border p-2 flex space-x-2 justify-center">
+                      {/* Edit Button */}
+                      <MdVisibility
+                        onClick={() => handleView(timetable)}
+                        className="text-blue-500 cursor-pointer"
+                      />
+                      {canEdit && (
+                        <MdEdit
+                          onClick={() => handleEdit(timetable)}
+                          className="text-yellow-500 text-2xl cursor-pointer hover:text-yellow-700"
+                        />
+                      )}
+                      {canDelete && (
+                        <MdDelete
+                          onClick={() => handleDelete(timetable.id)}
+                          className="text-red-500 text-2xl cursor-pointer hover:text-red-700"
+                        />
+                      )}
+
+                    </td>
+                  )}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
         {/* Pagination Section Below Table */}
         <div className="flex justify-between items-center bg-blue-50 p-4 rounded-b-md">
           {/* Page Size Selector */}

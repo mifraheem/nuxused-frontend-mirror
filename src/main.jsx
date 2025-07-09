@@ -45,7 +45,6 @@ import {
   SmsAlerts,
   SmsHistory,
   StaffCards,
-  StaffDetails,
   StaffSalary,
   StudentInfo,
   SubjectManagement,
@@ -67,6 +66,8 @@ import FeePayments from "./pages/Accountant/FeePayments";
 import LatePaymentFines from "./pages/Accountant/LatePaymentFines";
 import ClassAnnouncements from "./pages/Admin/ClassAnnouncements";
 import ClassTasks from "./pages/Admin/ClassTasks";
+import TeacherDetails from "./pages/Admin/TeacherDetails";
+import StaffDetails from "./pages/Admin/StaffDetails";
 
 const router = createBrowserRouter([
   {
@@ -128,6 +129,10 @@ const router = createBrowserRouter([
           {
             path: "/admin/handle-parent-requests",
             element: <HandleParentRequest />,
+          },
+          {
+            path: "/admin/manage-teacher-details",
+            element: <TeacherDetails />,
           },
           {
             path: "/admin/manage-staff-details",

@@ -43,6 +43,28 @@ const AttendanceStaff = () => {
 
     useEffect(() => { fetchTeachers(); }, []);
 
+    const handleEditAttendance = async (recordId, updatedStatus, updatedRemarks) => {
+        const token = Cookies.get("access_token");
+        if (!token) return toast.error("User is not authenticated.");
+
+        try {
+            const res = await axios.patch(`${API_BASE_URL}${recordId}/`, {
+                status: updatedStatus,
+                remarks: updatedRemarks,
+            }, {
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                    "Content-Type": "application/json",
+                },
+            });
+            toast.success("Attendance updated successfully");
+            handleFetchAttendance();
+        } catch (err) {
+            const msg = err.response?.data?.message || err.message;
+            toast.error(`Update failed: ${msg}`);
+        }
+    };
+
     const handleAttendanceChange = (index, status) => {
         const updated = [...attendance];
         updated[index].status = status;
@@ -79,6 +101,7 @@ const AttendanceStaff = () => {
             toast.error("Failed to prepare attendance list");
         }
     };
+
 
     const handleSaveAttendance = async () => {
         const token = Cookies.get("access_token");
@@ -158,19 +181,35 @@ const AttendanceStaff = () => {
         return teacher ? teacher.username : "Unknown";
     };
 
+    const permissions = JSON.parse(localStorage.getItem("user_permissions") || "[]");
+
+    const canAdd = permissions.includes("users.add_staffattendance");
+    const canChange = permissions.includes("users.change_staffattendance");
+    const canDelete = permissions.includes("users.delete_staffattendance");
+    const canView = permissions.includes("users.view_staffattendance");
+
     return (
         <div>
             <Toaster position="top-center" />
             <div className="bg-blue-900 text-white py-2 px-8 rounded-lg shadow-md flex justify-between items-center mt-5">
                 <h1 className="text-2xl font-bold">Staff Attendance Management</h1>
                 <div className="flex gap-4">
-                    <button onClick={handleMarkAttendance} className="bg-cyan-500 hover:bg-cyan-700 text-white px-4 py-2 rounded shadow">+ Mark Attendance</button>
-                    <button onClick={toggleFilterForm} className="bg-cyan-500 hover:bg-cyan-700 text-white px-4 py-2 rounded shadow">📥 {showFilterForm ? "Close Report" : "Fetch Attendance"}</button>
+                    {canAdd && (
+                        <button onClick={handleMarkAttendance} className="bg-cyan-500 hover:bg-cyan-700 text-white px-4 py-2 rounded shadow">
+                            + Mark Attendance
+                        </button>
+                    )}
+                    {canView && (
+                        <button onClick={toggleFilterForm} className="bg-cyan-500 hover:bg-cyan-700 text-white px-4 py-2 rounded shadow">
+                            📥 {showFilterForm ? "Close Report" : "Fetch Attendance"}
+                        </button>
+                    )}
                 </div>
+
             </div>
 
             <div className="p-6">
-                {showAttendanceTable && (
+                {canAdd && showAttendanceTable && (
                     <>
                         <table className="w-full mt-4 border shadow bg-white">
                             <thead className="bg-blue-900 text-white">
@@ -210,7 +249,7 @@ const AttendanceStaff = () => {
                     </>
                 )}
 
-                {showFilterForm && (
+                {canView && showFilterForm && (
                     <div className="bg-white shadow-md rounded-md p-4 mt-4">
                         <div className="grid grid-cols-2 gap-4">
                             <div>
@@ -259,31 +298,77 @@ const AttendanceStaff = () => {
                     </div>
                 )}
 
-               
 
-                {showReport && attendanceData.length > 0 && (
+
+                {canView && showReport && attendanceData.length > 0 && (
                     <table className="w-full mt-4 border bg-white shadow-md">
                         <thead className="bg-gray-200">
                             <tr>
                                 <th className="border p-2">ID</th>
-                                <th className="border p-2">Teacher Name</th>
-                                {filters.type !== "Specific" && <th className="border p-2">Date</th>}
+                                <th className="border p-2">Teacher</th>
+                                <th className="border p-2">Date</th>
                                 <th className="border p-2">Status</th>
+                                {(canChange || canDelete) &&
+                                    <th className="border p-2">Remarks</th>
+                                }
+                                {(canChange || canDelete) &&
+                                    <th className="border p-2">Actions</th>
+                                }
                             </tr>
                         </thead>
                         <tbody>
-                            {attendanceData.map((item) => (
+                            {attendanceData.map((item, idx) => (
                                 <tr key={item.id}>
                                     <td className="border p-2">{item.staff}</td>
                                     <td className="border p-2">{getTeacherName(item.staff)}</td>
-                                    {filters.type !== "Specific" && <td className="border p-2">{item.date}</td>}
-                                    <td className="border p-2">{item.status}</td>
+                                    <td className="border p-2">{item.date}</td>
+                                    <td className="border p-2">
+                                        <select
+                                            value={item.status}
+                                            onChange={(e) => {
+                                                const updated = [...attendanceData];
+                                                updated[idx].status = e.target.value;
+                                                setAttendanceData(updated);
+                                            }}
+                                            className="border px-2 py-1 rounded"
+                                        >
+                                            <option>Present</option>
+                                            <option>Late</option>
+                                            <option>Absent</option>
+                                            <option>Leave</option>
+                                            <option>Half-day</option>
+                                        </select>
+                                    </td>
+                                    {(canChange || canDelete) &&
+                                        <td className="border p-2">
+                                            <input
+                                                value={item.remarks || ""}
+                                                onChange={(e) => {
+                                                    const updated = [...attendanceData];
+                                                    updated[idx].remarks = e.target.value;
+                                                    setAttendanceData(updated);
+                                                }}
+                                                className="border px-2 py-1 rounded w-full"
+                                                placeholder="Remarks..."
+                                            />
+                                        </td>
+                                    }
+                                    {(canChange || canDelete) &&
+                                        <td className="border p-2 text-center">
+                                            <button
+                                                onClick={() => handleEditAttendance(item.id, item.status, item.remarks)}
+                                                className="bg-blue-500 hover:bg-blue-700 text-white px-2 py-1 rounded"
+                                            >
+                                                Update
+                                            </button>
+                                        </td>
+                                    }
                                 </tr>
                             ))}
                         </tbody>
                     </table>
                 )}
-                 <Buttons />
+                <Buttons />
             </div>
         </div>
     );

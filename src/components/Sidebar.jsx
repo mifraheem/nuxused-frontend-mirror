@@ -105,6 +105,21 @@ const Sidebar = () => {
                             </li>
                         )}
 
+                        {/* Teacher Management */}
+                        {permissions.includes("users.view_teacherprofile") && (
+
+                            <li>
+                                <button onClick={() => toggleTab('teacher')} className="flex items-center w-full px-4 py-2 hover:bg-blue-700 rounded-lg">
+                                    <i className="pi pi-id-card mr-2"></i> Teacher Management
+                                    <i className={`pi ${activeTab === 'teacher' ? 'pi-chevron-up' : 'pi-chevron-down'} ml-auto`}></i>
+                                </button>
+                                {activeTab === 'teacher' && (
+                                    <ul className="ml-6 mt-2 space-y-2">
+                                        <li><Link to="/admin/manage-teacher-details" className="block px-4 py-2 hover:bg-blue-700 rounded-lg">Manage Teacher Details</Link></li>
+                                    </ul>
+                                )}
+                            </li>
+                        )}
                         {/* Staff Management */}
                         {permissions.includes("users.view_staffprofile") && (
 

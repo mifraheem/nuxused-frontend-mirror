@@ -249,6 +249,15 @@ const CreateExam = () => {
   const canEdit = permissions.includes("users.change_exam");
   const canDelete = permissions.includes("users.delete_exam");
 
+  <style>
+    {`
+    @media print {
+      .no-print {
+        display: none !important;
+      }
+    }
+  `}
+  </style>
 
   return (
     <div>
@@ -469,6 +478,8 @@ const CreateExam = () => {
 
       {viewExam && (
         <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50 pl-60 pt-6">
+
+          {/* This is the printable content */}
           <div ref={printRef} className="bg-white w-full max-w-3xl p-6 rounded shadow-lg">
             <h2 className="text-xl font-bold mb-4">Exam Details</h2>
             <div className="grid grid-cols-2 gap-4 text-sm">
@@ -478,6 +489,7 @@ const CreateExam = () => {
               <div><strong>Start Date:</strong> {viewExam.start_date}</div>
               <div><strong>End Date:</strong> {viewExam.end_date}</div>
             </div>
+
             <h3 className="mt-4 font-semibold">Subjects</h3>
             <table className="w-full border mt-2 text-sm">
               <thead className="bg-gray-100">
@@ -501,31 +513,32 @@ const CreateExam = () => {
                 ))}
               </tbody>
             </table>
+          </div>
 
-
-            <div className="mt-4 flex justify-end gap-3">
-              <button
-                onClick={() => {
-                  html2pdf().from(printRef.current).save(`${viewExam.term_name}_Exam.pdf`);
-                }}
-                className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
-              >
-                Print
-              </button>
-              <button
-                onClick={() => setViewExam(null)}
-                className="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600"
-              >
-                Close
-              </button>
-            </div>
+          {/* Buttons shown below modal (outside printRef), and hidden during print */}
+          <div className="absolute bottom-10 flex justify-center gap-6 no-print">
+            <button
+              onClick={() => {
+                html2pdf().from(printRef.current).save(`${viewExam.term_name}_Exam.pdf`);
+              }}
+              className="bg-blue-600 text-white text-lg font-bold px-6 py-2 rounded-xl hover:bg-blue-700"
+            >
+              🖨️ Print
+            </button>
+            <button
+              onClick={() => setViewExam(null)}
+              className="bg-red-600 text-white text-lg font-bold px-6 py-2 rounded-xl hover:bg-red-700"
+            >
+              ❌ Close
+            </button>
           </div>
         </div>
       )}
 
 
 
-    </div>
+
+    </div >
   );
 };
 

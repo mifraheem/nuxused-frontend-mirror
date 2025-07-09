@@ -160,7 +160,7 @@ export function AdminRegistration() {
                 <label className="block text-gray-700 font-semibold">Email:</label>
                 <input type="email" name="email" value={formData.email} onChange={handleChange} required className="w-full p-2 border border-gray-300 rounded" placeholder="Enter email" />
               </div>
-              {(formData.role === "staff" || formData.role === "parent" || formData.role === "student") && (
+              {(formData.role === "staff" ||formData.role === "teacher" || formData.role === "parent" || formData.role === "student") && (
                 <>
                   <div>
                     <label className="block text-gray-700 font-semibold">First Name:</label>
@@ -188,6 +188,7 @@ export function AdminRegistration() {
                   <option value="">-- Select Role --</option>
                   <option value="admin">Admin</option>
                   <option value="staff">Staff</option>
+                  <option value="teacher">Teacher</option>
                   <option value="student">Student</option>
                   <option value="parent">Parent</option>
                 </select>
