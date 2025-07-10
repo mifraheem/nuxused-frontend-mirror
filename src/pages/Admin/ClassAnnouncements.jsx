@@ -3,6 +3,8 @@ import axios from "axios";
 import Cookies from "js-cookie";
 import { MdEdit, MdDelete, MdVisibility } from "react-icons/md";
 import toast, { Toaster } from "react-hot-toast";
+import Select from "react-select";
+
 
 const ClassAnnouncements = () => {
     const [announcements, setAnnouncements] = useState([]);
@@ -146,20 +148,19 @@ const ClassAnnouncements = () => {
                     </h2>
 
                     <div className="grid grid-cols-2 gap-4">
-                        <select
-                            className="p-2 border rounded"
-                            value={newAnnouncement.class_schedule}
-                            onChange={(e) =>
-                                setNewAnnouncement({ ...newAnnouncement, class_schedule: e.target.value })
+                        <Select
+                            value={classOptions.find((cls) => cls.id === parseInt(newAnnouncement.class_schedule)) || null}
+                            onChange={(selected) =>
+                                setNewAnnouncement({ ...newAnnouncement, class_schedule: selected?.id || "" })
                             }
-                        >
-                            <option value="">Select Class</option>
-                            {classOptions.map((cls) => (
-                                <option key={cls.id} value={cls.id}>
-                                    {cls.class_name} - {cls.section} ({cls.session})
-                                </option>
-                            ))}
-                        </select>
+                            options={classOptions}
+                            getOptionLabel={(cls) => `${cls.class_name} - ${cls.section} (${cls.session})`}
+                            getOptionValue={(cls) => cls.id}
+                            placeholder="Select Class"
+                            isClearable
+                            className="p-2 border rounded bg-white"
+                        />
+
 
                         <input
                             type="text"

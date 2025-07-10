@@ -4,6 +4,7 @@ import Cookies from "js-cookie";
 import toast, { Toaster } from "react-hot-toast";
 import { MdDelete, MdVisibility } from "react-icons/md";
 import { Buttons } from "../../components";
+import Select from "react-select"
 
 const FeePayments = () => {
     const [students, setStudents] = useState([]);
@@ -196,7 +197,7 @@ const FeePayments = () => {
         fetchPayments();
     }, [page, pageSize]);
 
-    const permissions = Cookies.get("permissions")?.split(",") || [];
+    const permissions = JSON.parse(localStorage.getItem("user_permissions") || "[]");
 
     const canAdd = permissions.includes("users.add_feepayment");
     const canDelete = permissions.includes("users.delete_feepayment");
@@ -220,116 +221,142 @@ const FeePayments = () => {
 
             </div>
 
+
             {showForm && canAdd && (
-                <div className="p-6 bg-blue-50 rounded-md mb-6">
-                    <h2 className="text-lg font-semibold text-blue-900">
+                <div className="p-6 bg-white rounded-lg shadow-md border border-gray-200 max-w-3xl mx-auto mb-6">
+                    <h2 className="text-xl font-semibold text-blue-800 mb-4">
                         {editingPaymentId ? "Update Fee Payment" : "Create Fee Payment"}
                     </h2>
-                    <div className="grid grid-cols-2 gap-4 mt-4">
-                        <select
-                            value={formData.student_id}
-                            onChange={(e) => {
-                                const newStudentId = e.target.value;
-                                setFormData({ ...formData, student_id: newStudentId, student_fee_id: "", amount_paid: "" });
-                                if (newStudentId) {
-                                    getStudentFeeById(newStudentId);
-                                } else {
-                                    setStudentFees([]);
-                                }
-                            }}
-                            className="p-2 border border-gray-300 rounded"
-                        >
-                            <option value="">Select Student</option>
-                            {students.map((s) => (
-                                <option key={s.profile_id} value={s.profile_id}>
-                                    {s.first_name} {s.last_name} (ID: {s.profile_id})
-                                </option>
-                            ))}
-                        </select>
 
-                        {formData.student_id && (
-                            <select
-                                value={formData.student_fee_id}
-                                onChange={(e) => {
-                                    const selectedId = e.target.value;
-                                    const selectedFee = studentFees.find((fee) => fee.id === parseInt(selectedId));
-                                    setFormData({
-                                        ...formData,
-                                        student_fee_id: selectedId,
-                                        amount_paid: selectedFee?.net_payable?.toString() || "",
-                                    });
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {/* Student Dropdown */}
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Select Student</label>
+                            <Select
+                                value={students.find(s => s.profile_id === Number(formData.student_id)) || null}
+                                onChange={(selected) => {
+                                    const id = selected?.profile_id || "";
+                                    setFormData({ ...formData, student_id: id, student_fee_id: "", amount_paid: "" });
+                                    if (id) getStudentFeeById(id);
+                                    else setStudentFees([]);
                                 }}
-                                className="p-2 border border-gray-300 rounded"
-                            >
-                                <option value="">Select Fee</option>
-                                {studentFees.length > 0 ? (
-                                    studentFees
-                                        .filter((fee) => !fee.is_paid)
-                                        .map((fee) => (
-                                            <option key={fee.id} value={fee.id}>
-                                                {fee.fee_type} – {fee.net_payable} PKR
-                                            </option>
-                                        ))
-                                ) : (
-                                    <option value="" disabled>No unpaid fees available</option>
-                                )}
-                            </select>
+                                options={students}
+                                getOptionLabel={(s) => `${s.first_name} ${s.last_name} (ID: ${s.profile_id})`}
+                                getOptionValue={(s) => s.profile_id}
+                                placeholder="Search or select student"
+                                isClearable
+                            />
+                        </div>
+
+                        {/* Fee Dropdown */}
+                        {formData.student_id && (
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Select Fee</label>
+                                <Select
+                                    value={studentFees.find(f => f.id === Number(formData.student_fee_id)) || null}
+                                    onChange={(selected) => {
+                                        setFormData({
+                                            ...formData,
+                                            student_fee_id: selected?.id || "",
+                                            amount_paid: selected?.net_payable?.toString() || ""
+                                        });
+                                    }}
+                                    options={studentFees.filter(f => !f.is_paid)}
+                                    getOptionLabel={(f) => `${f.fee_type} – ${f.net_payable} PKR`}
+                                    getOptionValue={(f) => f.id}
+                                    placeholder="Search or select fee"
+                                    isClearable
+                                />
+                            </div>
                         )}
 
-                        <input
-                            type="number"
-                            value={formData.amount_paid}
-                            onChange={(e) => setFormData({ ...formData, amount_paid: e.target.value })}
-                            placeholder="Amount Paid"
-                            className="p-2 border rounded"
-                        />
-                        <input
-                            type="date"
-                            value={formData.payment_date}
-                            onChange={(e) => setFormData({ ...formData, payment_date: e.target.value })}
-                            className="p-2 border rounded"
-                        />
-                        <select
-                            value={formData.payment_method}
-                            onChange={(e) => setFormData({ ...formData, payment_method: e.target.value })}
-                            className="p-2 border rounded"
-                        >
-                            <option value="cash">Cash</option>
-                            <option value="bank_transfer">Bank Transfer</option>
-                            <option value="easypaisa">Easypaisa</option>
-                            <option value="jazzcash">JazzCash</option>
-                        </select>
-                        <input
-                            type="text"
-                            value={formData.reference_number}
-                            onChange={(e) => setFormData({ ...formData, reference_number: e.target.value })}
-                            placeholder="Reference Number (Optional)"
-                            className="p-2 border rounded col-span-2"
-                        />
-                        <input
-                            type="number"
-                            value={formData.discount_amount}
-                            onChange={(e) => setFormData({ ...formData, discount_amount: e.target.value })}
-                            placeholder="Discount Amount (Optional)"
-                            className="p-2 border rounded"
-                        />
-                        <input
-                            type="number"
-                            value={formData.late_fine_amount}
-                            onChange={(e) => setFormData({ ...formData, late_fine_amount: e.target.value })}
-                            placeholder="Late Fine Amount (Optional)"
-                            className="p-2 border rounded"
-                        />
+                        {/* Amount Paid */}
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Amount Paid</label>
+                            <input
+                                type="number"
+                                value={formData.amount_paid}
+                                onChange={(e) => setFormData({ ...formData, amount_paid: e.target.value })}
+                                placeholder="e.g. 1000"
+                                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
+                            />
+                        </div>
+
+                        {/* Payment Date */}
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Payment Date</label>
+                            <input
+                                type="date"
+                                value={formData.payment_date}
+                                onChange={(e) => setFormData({ ...formData, payment_date: e.target.value })}
+                                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
+                            />
+                        </div>
+
+                        {/* Payment Method */}
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Payment Method</label>
+                            <select
+                                value={formData.payment_method}
+                                onChange={(e) => setFormData({ ...formData, payment_method: e.target.value })}
+                                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
+                            >
+                                <option value="cash">Cash</option>
+                                <option value="bank_transfer">Bank Transfer</option>
+                                <option value="easypaisa">Easypaisa</option>
+                                <option value="jazzcash">JazzCash</option>
+                            </select>
+                        </div>
+
+                        {/* Reference Number */}
+                        <div className="md:col-span-2">
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Reference Number (Optional)</label>
+                            <input
+                                type="text"
+                                value={formData.reference_number}
+                                onChange={(e) => setFormData({ ...formData, reference_number: e.target.value })}
+                                placeholder="e.g. TXN123456"
+                                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
+                            />
+                        </div>
+
+                        {/* Discount Amount */}
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Discount Amount (Optional)</label>
+                            <input
+                                type="number"
+                                value={formData.discount_amount}
+                                onChange={(e) => setFormData({ ...formData, discount_amount: e.target.value })}
+                                placeholder="e.g. 200"
+                                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
+                            />
+                        </div>
+
+                        {/* Late Fine */}
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Late Fine (Optional)</label>
+                            <input
+                                type="number"
+                                value={formData.late_fine_amount}
+                                onChange={(e) => setFormData({ ...formData, late_fine_amount: e.target.value })}
+                                placeholder="e.g. 50"
+                                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
+                            />
+                        </div>
                     </div>
-                    <div className="flex justify-end gap-2 mt-4">
-                        <button onClick={resetForm} className="bg-gray-500 text-white px-4 py-2 rounded">
+
+                    <div className="mt-6 flex justify-end gap-2">
+                        <button
+                            onClick={resetForm}
+                            className="bg-gray-500 hover:bg-gray-700 text-white px-4 py-2 rounded-md shadow-sm"
+                        >
                             Cancel
                         </button>
                         <button
                             onClick={handleSavePayment}
-                            className="bg-green-600 text-white px-4 py-2 rounded"
+                            className="bg-green-600 hover:bg-green-800 text-white px-6 py-2 rounded-md shadow-sm"
                         >
-                            {editingPaymentId ? "Update" : "Save"}
+                            {editingPaymentId ? "Update Payment" : "Save Payment"}
                         </button>
                     </div>
                 </div>
@@ -436,33 +463,36 @@ const FeePayments = () => {
 
             {viewModalData && (
                 <div className="fixed inset-0 bg-black bg-opacity-50 backdrop-blur-sm flex items-center justify-center z-50 px-4">
-                    <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto border border-gray-200 p-6">
-                        <div className="mb-6 border-b pb-3">
-                            <h3 className="text-2xl font-bold text-blue-800 text-center">📄 Fee Payment Details</h3>
+                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] overflow-y-auto border border-gray-300 p-8">
+
+                        {/* Header */}
+                        <div className="border-b pb-4 mb-6">
+                            <h3 className="text-2xl font-bold text-center text-blue-700">📄 Fee Payment Details</h3>
                         </div>
 
-                        <div className="grid grid-cols-2 gap-4 text-sm text-gray-700">
-                            {/* Student Information */}
-                            <div className="col-span-2 font-semibold text-blue-900 border-b pb-1">👤 Student Information</div>
+                        <div className="grid grid-cols-2 gap-x-6 gap-y-4 text-sm text-gray-700">
+
+                            {/* Student Info */}
+                            <div className="col-span-2 font-semibold text-blue-900 border-b pb-2">👤 Student Information</div>
                             <div><span className="font-semibold">Name:</span> {viewModalData.student_name}</div>
                             <div><span className="font-semibold">Fee Type:</span> {viewModalData.fee_type}</div>
                             <div><span className="font-semibold">Class:</span> {viewModalData.class_name || "—"}</div>
                             <div><span className="font-semibold">Section:</span> {viewModalData.section || "—"}</div>
                             <div><span className="font-semibold">Session:</span> {viewModalData.session || "—"}</div>
 
-                            {/* Payment Information */}
-                            <div className="col-span-2 font-semibold text-blue-900 border-b pt-4 pb-1">💵 Payment Information</div>
+                            {/* Payment Info */}
+                            <div className="col-span-2 font-semibold text-blue-900 border-b pt-5 pb-2">💵 Payment Information</div>
                             <div><span className="font-semibold">Amount Paid:</span> {viewModalData.amount_paid} PKR</div>
                             <div><span className="font-semibold">Discount:</span> {viewModalData.applied_discount || "0"} PKR</div>
                             <div><span className="font-semibold">Late Fine:</span> {viewModalData.applied_late_fine || "0"} PKR</div>
                             <div><span className="font-semibold">Total Paid:</span> {viewModalData.total_paid} PKR</div>
                             <div><span className="font-semibold">Remaining:</span> {viewModalData.remaining_balance} PKR</div>
-                            <div><span className="font-semibold">Payment Date:</span> {viewModalData.payment_date}</div>
+                            <div><span className="font-semibold">Payment Date:</span> {viewModalData.payment_date || "—"}</div>
                             <div><span className="font-semibold">Payment Method:</span> {viewModalData.payment_method}</div>
                             <div><span className="font-semibold">Reference #:</span> {viewModalData.reference_number || "—"}</div>
 
                             {/* Status */}
-                            <div className="col-span-2 pt-3">
+                            <div className="col-span-2 pt-4">
                                 <span className="font-semibold">Status:</span>{" "}
                                 {viewModalData.is_fully_paid ? (
                                     <span className="text-green-600 font-bold">✅ Fully Paid</span>
@@ -472,10 +502,11 @@ const FeePayments = () => {
                             </div>
                         </div>
 
-                        <div className="mt-6 text-center">
+                        {/* Footer */}
+                        <div className="mt-8 flex justify-center">
                             <button
                                 onClick={() => setViewModalData(null)}
-                                className="px-6 py-2 bg-blue-700 text-white rounded-full shadow hover:bg-blue-800 transition"
+                                className="px-6 py-2 bg-blue-600 text-white rounded-full font-medium shadow hover:bg-blue-700 transition"
                             >
                                 Close
                             </button>
@@ -483,6 +514,7 @@ const FeePayments = () => {
                     </div>
                 </div>
             )}
+
 
 
         </div>

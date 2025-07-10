@@ -3,37 +3,33 @@ import axios from "axios";
 import Cookies from "js-cookie";
 import toast, { Toaster } from "react-hot-toast";
 import { MdEdit, MdDelete, MdVisibility } from "react-icons/md";
+import Select from "react-select";
 
 const StudentFees = () => {
     const [fees, setFees] = useState([]);
     const [classes, setClasses] = useState([]);
+    const [students, setStudents] = useState([]);
     const [loading, setLoading] = useState(false);
-    // const [editModal, setEditModal] = useState(false);
-    // const [editData, setEditData] = useState({ id: null, is_paid: false, payment_date: "" });
     const [viewModalData, setViewModalData] = useState(null);
-
-
-    // filter controls
-    const [showClassDropdown, setShowClassDropdown] = useState(false);
-    const [showClassStatusDropdown, setShowClassStatusDropdown] = useState(false);
-    const [selectedClass, setSelectedClass] = useState("");
+    const [filterType, setFilterType] = useState(null);
+    const [selectedClass, setSelectedClass] = useState(null);
     const [selectedStatus, setSelectedStatus] = useState("");
+    const [selectedStudent, setSelectedStudent] = useState(null);
     const [page, setPage] = useState(1);
     const [pageSize, setPageSize] = useState(10);
     const [totalPages, setTotalPages] = useState(1);
 
-
     const API = import.meta.env.VITE_SERVER_URL;
-
 
     const getToken = () => Cookies.get("access_token");
 
     const fetchFees = async (query = "") => {
         try {
             setLoading(true);
-            const res = await axios.get(`${API}student-fees/${query}${query.includes('?') ? '&' : '?'}page=${page}&page_size=${pageSize}`, {
-                headers: { Authorization: `Bearer ${getToken()}` },
-            });
+            const res = await axios.get(
+                `${API}student-fees/${query}${query.includes("?") ? "&" : "?"}page=${page}&page_size=${pageSize}`,
+                { headers: { Authorization: `Bearer ${getToken()}` } }
+            );
             const data = res.data?.data || {};
             setFees(Array.isArray(data.results) ? data.results : []);
             setTotalPages(data.total_pages || 1);
@@ -44,182 +40,162 @@ const StudentFees = () => {
         }
     };
 
-
     const fetchClasses = async () => {
         try {
-            const res = await axios.get(`$${API}classes/`, {
+            const res = await axios.get(`${API}classes/`, {
                 headers: { Authorization: `Bearer ${getToken()}` },
             });
-            const data = res.data?.data?.results || res.data?.data || []; // ✅ Handle all cases
+            const data = res.data?.data?.results || res.data?.data || [];
             setClasses(data);
         } catch {
             toast.error("Failed to load classes");
         }
     };
 
-
-    const handleDelete = (id) => {
-        if (!canDelete) {
-            toast.error("You do not have permission to delete this record.");
-            return;
-        }
-
-        toast((t) => (
-            <span>
-                Confirm delete?
-                <div className="mt-2 flex gap-2 justify-center">
-                    <button className="bg-red-500 text-white px-3 py-1 rounded" onClick={() => confirmDelete(id, t.id)}>Yes</button>
-                    <button className="bg-gray-300 px-3 py-1 rounded" onClick={() => toast.dismiss(t.id)}>No</button>
-                </div>
-            </span>
-        ), { position: "top-center" });
-    };
-
-
-    const confirmDelete = async (id, toastId) => {
+    const fetchStudents = async () => {
         try {
-            await axios.delete(`${API}student-fees/${id}/`, {
+            const res = await axios.get(`${API}api/auth/users/list_profiles/student/`, {
                 headers: { Authorization: `Bearer ${getToken()}` },
             });
-            toast.dismiss(toastId);
-            toast.success("Deleted successfully");
-            setFees(prev => prev.filter(fee => fee.student_profile_id !== profileId));
+            const data = res.data?.data?.results || [];
+            setStudents(data);
         } catch {
-            toast.error("Delete failed");
+            toast.error("Failed to load students");
         }
     };
 
-    // const handleEdit = (item) => {
-    //     setEditData({
-    //         id: item.student_profile_id, // ✅ correct ID expected by backend
-    //         is_paid: item.is_paid,
-    //         payment_date: item.payment_date || "",
-    //     });
-
-    //     setEditModal(true);
-    // };
-
-    // const handleEditSubmit = async () => {
-    //     try {
-    //         await axios.patch(`${API_BASE}/student-fees/${editData.id}/`, {
-    //             is_paid: editData.is_paid,
-    //             payment_date: editData.payment_date,
-    //         }, {
-    //             headers: { Authorization: `Bearer ${getToken()}` },
-    //         });
-    //         toast.success("Updated successfully");
-    //         setEditModal(false);
-    //         fetchFees();
-    //     } catch {
-    //         toast.error("Update failed");
-    //     }
-    // };
-
-    const handleClassFilter = () => {
-        if (!selectedClass) return toast.error("Please select a class");
-        fetchFees(`?class=${selectedClass}`);
-    };
-
-    const handleClassStatusFilter = () => {
-        if (!selectedClass || !selectedStatus) {
-            return toast.error("Select both class and status");
+    const handleFilter = () => {
+        let query = "";
+        if (filterType === "id" && selectedStudent) {
+            query = `?student_id=${selectedStudent.profile_id}`;
+        } else if (filterType === "class" && selectedClass) {
+            query = `?class=${selectedClass.id}`;
+        } else if (filterType === "class_status" && selectedClass && selectedStatus !== "") {
+            query = `?class=${selectedClass.id}&paid=${selectedStatus}`;
         }
-        fetchFees(`?class=${selectedClass}&paid=${selectedStatus}`);
+        setPage(1);
+        fetchFees(query);
     };
 
     useEffect(() => {
-        fetchFees();
         fetchClasses();
-    }, [page, pageSize]);
+        fetchStudents();
+    }, []);
 
-    const permissions = Cookies.get("permissions")?.split(",") || [];
+    useEffect(() => {
+        fetchFees();
+    }, [page, pageSize]);
+    const permissions = JSON.parse(localStorage.getItem("user_permissions") || "[]");
     const canView = permissions.includes("users.view_studentfee");
     const canEdit = permissions.includes("users.change_studentfee");
     const canDelete = permissions.includes("users.delete_studentfee");
 
 
     return (
-        <div>
+        <div className="p-4">
             <Toaster position="top-center" />
-            <div className="bg-blue-900 text-white py-3 px-6 rounded-md flex justify-between items-center mt-5">
+            <div className="bg-blue-900 text-white py-3 px-6 rounded-md flex justify-between items-center">
                 <h1 className="text-xl font-bold">Manage Student Fee</h1>
-                <div className="flex gap-2">
+                <div className="relative">
                     <button
-                        onClick={() => {
-                            setShowClassDropdown(!showClassDropdown);
-                            setShowClassStatusDropdown(false);
-                        }}
-                        className="bg-cyan-400 hover:bg-cyan-500 text-white font-semibold px-4 py-2 rounded"
+                        className="bg-cyan-500 hover:bg-cyan-600 text-white font-semibold px-4 py-2 rounded"
+                        onClick={() => setFilterType((prev) => (prev ? null : "menu"))}
                     >
-                        Filter by Class
+                        Filter Data
                     </button>
-                    <button
-                        onClick={() => {
-                            setShowClassStatusDropdown(!showClassStatusDropdown);
-                            setShowClassDropdown(false);
-                        }}
-                        className="bg-cyan-400 hover:bg-cyan-500 text-white font-semibold px-4 py-2 rounded"
-                    >
-                        Filter by Class & Status
-                    </button>
+                    {filterType === "menu" && (
+                        <div className="absolute right-0 mt-2 w-56 bg-white border rounded shadow-md z-10 text-gray-700">
+                            <button className="block w-full text-left px-4 py-2 hover:bg-gray-100" onClick={() => setFilterType("id")}>Filter by Student ID</button>
+                            <button className="block w-full text-left px-4 py-2 hover:bg-gray-100" onClick={() => setFilterType("class")}>Filter by Class</button>
+                            <button className="block w-full text-left px-4 py-2 hover:bg-gray-100" onClick={() => setFilterType("class_status")}>Filter by Class & Status</button>
+                            <button className="block w-full text-left px-4 py-2 hover:bg-gray-100" onClick={() => { setFilterType(null); fetchFees(); }}>Show All</button>
+                        </div>
+                    )}
                 </div>
             </div>
 
-            {/* Filter dropdowns */}
-            {showClassDropdown && (
-                <div className="p-4 flex gap-2 items-center">
-                    <select
-                        className="p-2 border rounded"
-                        value={selectedClass}
-                        onChange={(e) => setSelectedClass(e.target.value)}
-                    >
-                        <option value="">Select Class</option>
-                        {classes.map((cls) => (
-                            <option key={cls.id} value={cls.id}>
-                                {cls.class_name} {cls.section}
-                            </option>
-                        ))}
-                    </select>
-                    <button
-                        onClick={handleClassFilter}
-                        className="bg-blue-500 text-white px-4 py-2 rounded"
-                    >
-                        Apply
-                    </button>
+            {/* Filter forms */}
+            <div className="flex justify-center">
+                <div className="p-6   w-full max-w-xl ">
+            {filterType === "id" && (
+                <div className="mt-6 p-4 border rounded-lg bg-white shadow-md max-w-xl">
+                    <h3 className="text-lg font-semibold text-blue-800 mb-4">🎓 Filter by Student</h3>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Select Student</label>
+                    <Select
+                        options={students}
+                        getOptionLabel={(s) => `${s.first_name} ${s.last_name} (ID: ${s.profile_id})`}
+                        getOptionValue={(s) => s.profile_id}
+                        onChange={(val) => setSelectedStudent(val)}
+                        placeholder="Search or select student"
+                        isClearable
+                    />
+                    <div className="mt-4 text-right">
+                        <button onClick={handleFilter} className="bg-blue-600 hover:bg-blue-800 text-white px-6 py-2 rounded-md shadow-sm">
+                            Apply Filter
+                        </button>
+                    </div>
                 </div>
             )}
 
-            {showClassStatusDropdown && (
-                <div className="p-4 flex gap-2 items-center">
-                    <select
-                        className="p-2 border rounded"
-                        value={selectedClass}
-                        onChange={(e) => setSelectedClass(e.target.value)}
-                    >
-                        <option value="">Select Class</option>
-                        {classes.map((cls) => (
-                            <option key={cls.id} value={cls.id}>
-                                {cls.class_name} {cls.section}
-                            </option>
-                        ))}
-                    </select>
-                    <select
-                        className="p-2 border rounded"
-                        value={selectedStatus}
-                        onChange={(e) => setSelectedStatus(e.target.value)}
-                    >
-                        <option value="">Select Status</option>
-                        <option value="true">✅ Paid</option>
-                        <option value="false">❌ Pending</option>
-                    </select>
-                    <button
-                        onClick={handleClassStatusFilter}
-                        className="bg-blue-500 text-white px-4 py-2 rounded"
-                    >
-                        Apply
-                    </button>
+            {filterType === "class" && (
+                <div className="mt-6 p-4 border rounded-lg bg-white shadow-sm max-w-xl">
+                    <h3 className="text-lg font-semibold text-blue-800 mb-4">🏫 Filter by Class</h3>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Select Class</label>
+                    <Select
+                        options={classes}
+                        getOptionLabel={(c) => `${c.class_name} ${c.section} (${c.session})`}
+                        getOptionValue={(c) => c.id}
+                        onChange={(val) => setSelectedClass(val)}
+                        placeholder="Search or select class"
+                        isClearable
+                    />
+                    <div className="mt-4 text-right">
+                        <button onClick={handleFilter} className="bg-blue-600 hover:bg-blue-800 text-white px-6 py-2 rounded-md shadow-sm">
+                            Apply Filter
+                        </button>
+                    </div>
                 </div>
             )}
+
+            {filterType === "class_status" && (
+                <div className="mt-6 p-4 border rounded-lg bg-white shadow-sm max-w-3xl">
+                    <h3 className="text-lg font-semibold text-blue-800 mb-4">📊 Filter by Class & Status</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-end">
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Select Class</label>
+                            <Select
+                                options={classes}
+                                getOptionLabel={(c) => `${c.class_name} ${c.section} (${c.session})`}
+                                getOptionValue={(c) => c.id}
+                                onChange={(val) => setSelectedClass(val)}
+                                placeholder="Search or select class"
+                                isClearable
+                            />
+                        </div>
+
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Select Status</label>
+                            <select
+                                value={selectedStatus}
+                                onChange={(e) => setSelectedStatus(e.target.value)}
+                                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            >
+                                <option value="">Select Status</option>
+                                <option value="true">✅ Paid</option>
+                                <option value="false">❌ Pending</option>
+                            </select>
+                        </div>
+
+                        <div className="md:col-span-2 text-right mt-4">
+                            <button onClick={handleFilter} className="bg-blue-600 hover:bg-blue-800 text-white px-6 py-2 rounded-md shadow-sm">
+                                Apply Filter
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+            </div>
+</div>
 
             {/* Table */}
             <div className="p-6">

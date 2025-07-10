@@ -4,6 +4,7 @@ import Cookies from "js-cookie";
 import toast, { Toaster } from "react-hot-toast";
 import { MdEdit, MdDelete, MdVisibility } from "react-icons/md";
 import { Buttons } from "../../components";
+import Select from "react-select";
 
 const TimetableManagement = () => {
   const [timetables, setTimetables] = useState([]);
@@ -278,98 +279,87 @@ const TimetableManagement = () => {
       <div className="p-6">
         {/* Form */}
         {canAdd && showForm && (
-          <form onSubmit={handleSubmit} className=" p-6 mt-6 rounded-md ">
+          <form
+            onSubmit={handleSubmit}
+            className="max-w-5xl mx-auto mt-10 bg-white border border-gray-200 rounded-2xl shadow-lg px-10 py-8"
+          >
+            <h2 className="text-3xl font-bold text-blue-800 mb-8 text-center">
+              {editingId ? "Edit Timetable" : "Add New Timetable"}
+            </h2>
 
-            <div className="grid grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
               {/* Teacher */}
               <div>
-                <label className="block text-gray-600 font-medium mb-1">
-                  Teacher<span className="text-red-500">*</span>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  Teacher <span className="text-red-500">*</span>
                 </label>
-                <select
+                <Select
                   name="teacher"
-                  value={formData.teacher}
-                  onChange={handleChange}
-                  required
-                  className="border border-gray-300 rounded-md px-3 py-2 w-full focus:ring-2 focus:ring-blue-400"
-                >
-                  <option value="">Select Teacher</option>
-                  {teachers.map((teacher) => (
-                    <option key={teacher.profile_id} value={teacher.profile_id}>
-                      {teacher.username}
-                    </option>
-                  ))}
-                </select>
+                  value={teachers.find(t => t.profile_id == formData.teacher) || null}
+                  onChange={(selected) => setFormData({ ...formData, teacher: selected?.profile_id || "" })}
+                  options={teachers}
+                  getOptionLabel={(t) => t.username}
+                  getOptionValue={(t) => t.profile_id}
+                  placeholder="Search & select teacher"
+                  isClearable
+                />
               </div>
-
 
               {/* Subject */}
               <div>
-                <label className="block text-gray-600 font-medium mb-1">
-                  Subject<span className="text-red-500">*</span>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  Subject <span className="text-red-500">*</span>
                 </label>
-                <select
+                <Select
                   name="subject"
-                  value={formData.subject}
-                  onChange={handleChange}
-                  required
-                  className="border border-gray-300 rounded-md px-3 py-2 w-full focus:ring-2 focus:ring-blue-400"
-                >
-                  <option value="">Select Subject</option>
-                  {subjects.map((subject) => (
-                    <option key={subject.id} value={subject.id}>
-                      {subject.subject_name}
-                    </option>
-                  ))}
-                </select>
+                  value={subjects.find(s => s.id == formData.subject) || null}
+                  onChange={(selected) => setFormData({ ...formData, subject: selected?.id || "" })}
+                  options={subjects}
+                  getOptionLabel={(s) => s.subject_name}
+                  getOptionValue={(s) => s.id}
+                  placeholder="Search & select subject"
+                  isClearable
+                />
               </div>
 
               {/* Class */}
               <div>
-                <label className="block text-gray-600 font-medium mb-1">
-                  Class<span className="text-red-500">*</span>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  Class <span className="text-red-500">*</span>
                 </label>
-                <select
+                <Select
                   name="class_schedule"
-                  value={formData.class_schedule}
-                  onChange={handleChange}
-                  required
-                  className="border border-gray-300 rounded-md px-3 py-2 w-full focus:ring-2 focus:ring-blue-400"
-                >
-                  <option value="">Select Class</option>
-                  {classes.map((cls) => (
-                    <option key={cls.id} value={cls.id}>
-                      {cls.class_name} - {cls.section} ({cls.session})
-                    </option>
-                  ))}
-                </select>
+                  value={classes.find(c => c.id == formData.class_schedule) || null}
+                  onChange={(selected) => setFormData({ ...formData, class_schedule: selected?.id || "" })}
+                  options={classes}
+                  getOptionLabel={(c) => `${c.class_name} - ${c.section} (${c.session})`}
+                  getOptionValue={(c) => c.id}
+                  placeholder="Search & select class"
+                  isClearable
+                />
               </div>
 
               {/* Room */}
               <div>
-                <label className="block text-gray-600 font-medium mb-1">
-                  Room<span className="text-red-500">*</span>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  Room <span className="text-red-500">*</span>
                 </label>
-                <select
+                <Select
                   name="room"
-                  value={formData.room}
-                  onChange={handleChange}
-                  required
-                  className="border border-gray-300 rounded-md px-3 py-2 w-full focus:ring-2 focus:ring-blue-400"
-                >
-                  <option value="">Select Room</option>
-                  {rooms.map((room) => (
-                    <option key={room.id} value={room.id}>
-                      {room.room_name}
-                    </option>
-                  ))}
-                </select>
+                  value={rooms.find(r => r.id == formData.room) || null}
+                  onChange={(selected) => setFormData({ ...formData, room: selected?.id || "" })}
+                  options={rooms}
+                  getOptionLabel={(r) => r.room_name}
+                  getOptionValue={(r) => r.id}
+                  placeholder="Search & select room"
+                  isClearable
+                />
               </div>
 
               {/* Start Time */}
               <div>
-                <label className="block text-gray-600 font-medium mb-1">
-                  Start Time<span className="text-red-500">*</span>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  Start Time <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="time"
@@ -377,14 +367,14 @@ const TimetableManagement = () => {
                   value={formData.start_time}
                   onChange={handleChange}
                   required
-                  className="border border-gray-300 rounded-md px-3 py-2 w-full focus:ring-2 focus:ring-blue-400"
+                  className="w-full px-4 py-2 rounded-md border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:outline-none"
                 />
               </div>
 
               {/* End Time */}
               <div>
-                <label className="block text-gray-600 font-medium mb-1">
-                  End Time<span className="text-red-500">*</span>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  End Time <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="time"
@@ -392,21 +382,21 @@ const TimetableManagement = () => {
                   value={formData.end_time}
                   onChange={handleChange}
                   required
-                  className="border border-gray-300 rounded-md px-3 py-2 w-full focus:ring-2 focus:ring-blue-400"
+                  className="w-full px-4 py-2 rounded-md border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:outline-none"
                 />
               </div>
 
               {/* Days */}
-              <div className="col-span-2">
-                <label className="block text-gray-600 font-medium mb-1">
-                  Days<span className="text-red-500">*</span>
+              <div className="md:col-span-2">
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  Days <span className="text-red-500">*</span>
                 </label>
                 <select
                   multiple
                   value={formData.days}
                   onChange={handleDaysChange}
                   required
-                  className="border border-gray-300 rounded-md px-3 py-2 w-full focus:ring-2 focus:ring-blue-400 h-32"
+                  className="w-full px-4 py-2 rounded-md border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:outline-none h-32"
                 >
                   <option value="Monday">Monday</option>
                   <option value="Tuesday">Tuesday</option>
@@ -414,23 +404,25 @@ const TimetableManagement = () => {
                   <option value="Thursday">Thursday</option>
                   <option value="Friday">Friday</option>
                 </select>
-                <small className="text-gray-500">
-                  * Hold <strong>Ctrl</strong> (or <strong>Cmd</strong> on Mac) to select multiple days.
-                </small>
+                <p className="text-gray-500 text-xs mt-1">
+                  Hold <strong>Ctrl</strong> (or <strong>Cmd</strong> on Mac) to select multiple days.
+                </p>
               </div>
             </div>
 
-            {/* Save Button */}
-            <div className="flex justify-end mt-6">
+            {/* Submit Button */}
+            <div className="flex justify-end mt-10">
               <button
                 type="submit"
-                className="bg-green-500 text-white px-6 py-2 rounded-md shadow-md hover:bg-green-600 transition duration-200"
+                className="bg-green-600 hover:bg-green-700 text-white font-semibold px-8 py-2 rounded-lg shadow-md transition duration-200"
               >
                 {editingId ? "Update Timetable" : "Save Timetable"}
               </button>
             </div>
           </form>
         )}
+
+
 
 
 
@@ -546,104 +538,48 @@ const TimetableManagement = () => {
 
         {/* View Modal */}
         {showModal && selectedTimetable && (
-          <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-60 px-4 z-50 ">
-            <div className="bg-white p-6 rounded-xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-hidden border border-gray-300">
+          <div className="fixed inset-0 bg-black bg-opacity-40 backdrop-blur-sm z-50 flex items-center justify-center px-4">
+            <div className="bg-white w-full max-w-3xl rounded-2xl shadow-2xl border border-gray-200 overflow-hidden">
+
               {/* Modal Header */}
-              <div className="flex justify-between items-center border-b pb-3">
-                <h2 className="text-2xl font-bold text-blue-600">
-                  Timetable Details
-                </h2>
+              <div className="flex items-center justify-between px-6 py-4 border-b bg-gradient-to-r from-blue-100 to-blue-200">
+                <h2 className="text-xl font-bold text-blue-800">📘 Timetable Details</h2>
                 <button
-                  className="text-gray-500 hover:text-gray-700 text-lg font-bold"
+                  className="text-gray-600 hover:text-red-500 text-2xl font-bold"
                   onClick={() => setShowModal(false)}
                 >
-                  ✖
+                  &times;
                 </button>
               </div>
 
-              {/* Modal Content (Scrollable) */}
-              <div className="overflow-y-auto flex-grow mt-4 px-2" style={{ maxHeight: "65vh" }}>
-                <div className="space-y-4">
-                  {/* Teacher */}
-                  <div className="flex justify-between border-b pb-2">
-                    <span className="font-semibold text-gray-700">Teacher:</span>
-                    <span className="text-gray-600">
-                      {selectedTimetable.teacher_name || "N/A"}
-                    </span>
-                  </div>
-
-                  {/* Subject */}
-                  <div className="flex justify-between border-b pb-2">
-                    <span className="font-semibold text-gray-700">Subject:</span>
-                    <span className="text-gray-600">
-                      {selectedTimetable.subject_name || "N/A"}
-                    </span>
-                  </div>
-
-                  {/* Class */}
-                  <div className="flex justify-between border-b pb-2">
-                    <span className="font-semibold text-gray-700">Class:</span>
-                    <span className="text-gray-600">
-                      {selectedTimetable.class_name || "N/A"}
-                    </span>
-                  </div>
-
-                  {/* Section */}
-                  <div className="flex justify-between border-b pb-2">
-                    <span className="font-semibold text-gray-700">Section:</span>
-                    <span className="text-gray-600">
-                      {selectedTimetable.section || "N/A"}
-                    </span>
-                  </div>
-
-                  {/* Session */}
-                  <div className="flex justify-between border-b pb-2">
-                    <span className="font-semibold text-gray-700">Session:</span>
-                    <span className="text-gray-600">
-                      {selectedTimetable.session || "N/A"}
-                    </span>
-                  </div>
-
-                  {/* Room */}
-                  <div className="flex justify-between border-b pb-2">
-                    <span className="font-semibold text-gray-700">Room:</span>
-                    <span className="text-gray-600">
-                      {selectedTimetable.room_name || "N/A"}
-                    </span>
-                  </div>
-
-                  {/* Start Time */}
-                  <div className="flex justify-between border-b pb-2">
-                    <span className="font-semibold text-gray-700">Start Time:</span>
-                    <span className="text-gray-600">
-                      {selectedTimetable.start_time || "N/A"}
-                    </span>
-                  </div>
-
-                  {/* End Time */}
-                  <div className="flex justify-between border-b pb-2">
-                    <span className="font-semibold text-gray-700">End Time:</span>
-                    <span className="text-gray-600">
-                      {selectedTimetable.end_time || "N/A"}
-                    </span>
-                  </div>
-
-                  {/* Days */}
-                  <div className="flex justify-between border-b pb-2">
-                    <span className="font-semibold text-gray-700">Days:</span>
-                    <span className="text-gray-600">
-                      {selectedTimetable.days?.length > 0
-                        ? selectedTimetable.days.join(", ")
-                        : "N/A"}
-                    </span>
-                  </div>
-                </div>
+              {/* Modal Body */}
+              <div className="overflow-y-auto max-h-[70vh]">
+                <table className="min-w-full text-sm text-gray-700">
+                  <tbody className="divide-y divide-gray-200">
+                    {[
+                      ["👨‍🏫 Teacher", selectedTimetable.teacher_name],
+                      ["📘 Subject", selectedTimetable.subject_name],
+                      ["🏫 Class", selectedTimetable.class_name],
+                      ["🏷️ Section", selectedTimetable.section],
+                      ["📆 Session", selectedTimetable.session],
+                      ["🏢 Room", selectedTimetable.room_name],
+                      ["🕘 Start Time", selectedTimetable.start_time],
+                      ["🕒 End Time", selectedTimetable.end_time],
+                      ["📅 Days", selectedTimetable.days?.join(", ") || "N/A"],
+                    ].map(([label, value], idx) => (
+                      <tr key={idx} className="hover:bg-gray-50">
+                        <td className="py-3 px-6 font-semibold bg-gray-50 w-1/3">{label}</td>
+                        <td className="py-3 px-6">{value || "N/A"}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
 
               {/* Modal Footer */}
-              <div className="mt-6 flex justify-end">
+              <div className="px-6 py-4 border-t bg-gray-50 text-right">
                 <button
-                  className="bg-blue-500 text-white px-5 py-2  rounded-lg shadow-md hover:bg-blue-600 transition duration-300 mb-2"
+                  className="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-5 py-2 rounded-lg transition duration-200"
                   onClick={() => setShowModal(false)}
                 >
                   Close
@@ -652,6 +588,8 @@ const TimetableManagement = () => {
             </div>
           </div>
         )}
+
+
 
       </div>
     </div>

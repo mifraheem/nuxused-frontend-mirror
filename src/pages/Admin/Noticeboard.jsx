@@ -455,56 +455,52 @@ const Noticeboard = () => {
       {/* ✅ View Modal */}
       {selectedNotice && (
         <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-60 px-4 z-50">
-          <div className="bg-white p-6 rounded-xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-hidden border border-gray-300">
+          <div className="bg-white w-full max-w-lg rounded-2xl shadow-2xl border border-gray-300 overflow-hidden">
+
             {/* Modal Header */}
-            <div className="flex justify-between items-center border-b pb-3">
-              <h2 className="text-2xl font-bold text-blue-600 truncate">
-                Notice Details
-              </h2>
+            <div className="flex items-center justify-between px-6 py-4 border-b bg-blue-50">
+              <h2 className="text-xl font-bold text-blue-700">📢 Notice Details</h2>
               <button
-                className="text-gray-500 hover:text-gray-700 text-lg font-bold"
                 onClick={() => setSelectedNotice(null)}
+                className="text-gray-600 hover:text-red-600 text-2xl font-bold leading-none"
               >
-                ✖
+                &times;
               </button>
             </div>
 
-            {/* Modal Content - Scrollable */}
-            <div className="overflow-y-auto flex-grow mt-4 px-2" style={{ maxHeight: "65vh" }}>
-              <div className="space-y-4">
-                {/* Title */}
-                <div className="flex justify-between border-b pb-2">
-                  <span className="font-semibold text-gray-700">Title:</span>
-                  <span className="text-gray-600 truncate">
-                    {selectedNotice.title || "N/A"}
-                  </span>
-                </div>
+            {/* Modal Body */}
+            <div className="px-6 py-5 overflow-y-auto max-h-[65vh] space-y-5 text-sm text-gray-700">
 
-                {/* Description */}
-                <div className="border-b pb-2">
-                  <span className="font-semibold text-gray-700">Description:</span>
-                  <div className="mt-1 p-3 border border-gray-300 rounded-md bg-gray-50 overflow-y-auto max-h-[150px]">
-                    <p className="text-gray-600 leading-relaxed whitespace-pre-wrap">
-                      {selectedNotice.description || "No description provided."}
-                    </p>
-                  </div>
+              {/* Title */}
+              <div>
+                <div className="text-gray-500 font-medium">📝 Title</div>
+                <div className="mt-1 text-gray-800 font-semibold truncate">
+                  {selectedNotice.title || "N/A"}
                 </div>
+              </div>
 
-                {/* Audience */}
-                <div className="flex justify-between border-b pb-2">
-                  <span className="font-semibold text-gray-700">Audience:</span>
-                  <span className="text-gray-600 capitalize">
-                    {selectedNotice.announced_for || "N/A"}
-                  </span>
+              {/* Description */}
+              <div>
+                <div className="text-gray-500 font-medium">📄 Description</div>
+                <div className="mt-1 p-3 bg-gray-100 rounded border border-gray-300 max-h-[150px] overflow-y-auto whitespace-pre-wrap leading-relaxed text-gray-800">
+                  {selectedNotice.description || "No description provided."}
+                </div>
+              </div>
+
+              {/* Audience */}
+              <div>
+                <div className="text-gray-500 font-medium">🎯 Audience</div>
+                <div className="mt-1 text-gray-800 capitalize">
+                  {selectedNotice.announced_for || "N/A"}
                 </div>
               </div>
             </div>
 
             {/* Modal Footer */}
-            <div className="mt-6 flex justify-end">
+            <div className="flex justify-end px-6 py-4 border-t bg-gray-50">
               <button
-                className="bg-blue-500 text-white px-5 py-2 rounded-lg shadow-md hover:bg-blue-600 transition duration-300"
                 onClick={() => setSelectedNotice(null)}
+                className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2 rounded-lg shadow transition"
               >
                 Close
               </button>
@@ -512,6 +508,7 @@ const Noticeboard = () => {
           </div>
         </div>
       )}
+
 
 
     </div>

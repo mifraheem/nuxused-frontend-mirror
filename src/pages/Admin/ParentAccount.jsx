@@ -285,63 +285,61 @@ const ParentAccount = () => {
       {/* ✅ View Modal */}
       {isViewModalOpen && selectedParent && (
         <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
-          <div className="bg-white rounded-lg shadow-xl w-full max-w-md max-h-[80vh] overflow-hidden">
-            {/* ✅ Header */}
-            <div className="border-b px-6 py-4 ">
-              <h2 className="text-2xl font-bold text-center text-blue-600">
-                Parent Details
-              </h2>
+          <div className="bg-white rounded-xl shadow-lg w-full max-w-md overflow-hidden border border-gray-200">
+
+            {/* Header */}
+            <div className="bg-blue-600 text-white text-center py-4 px-6 border-b">
+              <h2 className="text-xl font-bold">👨‍👩‍👧‍👦 Parent Details</h2>
             </div>
 
-            {/* ✅ Content (Scrollable) */}
-            <div className="overflow-y-auto max-h-[55vh] px-6 py-4 space-y-3">
-              <div className="flex justify-between border-b pb-2">
-                <span className="font-semibold text-gray-700">First Name:</span>
-                <span className="text-gray-600">{selectedParent.first_name || "N/A"}</span>
-              </div>
-
-              <div className="flex justify-between border-b pb-2">
-                <span className="font-semibold text-gray-700">Last Name:</span>
-                <span className="text-gray-600">{selectedParent.last_name || "N/A"}</span>
-              </div>
-
-              <div className="flex justify-between border-b pb-2">
-                <span className="font-semibold text-gray-700">Phone Number:</span>
-                <span className="text-gray-600">{selectedParent.phone_number || "N/A"}</span>
-              </div>
-
-              <div className="flex justify-between border-b pb-2">
-                <span className="font-semibold text-gray-700">Address:</span>
-                <span className="text-gray-600">{selectedParent.address || "N/A"}</span>
-              </div>
-
-              <div className="flex justify-between border-b pb-2">
-                <span className="font-semibold text-gray-700">Email:</span>
-                <span className="text-gray-600">{selectedParent.email || "N/A"}</span>
-              </div>
-
-              <div className="flex justify-between border-b pb-2">
-                <span className="font-semibold text-gray-700">Gender:</span>
-                <span className="text-gray-600">{selectedParent.gender || "N/A"}</span>
-              </div>
-
-              <div className="flex justify-between border-b pb-2">
-                <span className="font-semibold text-gray-700">Date of Birth:</span>
-                <span className="text-gray-600">{selectedParent.dob || "N/A"}</span>
-              </div>
-
-              <div className="flex justify-between border-b pb-2">
-                <span className="font-semibold text-gray-700">Children:</span>
-                <span className="text-gray-600">
-                  {selectedParent.linked_students?.join(", ") || "None"}
-                </span>
-              </div>
+            {/* Content */}
+            <div className="p-6 overflow-y-auto max-h-[60vh]">
+              <table className="table-auto w-full text-sm text-left border border-gray-200">
+                <tbody className="divide-y divide-gray-100">
+                  <tr>
+                    <th className="px-4 py-2 font-medium text-gray-700 w-1/3">First Name</th>
+                    <td className="px-4 py-2 text-gray-800">{selectedParent.first_name || "N/A"}</td>
+                  </tr>
+                  <tr>
+                    <th className="px-4 py-2 font-medium text-gray-700">Last Name</th>
+                    <td className="px-4 py-2 text-gray-800">{selectedParent.last_name || "N/A"}</td>
+                  </tr>
+                  <tr>
+                    <th className="px-4 py-2 font-medium text-gray-700">Phone Number</th>
+                    <td className="px-4 py-2 text-gray-800">{selectedParent.phone_number || "N/A"}</td>
+                  </tr>
+                  <tr>
+                    <th className="px-4 py-2 font-medium text-gray-700">Email</th>
+                    <td className="px-4 py-2 text-gray-800">{selectedParent.email || "N/A"}</td>
+                  </tr>
+                  <tr>
+                    <th className="px-4 py-2 font-medium text-gray-700">Address</th>
+                    <td className="px-4 py-2 text-gray-800">{selectedParent.address || "N/A"}</td>
+                  </tr>
+                  <tr>
+                    <th className="px-4 py-2 font-medium text-gray-700">Gender</th>
+                    <td className="px-4 py-2 text-gray-800 capitalize">{selectedParent.gender || "N/A"}</td>
+                  </tr>
+                  <tr>
+                    <th className="px-4 py-2 font-medium text-gray-700">Date of Birth</th>
+                    <td className="px-4 py-2 text-gray-800">{selectedParent.dob || "N/A"}</td>
+                  </tr>
+                  <tr>
+                    <th className="px-4 py-2 font-medium text-gray-700">Children</th>
+                    <td className="px-4 py-2 text-gray-800">
+                      {selectedParent.linked_students?.length > 0
+                        ? selectedParent.linked_students.join(", ")
+                        : "None"}
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
             </div>
 
-            {/* ✅ Footer */}
-            <div className="border-t px-6 py-4  flex justify-center">
+            {/* Footer */}
+            <div className="flex justify-center py-4 border-t">
               <button
-                className="bg-blue-500 hover:bg-blue-700 text-white font-semibold px-6 py-2 rounded-md shadow-md transition duration-300"
+                className="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-6 py-2 rounded-md transition duration-200"
                 onClick={closeViewModal}
               >
                 Close
@@ -353,140 +351,134 @@ const ParentAccount = () => {
 
 
 
+
       {/* ✅ Edit Modal */}
       {isEditModalOpen && selectedParent && (
-        <div className="fixed inset-0 flex items-center justify-center bg-gray-800 bg-opacity-50">
-          <div className="bg-white p-6 rounded-md w-96 max-h-[90vh] overflow-y-auto shadow-lg">
-            <h2 className="text-xl font-bold mb-4">Edit Parent</h2>
+        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
+          <div className="bg-white w-full max-w-md rounded-xl shadow-2xl overflow-hidden max-h-[85vh] border border-gray-200">
 
-            {/* First Name */}
-            <label className="block text-gray-700 font-medium">First Name</label>
-            <input
-              type="text"
-              value={selectedParent.first_name || ""}
-              onChange={(e) =>
-                setSelectedParent({ ...selectedParent, first_name: e.target.value })
-              }
-              className="border w-full p-2 rounded mt-1"
-            />
-
-            {/* Last Name */}
-            <label className="block text-gray-700 font-medium mt-2">Last Name</label>
-            <input
-              type="text"
-              value={selectedParent.last_name || ""}
-              onChange={(e) =>
-                setSelectedParent({ ...selectedParent, last_name: e.target.value })
-              }
-              className="border w-full p-2 rounded mt-1"
-            />
-
-            {/* Phone Number */}
-            <label className="block text-gray-700 font-medium mt-2">Phone Number</label>
-            <input
-              type="text"
-              value={selectedParent.phone_number || ""}
-              onChange={(e) =>
-                setSelectedParent({ ...selectedParent, phone_number: e.target.value })
-              }
-              className="border w-full p-2 rounded mt-1"
-            />
-
-            {/* Address */}
-            <label className="block text-gray-700 font-medium mt-2">Address</label>
-            <input
-              type="text"
-              value={selectedParent.address || ""}
-              onChange={(e) =>
-                setSelectedParent({ ...selectedParent, address: e.target.value })
-              }
-              className="border w-full p-2 rounded mt-1"
-            />
-
-            {/* Email */}
-            <label className="block text-gray-700 font-medium mt-2">Email</label>
-            <input
-              type="email"
-              value={selectedParent.email || ""}
-              onChange={(e) =>
-                setSelectedParent({ ...selectedParent, email: e.target.value })
-              }
-              className="border w-full p-2 rounded mt-1"
-            />
-
-            {/* Children (Multi-Select Dropdown) */}
-            {/* Children (Multi-Select Dropdown) */}
-            <label className="block text-gray-700 font-medium mt-2">
-              Select Child(ren)
-            </label>
-            <div className="relative">
-              <select
-                multiple
-                value={selectedParent.children || []}
-                onChange={(e) =>
-                  setSelectedParent({
-                    ...selectedParent,
-                    children: Array.from(e.target.selectedOptions).map((opt) =>
-                      parseInt(opt.value) // ✅ Convert to integer
-                    ),
-                  })
-                }
-                className="border w-full p-2 rounded mt-1"
-                style={{
-                  overflowY: "auto",
-                  maxHeight: "150px",
-                }}
-              >
-                {students.map((student) => (
-                  <option key={student.id} value={student.user_id}>
-                    {student.first_name} {student.last_name}
-                  </option>
-                ))}
-              </select>
-              <span className="absolute right-2 top-2 text-gray-400 pointer-events-none">
-                ▼
-              </span>
+            {/* Header */}
+            <div className="bg-blue-600 text-white text-center py-4 px-6 border-b">
+              <h2 className="text-xl font-bold">👨‍👩‍👧 Edit Parent Profile</h2>
             </div>
 
+            {/* Form Content */}
+            <div className="p-6 overflow-y-auto max-h-[60vh] space-y-4">
+              {/* First Name */}
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-1">First Name</label>
+                <input
+                  type="text"
+                  value={selectedParent.first_name || ""}
+                  onChange={(e) => setSelectedParent({ ...selectedParent, first_name: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
 
+              {/* Last Name */}
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-1">Last Name</label>
+                <input
+                  type="text"
+                  value={selectedParent.last_name || ""}
+                  onChange={(e) => setSelectedParent({ ...selectedParent, last_name: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
 
+              {/* Phone Number */}
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-1">Phone Number</label>
+                <input
+                  type="text"
+                  value={selectedParent.phone_number || ""}
+                  onChange={(e) => setSelectedParent({ ...selectedParent, phone_number: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
 
-            {/* Gender */}
-            <label className="block text-gray-700 font-medium mt-2">Gender</label>
-            <select
-              value={selectedParent.gender || ""}
-              onChange={(e) =>
-                setSelectedParent({ ...selectedParent, gender: e.target.value })
-              }
-              className="border w-full p-2 rounded mt-1"
-            >
-              <option value="">Select Gender</option>
-              <option value="Male">Male</option>
-              <option value="Female">Female</option>
-            </select>
+              {/* Address */}
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-1">Address</label>
+                <input
+                  type="text"
+                  value={selectedParent.address || ""}
+                  onChange={(e) => setSelectedParent({ ...selectedParent, address: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
 
-            {/* Date of Birth */}
-            <label className="block text-gray-700 font-medium mt-2">Date of Birth</label>
-            <input
-              type="date"
-              value={selectedParent.dob || ""}
-              onChange={(e) =>
-                setSelectedParent({ ...selectedParent, dob: e.target.value })
-              }
-              className="border w-full p-2 rounded mt-1"
-            />
+              {/* Email */}
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-1">Email</label>
+                <input
+                  type="email"
+                  value={selectedParent.email || ""}
+                  onChange={(e) => setSelectedParent({ ...selectedParent, email: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
 
-            {/* Buttons */}
-            <div className="flex justify-end mt-4 gap-2">
+              {/* Children Select */}
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-1">Select Child(ren)</label>
+                <select
+                  multiple
+                  value={selectedParent.children || []}
+                  onChange={(e) =>
+                    setSelectedParent({
+                      ...selectedParent,
+                      children: Array.from(e.target.selectedOptions).map(opt => parseInt(opt.value)),
+                    })
+                  }
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  style={{ maxHeight: "150px", overflowY: "auto" }}
+                >
+                  {students.map((student) => (
+                    <option key={student.id} value={student.user_id}>
+                      {student.first_name} {student.last_name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Gender */}
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-1">Gender</label>
+                <select
+                  value={selectedParent.gender || ""}
+                  onChange={(e) => setSelectedParent({ ...selectedParent, gender: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="">Select Gender</option>
+                  <option value="Male">Male</option>
+                  <option value="Female">Female</option>
+                </select>
+              </div>
+
+              {/* Date of Birth */}
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-1">Date of Birth</label>
+                <input
+                  type="date"
+                  value={selectedParent.dob || ""}
+                  onChange={(e) => setSelectedParent({ ...selectedParent, dob: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+            </div>
+
+            {/* Footer Buttons */}
+            <div className="flex justify-end items-center gap-3 px-6 py-4 border-t">
               <button
                 onClick={() => setIsEditModalOpen(false)}
-                className="bg-gray-300 px-4 py-2 rounded hover:bg-gray-400"
+                className="px-5 py-2 bg-gray-200 hover:bg-gray-300 text-gray-800 font-medium rounded-md transition"
               >
                 Cancel
               </button>
               <button
                 onClick={updateParent}
-                className="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600"
+                className="px-5 py-2 bg-green-600 hover:bg-green-700 text-white font-semibold rounded-md transition"
               >
                 Save
               </button>
@@ -494,6 +486,7 @@ const ParentAccount = () => {
           </div>
         </div>
       )}
+
 
     </div>
   );

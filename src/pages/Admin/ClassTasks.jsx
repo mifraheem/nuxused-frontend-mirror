@@ -3,6 +3,8 @@ import Cookies from "js-cookie";
 import axios from "axios";
 import toast, { Toaster } from "react-hot-toast";
 import { MdEdit, MdDelete, MdVisibility } from "react-icons/md";
+import Select from "react-select";
+
 
 const ClassTasks = () => {
   const [tasks, setTasks] = useState([]);
@@ -204,18 +206,19 @@ const ClassTasks = () => {
       {showForm && (
         <div className="bg-blue-50 p-6 rounded-md mt-4">
           <div className="grid grid-cols-2 gap-4">
-            <select
-              className="p-2 border rounded"
-              value={newTask.class_schedule}
-              onChange={(e) => setNewTask({ ...newTask, class_schedule: e.target.value })}
-            >
-              <option value="">Select Class</option>
-              {classOptions.map((cls) => (
-                <option key={cls.id} value={cls.id}>
-                  {cls.class_name} - {cls.section} ({cls.session})
-                </option>
-              ))}
-            </select>
+            <Select
+              className="w-full"
+              isClearable
+              placeholder="Select Class"
+              options={classOptions}
+              getOptionLabel={(cls) => `${cls.class_name} - ${cls.section} (${cls.session})`}
+              getOptionValue={(cls) => cls.id}
+              value={classOptions.find((cls) => cls.id === parseInt(newTask.class_schedule)) || null}
+              onChange={(selected) =>
+                setNewTask({ ...newTask, class_schedule: selected?.id || "" })
+              }
+            />
+
 
             <input
               type="text"

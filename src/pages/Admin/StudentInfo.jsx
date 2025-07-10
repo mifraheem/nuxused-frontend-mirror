@@ -307,69 +307,66 @@ const StudentInfo = () => {
 
         {/* View Modal */}
         {isViewModalOpen && selectedStudent && (
-          <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 px-4">
-            <div className="bg-white p-6 rounded-lg shadow-lg w-96 max-h-[80vh] overflow-hidden flex flex-col">
+          <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 px-4 z-50">
+            <div className="bg-white rounded-xl shadow-lg w-full max-w-md overflow-hidden border border-gray-200">
+
               {/* Modal Header */}
-              <div className="flex justify-between items-center border-b pb-2 mb-4">
-                <h2 className="text-xl font-bold text-gray-700">Student Details</h2>
-                <button
-                  className="text-gray-500 hover:text-gray-700 text-lg font-bold"
-                  onClick={() => setIsViewModalOpen(false)}
-                >
-                  ✖
-                </button>
+              <div className="bg-blue-600 text-white py-4 px-6 border-b">
+                <h2 className="text-xl font-bold text-center">🎓 Student Details</h2>
               </div>
 
-              {/* Modal Content (Scrollable) */}
-              <div className="overflow-y-auto flex-grow px-2" style={{ maxHeight: "55vh" }}>
-                <div className="space-y-3">
-                  <div className="flex justify-between">
-                    <span className="text-gray-600 font-medium">Username:</span>
-                    <span className="text-gray-800">{selectedStudent.username || "N/A"}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-600 font-medium">First Name:</span>
-                    <span className="text-gray-800">{selectedStudent.first_name || "N/A"}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-600 font-medium">Last Name:</span>
-                    <span className="text-gray-800">{selectedStudent.last_name || "N/A"}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-600 font-medium">Email:</span>
-                    <span className="text-gray-800">{selectedStudent.email || "N/A"}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-600 font-medium">Phone Number:</span>
-                    <span className="text-gray-800">{selectedStudent.phone_number || "N/A"}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-600 font-medium">Address:</span>
-                    <span className="text-gray-800">{selectedStudent.address || "N/A"}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-600 font-medium">Date of Birth:</span>
-                    <span className="text-gray-800">{selectedStudent.dob || "N/A"}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-600 font-medium">Gender:</span>
-                    <span className="text-gray-800">{selectedStudent.gender || "N/A"}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-600 font-medium">Class Name:</span>
-                    <span className="text-gray-800">{selectedStudent.class_name || "N/A"}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-600 font-medium">Role:</span>
-                    <span className="text-gray-800">{selectedStudent.role || "N/A"}</span>
-                  </div>
-                </div>
+              {/* Modal Content */}
+              <div className="p-6 overflow-y-auto max-h-[60vh]">
+                <table className="table-auto w-full text-sm text-left border border-gray-200">
+                  <tbody className="divide-y divide-gray-100">
+                    <tr>
+                      <th className="px-4 py-2 text-gray-700 w-1/3 font-medium">Username</th>
+                      <td className="px-4 py-2 text-gray-800">{selectedStudent.username || "N/A"}</td>
+                    </tr>
+                    <tr>
+                      <th className="px-4 py-2 text-gray-700 font-medium">First Name</th>
+                      <td className="px-4 py-2 text-gray-800">{selectedStudent.first_name || "N/A"}</td>
+                    </tr>
+                    <tr>
+                      <th className="px-4 py-2 text-gray-700 font-medium">Last Name</th>
+                      <td className="px-4 py-2 text-gray-800">{selectedStudent.last_name || "N/A"}</td>
+                    </tr>
+                    <tr>
+                      <th className="px-4 py-2 text-gray-700 font-medium">Email</th>
+                      <td className="px-4 py-2 text-gray-800">{selectedStudent.email || "N/A"}</td>
+                    </tr>
+                    <tr>
+                      <th className="px-4 py-2 text-gray-700 font-medium">Phone</th>
+                      <td className="px-4 py-2 text-gray-800">{selectedStudent.phone_number || "N/A"}</td>
+                    </tr>
+                    <tr>
+                      <th className="px-4 py-2 text-gray-700 font-medium">Address</th>
+                      <td className="px-4 py-2 text-gray-800">{selectedStudent.address || "N/A"}</td>
+                    </tr>
+                    <tr>
+                      <th className="px-4 py-2 text-gray-700 font-medium">Date of Birth</th>
+                      <td className="px-4 py-2 text-gray-800">{selectedStudent.dob || "N/A"}</td>
+                    </tr>
+                    <tr>
+                      <th className="px-4 py-2 text-gray-700 font-medium">Gender</th>
+                      <td className="px-4 py-2 text-gray-800 capitalize">{selectedStudent.gender || "N/A"}</td>
+                    </tr>
+                    <tr>
+                      <th className="px-4 py-2 text-gray-700 font-medium">Class</th>
+                      <td className="px-4 py-2 text-gray-800">{selectedStudent.class_name || "N/A"}</td>
+                    </tr>
+                    <tr>
+                      <th className="px-4 py-2 text-gray-700 font-medium">Role</th>
+                      <td className="px-4 py-2 text-gray-800 capitalize">{selectedStudent.role || "N/A"}</td>
+                    </tr>
+                  </tbody>
+                </table>
               </div>
 
               {/* Modal Footer */}
-              <div className="mt-4 text-right">
+              <div className="flex justify-center py-4 border-t">
                 <button
-                  className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
+                  className="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-6 py-2 rounded-md transition duration-200"
                   onClick={() => setIsViewModalOpen(false)}
                 >
                   Close
@@ -379,73 +376,100 @@ const StudentInfo = () => {
           </div>
         )}
 
+
         {/* Edit Modal */}
         {isEditModalOpen && selectedStudent && (
-          <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50">
-            <div className="bg-white p-6 rounded-lg shadow-lg w-96 max-h-[80vh] overflow-y-auto">
-              <h2 className="text-lg font-bold text-center">Edit Student</h2>
+          <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
+            <div className="bg-white w-full max-w-md rounded-xl shadow-2xl overflow-hidden max-h-[85vh] border border-gray-200">
 
-              <label className="block text-gray-700 font-medium mt-2">First Name</label>
-              <input
-                className="border p-2 w-full mt-1 rounded"
-                type="text"
-                value={selectedStudent.first_name || ""}
-                onChange={(e) => setSelectedStudent({ ...selectedStudent, first_name: e.target.value })}
-              />
+              {/* Header */}
+              <div className="bg-blue-600 text-white text-center py-4 px-6 border-b">
+                <h2 className="text-xl font-bold">🎓 Edit Student Profile</h2>
+              </div>
 
-              <label className="block text-gray-700 font-medium mt-2">Last Name</label>
-              <input
-                className="border p-2 w-full mt-1 rounded"
-                type="text"
-                value={selectedStudent.last_name || ""}
-                onChange={(e) => setSelectedStudent({ ...selectedStudent, last_name: e.target.value })}
-              />
+              {/* Form Content */}
+              <div className="p-6 overflow-y-auto max-h-[60vh] space-y-4">
+                {/* First Name */}
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1">First Name</label>
+                  <input
+                    type="text"
+                    value={selectedStudent.first_name || ""}
+                    onChange={(e) => setSelectedStudent({ ...selectedStudent, first_name: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
 
-              <label className="block text-gray-700 font-medium mt-2">Phone Number</label>
-              <input
-                className="border p-2 w-full mt-1 rounded"
-                type="text"
-                value={selectedStudent.phone_number || ""}
-                onChange={(e) => setSelectedStudent({ ...selectedStudent, phone_number: e.target.value })}
-              />
+                {/* Last Name */}
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1">Last Name</label>
+                  <input
+                    type="text"
+                    value={selectedStudent.last_name || ""}
+                    onChange={(e) => setSelectedStudent({ ...selectedStudent, last_name: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
 
-              <label className="block text-gray-700 font-medium mt-2">Address</label>
-              <input
-                className="border p-2 w-full mt-1 rounded"
-                type="text"
-                value={selectedStudent.address || ""}
-                onChange={(e) => setSelectedStudent({ ...selectedStudent, address: e.target.value })}
-              />
+                {/* Phone Number */}
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1">Phone Number</label>
+                  <input
+                    type="text"
+                    value={selectedStudent.phone_number || ""}
+                    onChange={(e) => setSelectedStudent({ ...selectedStudent, phone_number: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
 
-              <label className="block text-gray-700 font-medium mt-2">Date of Birth</label>
-              <input
-                className="border p-2 w-full mt-1 rounded"
-                type="date"
-                value={selectedStudent.dob || ""}
-                onChange={(e) => setSelectedStudent({ ...selectedStudent, dob: e.target.value })}
-              />
+                {/* Address */}
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1">Address</label>
+                  <input
+                    type="text"
+                    value={selectedStudent.address || ""}
+                    onChange={(e) => setSelectedStudent({ ...selectedStudent, address: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
 
-              <label className="block text-gray-700 font-medium mt-2">Gender</label>
-              <select
-                className="border p-2 w-full mt-1 rounded"
-                value={selectedStudent.gender || ""}
-                onChange={(e) => setSelectedStudent({ ...selectedStudent, gender: e.target.value })}
-              >
-                <option value="">Select Gender</option>
-                <option value="Male">Male</option>
-                <option value="Female">Female</option>
-              </select>
+                {/* Date of Birth */}
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1">Date of Birth</label>
+                  <input
+                    type="date"
+                    value={selectedStudent.dob || ""}
+                    onChange={(e) => setSelectedStudent({ ...selectedStudent, dob: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
 
-              <div className="flex justify-end gap-2 mt-4">
+                {/* Gender */}
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1">Gender</label>
+                  <select
+                    value={selectedStudent.gender || ""}
+                    onChange={(e) => setSelectedStudent({ ...selectedStudent, gender: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="">Select Gender</option>
+                    <option value="Male">Male</option>
+                    <option value="Female">Female</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Footer Buttons */}
+              <div className="flex justify-end items-center gap-3 px-6 py-4 border-t">
                 <button
-                  className="bg-gray-300 px-4 py-2 rounded hover:bg-gray-400"
                   onClick={() => setIsEditModalOpen(false)}
+                  className="px-5 py-2 bg-gray-200 hover:bg-gray-300 text-gray-800 font-medium rounded-md transition"
                 >
                   Cancel
                 </button>
                 <button
-                  className="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600"
                   onClick={updateStudent}
+                  className="px-5 py-2 bg-green-600 hover:bg-green-700 text-white font-semibold rounded-md transition"
                 >
                   Save
                 </button>
@@ -453,6 +477,7 @@ const StudentInfo = () => {
             </div>
           </div>
         )}
+
       </div>
     </div>
   );

@@ -5,6 +5,7 @@ import toast, { Toaster } from "react-hot-toast";
 import { MdEdit, MdDelete } from "react-icons/md";
 import { Buttons } from "../../components";
 import apiRequest from '../../helpers/apiRequest';
+import Select from "react-select"
 
 
 const FeeStructures = () => {
@@ -181,7 +182,7 @@ const FeeStructures = () => {
         { label: "Active", key: "is_active" },
     ];
 
-    const permissions = Cookies.get("permissions")?.split(",") || [];
+    const permissions = JSON.parse(localStorage.getItem("user_permissions") || "[]");
 
     const canAdd = permissions.includes("users.add_feestructure");
     const canEdit = permissions.includes("users.change_feestructure");
@@ -223,58 +224,68 @@ const FeeStructures = () => {
 
             <div className="p-6">
                 {showForm && canAdd && (
-                    <div className="p-6 bg-blue-50 rounded-md mb-6">
-                        <h2 className="text-lg font-semibold text-blue-900">
-                            {editingStructure ? "Edit Fee Structure" : "Create Fee Structure"}
+                    <div className="p-6 bg-white rounded-lg shadow-md border border-gray-200 max-w-2xl mx-auto mb-6">
+                        <h2 className="text-xl font-semibold text-blue-800 mb-4">
+                            {editingStructure ? "Edit Fee Structure" : "Create New Fee Structure"}
                         </h2>
-                        <div className="grid grid-cols-2 gap-4 mt-4">
-                            <select
-                                value={newFeeStructure.class_assigned_id}
-                                onChange={(e) =>
-                                    setNewFeeStructure({ ...newFeeStructure, class_assigned_id: parseInt(e.target.value) })
-                                }
-                                className="p-2 border border-gray-300 rounded"
-                            >
-                                <option value="">Select Class</option>
-                                {classes.map((cls) => (
-                                    <option key={cls.id} value={cls.id}>
-                                        {cls.class_name} {cls.section}
-                                    </option>
-                                ))}
-                            </select>
 
-                            <select
-                                value={newFeeStructure.fee_type_id}
-                                onChange={(e) =>
-                                    setNewFeeStructure({ ...newFeeStructure, fee_type_id: parseInt(e.target.value) })
-                                }
-                                className="p-2 border border-gray-300 rounded"
-                            >
-                                <option value="">Select Fee Type</option>
-                                {feeTypes.map((ft) => (
-                                    <option key={ft.id} value={ft.id}>
-                                        {ft.name}
-                                    </option>
-                                ))}
-                            </select>
-                            <input
-                                type="number"
-                                placeholder="Amount"
-                                value={newFeeStructure.amount}
-                                onChange={(e) =>
-                                    setNewFeeStructure({ ...newFeeStructure, amount: parseFloat(e.target.value) })
-                                }
-                                className="p-2 border border-gray-300 rounded"
-                            />
-                            <input
-                                type="date"
-                                value={newFeeStructure.due_date}
-                                onChange={(e) =>
-                                    setNewFeeStructure({ ...newFeeStructure, due_date: e.target.value })
-                                }
-                                className="p-2 border border-gray-300 rounded"
-                            />
-                            <label className="col-span-2">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Class</label>
+                                <Select
+                                    value={classes.find(cls => cls.id === newFeeStructure.class_assigned_id) || null}
+                                    onChange={(selected) =>
+                                        setNewFeeStructure({ ...newFeeStructure, class_assigned_id: selected?.id || "" })
+                                    }
+                                    options={classes}
+                                    getOptionLabel={(cls) => `${cls.class_name} ${cls.section} (${cls.session})`}
+                                    getOptionValue={(cls) => cls.id}
+                                    placeholder="Search or select class"
+                                    isClearable
+                                />
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Fee Type</label>
+                                <Select
+                                    value={feeTypes.find(ft => ft.id === newFeeStructure.fee_type_id) || null}
+                                    onChange={(selected) =>
+                                        setNewFeeStructure({ ...newFeeStructure, fee_type_id: selected?.id || "" })
+                                    }
+                                    options={feeTypes}
+                                    getOptionLabel={(ft) => ft.name}
+                                    getOptionValue={(ft) => ft.id}
+                                    placeholder="Search or select fee type"
+                                    isClearable
+                                />
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Amount</label>
+                                <input
+                                    type="number"
+                                    placeholder="e.g. 1000"
+                                    value={newFeeStructure.amount}
+                                    onChange={(e) =>
+                                        setNewFeeStructure({ ...newFeeStructure, amount: parseFloat(e.target.value) || "" })
+                                    }
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
+                                />
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Due Date</label>
+                                <input
+                                    type="date"
+                                    value={newFeeStructure.due_date}
+                                    onChange={(e) =>
+                                        setNewFeeStructure({ ...newFeeStructure, due_date: e.target.value })
+                                    }
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
+                                />
+                            </div>
+
+                            <div className="md:col-span-2 flex items-center mt-2">
                                 <input
                                     type="checkbox"
                                     checked={newFeeStructure.is_active}
@@ -283,15 +294,16 @@ const FeeStructures = () => {
                                     }
                                     className="mr-2"
                                 />
-                                Active
-                            </label>
+                                <label className="text-sm text-gray-700 font-medium">Mark as Active</label>
+                            </div>
                         </div>
-                        <div className="flex justify-end mt-4">
+
+                        <div className="mt-6 text-right">
                             <button
                                 onClick={handleSaveStructure}
-                                className="bg-green-500 text-white px-4 py-2 rounded shadow hover:bg-green-700"
+                                className="bg-blue-600 hover:bg-blue-800 text-white font-medium px-6 py-2 rounded-md shadow-sm transition duration-150"
                             >
-                                {editingStructure ? "Update" : "Save"}
+                                {editingStructure ? "Update Structure" : "Save Structure"}
                             </button>
                         </div>
                     </div>

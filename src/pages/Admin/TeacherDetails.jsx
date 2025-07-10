@@ -290,51 +290,62 @@ const TeacherDetails = () => {
       {/* ✅ View Modal */}
       {isViewModalOpen && selectedTeacher && (
         <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
-          <div className="bg-white p-6 rounded-lg shadow-lg w-[400px] max-h-[80vh] overflow-y-auto">
-            <h2 className="text-xl font-bold text-center mb-4 text-blue-600 border-b pb-2">
-              Teacher Details
-            </h2>
-            <div className="space-y-3">
-              <div className="flex justify-between border-b pb-2">
-                <span className="font-semibold text-gray-700">Username:</span>
-                <span className="text-gray-600">{selectedTeacher.username || 'N/A'}</span>
-              </div>
-              <div className="flex justify-between border-b pb-2">
-                <span className="font-semibold text-gray-700">First Name:</span>
-                <span className="text-gray-600">{selectedTeacher.first_name || 'N/A'}</span>
-              </div>
-              <div className="flex justify-between border-b pb-2">
-                <span className="font-semibold text-gray-700">Last Name:</span>
-                <span className="text-gray-600">{selectedTeacher.last_name || 'N/A'}</span>
-              </div>
-              <div className="flex justify-between border-b pb-2">
-                <span className="font-semibold text-gray-700">Email:</span>
-                <span className="text-gray-600">{selectedTeacher.email || 'N/A'}</span>
-              </div>
-              <div className="flex justify-between border-b pb-2">
-                <span className="font-semibold text-gray-700">Phone Number:</span>
-                <span className="text-gray-600">{selectedTeacher.phone_number || 'N/A'}</span>
-              </div>
-              <div className="flex justify-between border-b pb-2">
-                <span className="font-semibold text-gray-700">Address:</span>
-                <span className="text-gray-600">{selectedTeacher.address || 'N/A'}</span>
-              </div>
-              <div className="flex justify-between border-b pb-2">
-                <span className="font-semibold text-gray-700">Date of Birth:</span>
-                <span className="text-gray-600">{selectedTeacher.dob || 'N/A'}</span>
-              </div>
-              <div className="flex justify-between border-b pb-2">
-                <span className="font-semibold text-gray-700">Gender:</span>
-                <span className="text-gray-600">{selectedTeacher.gender || 'N/A'}</span>
-              </div>
-              <div className="flex justify-between border-b pb-2">
-                <span className="font-semibold text-gray-700">Salary:</span>
-                <span className="text-gray-600">{selectedTeacher.salary ? `Rs.${selectedTeacher.salary}` : 'N/A'}</span>
-              </div>
+          <div className="bg-white rounded-xl shadow-lg w-full max-w-md overflow-hidden border border-gray-200">
+            {/* Modal Header */}
+            <div className="bg-blue-600 text-white text-center py-4 px-6 border-b">
+              <h2 className="text-xl font-bold">👤 Teacher Details</h2>
             </div>
-            <div className="flex justify-center mt-6">
+
+            {/* Modal Content */}
+            <div className="p-6 overflow-y-auto max-h-[70vh]">
+              <table className="table-auto w-full text-sm text-left border border-gray-200">
+                <tbody className="divide-y divide-gray-100">
+                  <tr>
+                    <th className="px-4 py-2 font-medium text-gray-700 w-1/3">Username</th>
+                    <td className="px-4 py-2 text-gray-800">{selectedTeacher.username || "N/A"}</td>
+                  </tr>
+                  <tr>
+                    <th className="px-4 py-2 font-medium text-gray-700">First Name</th>
+                    <td className="px-4 py-2 text-gray-800">{selectedTeacher.first_name || "N/A"}</td>
+                  </tr>
+                  <tr>
+                    <th className="px-4 py-2 font-medium text-gray-700">Last Name</th>
+                    <td className="px-4 py-2 text-gray-800">{selectedTeacher.last_name || "N/A"}</td>
+                  </tr>
+                  <tr>
+                    <th className="px-4 py-2 font-medium text-gray-700">Email</th>
+                    <td className="px-4 py-2 text-gray-800">{selectedTeacher.email || "N/A"}</td>
+                  </tr>
+                  <tr>
+                    <th className="px-4 py-2 font-medium text-gray-700">Phone</th>
+                    <td className="px-4 py-2 text-gray-800">{selectedTeacher.phone_number || "N/A"}</td>
+                  </tr>
+                  <tr>
+                    <th className="px-4 py-2 font-medium text-gray-700">Address</th>
+                    <td className="px-4 py-2 text-gray-800">{selectedTeacher.address || "N/A"}</td>
+                  </tr>
+                  <tr>
+                    <th className="px-4 py-2 font-medium text-gray-700">Date of Birth</th>
+                    <td className="px-4 py-2 text-gray-800">{selectedTeacher.dob || "N/A"}</td>
+                  </tr>
+                  <tr>
+                    <th className="px-4 py-2 font-medium text-gray-700">Gender</th>
+                    <td className="px-4 py-2 text-gray-800 capitalize">{selectedTeacher.gender || "N/A"}</td>
+                  </tr>
+                  <tr>
+                    <th className="px-4 py-2 font-medium text-gray-700">Salary</th>
+                    <td className="px-4 py-2 text-gray-800">
+                      {selectedTeacher.salary ? `Rs. ${selectedTeacher.salary}` : "N/A"}
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="flex justify-center py-4 border-t">
               <button
-                className="bg-blue-500 hover:bg-blue-700 text-white font-semibold px-6 py-2 rounded-md shadow-md transition duration-300"
+                className="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-6 py-2 rounded-md transition duration-200"
                 onClick={() => setIsViewModalOpen(false)}
               >
                 Close
@@ -347,71 +358,99 @@ const TeacherDetails = () => {
 
       {/* ✅ Edit Modal */}
       {isEditModalOpen && selectedTeacher && (
-        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50">
-          <div className="bg-white p-6 rounded-lg shadow-lg w-96 max-h-[80vh] overflow-y-auto">
-            <h2 className="text-lg font-bold text-center">Edit Teacher</h2>
+        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
+          <div className="bg-white w-full max-w-md rounded-xl shadow-2xl overflow-hidden max-h-[85vh] border border-gray-200">
 
-            <label className="block text-gray-700 font-medium mt-2">First Name</label>
-            <input
-              className="border p-2 w-full mt-1 rounded"
-              type="text"
-              value={selectedTeacher.first_name || ""}
-              onChange={(e) => setSelectedTeacher({ ...selectedTeacher, first_name: e.target.value })}
-            />
+            {/* Header */}
+            <div className="bg-blue-600 text-white text-center py-4 px-6 border-b">
+              <h2 className="text-xl font-bold">✏️ Edit Teacher Profile</h2>
+            </div>
 
-            <label className="block text-gray-700 font-medium mt-2">Last Name</label>
-            <input
-              className="border p-2 w-full mt-1 rounded"
-              type="text"
-              value={selectedTeacher.last_name || ""}
-              onChange={(e) => setSelectedTeacher({ ...selectedTeacher, last_name: e.target.value })}
-            />
-            {/* Phone Number */}
-            <label className="block text-gray-700 font-medium mt-2">Phone Number</label>
-            <input
-              className="border p-2 w-full mt-1 rounded"
-              type="text"
-              value={selectedTeacher.phone_number || ""}
-              onChange={(e) => setSelectedTeacher({ ...selectedTeacher, phone_number: e.target.value })}
-            />
+            {/* Form Content */}
+            <div className="p-6 overflow-y-auto max-h-[60vh] space-y-4">
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-1">First Name</label>
+                <input
+                  type="text"
+                  value={selectedTeacher.first_name || ""}
+                  onChange={(e) => setSelectedTeacher({ ...selectedTeacher, first_name: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
 
-            {/* Address */}
-            <label className="block text-gray-700 font-medium mt-2">Address</label>
-            <input
-              className="border p-2 w-full mt-1 rounded"
-              type="text"
-              value={selectedTeacher.address || ""}
-              onChange={(e) => setSelectedTeacher({ ...selectedTeacher, address: e.target.value })}
-            />
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-1">Last Name</label>
+                <input
+                  type="text"
+                  value={selectedTeacher.last_name || ""}
+                  onChange={(e) => setSelectedTeacher({ ...selectedTeacher, last_name: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
 
-            {/* Date of Birth */}
-            <label className="block text-gray-700 font-medium mt-2">Date of Birth</label>
-            <input
-              className="border p-2 w-full mt-1 rounded"
-              type="date"
-              value={selectedTeacher.dob || ""}
-              onChange={(e) => setSelectedTeacher({ ...selectedTeacher, dob: e.target.value })}
-            />
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-1">Phone Number</label>
+                <input
+                  type="text"
+                  value={selectedTeacher.phone_number || ""}
+                  onChange={(e) => setSelectedTeacher({ ...selectedTeacher, phone_number: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
 
-            {/* Gender Dropdown */}
-            <label className="block text-gray-700 font-medium mt-2">Gender</label>
-            <select
-              className="border p-2 w-full mt-1 rounded"
-              value={selectedTeacher.gender || ""}
-              onChange={(e) => setSelectedTeacher({ ...selectedTeacher, gender: e.target.value })}
-            >
-              <option value="">Select Gender</option>
-              <option value="Male">Male</option>
-              <option value="Female">Female</option>
-            </select>
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-1">Address</label>
+                <input
+                  type="text"
+                  value={selectedTeacher.address || ""}
+                  onChange={(e) => setSelectedTeacher({ ...selectedTeacher, address: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
 
-            <div className="flex justify-end gap-2 mt-4">
-              <button className="bg-gray-300 px-4 py-2 rounded" onClick={() => setIsEditModalOpen(false)}>Cancel</button>
-              <button className="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600" onClick={updateTeacher}>Save</button>
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-1">Date of Birth</label>
+                <input
+                  type="date"
+                  value={selectedTeacher.dob || ""}
+                  onChange={(e) => setSelectedTeacher({ ...selectedTeacher, dob: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-1">Gender</label>
+                <select
+                  value={selectedTeacher.gender || ""}
+                  onChange={(e) => setSelectedTeacher({ ...selectedTeacher, gender: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="">Select Gender</option>
+                  <option value="Male">Male</option>
+                  <option value="Female">Female</option>
+                </select>
+              </div>
+            </div>
+
+            {/* Footer Buttons */}
+            <div className="flex justify-end items-center gap-3 px-6 py-4 border-t">
+              <button
+                onClick={() => setIsEditModalOpen(false)}
+                className="px-5 py-2 bg-gray-200 hover:bg-gray-300 text-gray-800 font-medium rounded-md transition"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={updateTeacher}
+                className="px-5 py-2 bg-green-600 hover:bg-green-700 text-white font-semibold rounded-md transition"
+              >
+                Save
+              </button>
             </div>
           </div>
         </div>
       )}
+
     </div>
   );
 };

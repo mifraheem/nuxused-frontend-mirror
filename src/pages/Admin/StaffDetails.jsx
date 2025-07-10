@@ -171,6 +171,104 @@ const StaffDetails = () => {
           </table>
         </div>
       </div>
+      // ✅ View Modal for Staff
+      {isViewModalOpen && selectedStaff && (
+        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
+          <div className="bg-white w-full max-w-md rounded-xl shadow-2xl overflow-hidden max-h-[85vh] border border-gray-200">
+            <div className="bg-blue-600 text-white text-center py-4 px-6 border-b">
+              <h2 className="text-xl font-bold">👤 Staff Profile</h2>
+            </div>
+
+            <div className="p-6 overflow-y-auto max-h-[60vh] text-sm space-y-4">
+              {[
+                ["Username", selectedStaff.username],
+                ["First Name", selectedStaff.first_name],
+                ["Last Name", selectedStaff.last_name],
+                ["Email", selectedStaff.email],
+                ["Phone", selectedStaff.phone_number],
+                ["Address", selectedStaff.address],
+                ["Date of Birth", selectedStaff.dob],
+                ["Gender", selectedStaff.gender],
+                ["Salary", selectedStaff.salary ? `Rs.${selectedStaff.salary}` : "N/A"],
+              ].map(([label, value], i) => (
+                <div key={i} className="flex justify-between border-b pb-1">
+                  <span className="font-semibold text-gray-700">{label}:</span>
+                  <span className="text-gray-600">{value || "N/A"}</span>
+                </div>
+              ))}
+            </div>
+
+            <div className="border-t px-6 py-4 flex justify-center">
+              <button
+                className="bg-blue-500 hover:bg-blue-700 text-white font-semibold px-6 py-2 rounded-md shadow-md"
+                onClick={() => setIsViewModalOpen(false)}
+              >Close</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+// ✅ Edit Modal for Staff
+      {isEditModalOpen && selectedStaff && (
+        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
+          <div className="bg-white w-full max-w-md rounded-xl shadow-2xl overflow-hidden max-h-[85vh] border border-gray-200">
+            <div className="bg-blue-600 text-white text-center py-4 px-6 border-b">
+              <h2 className="text-xl font-bold">✏️ Edit Staff Profile</h2>
+            </div>
+
+            <div className="p-6 overflow-y-auto max-h-[60vh] space-y-4">
+              {["first_name", "last_name", "phone_number", "address"].map((field, i) => (
+                <div key={i}>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1">
+                    {field.replace("_", " ").replace(/\b\w/g, (l) => l.toUpperCase())}
+                  </label>
+                  <input
+                    type="text"
+                    value={selectedStaff[field] || ""}
+                    onChange={(e) => setSelectedStaff({ ...selectedStaff, [field]: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+                  />
+                </div>
+              ))}
+
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-1">Date of Birth</label>
+                <input
+                  type="date"
+                  value={selectedStaff.dob || ""}
+                  onChange={(e) => setSelectedStaff({ ...selectedStaff, dob: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-1">Gender</label>
+                <select
+                  value={selectedStaff.gender || ""}
+                  onChange={(e) => setSelectedStaff({ ...selectedStaff, gender: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+                >
+                  <option value="">Select Gender</option>
+                  <option value="Male">Male</option>
+                  <option value="Female">Female</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-3 px-6 py-4 border-t">
+              <button
+                onClick={() => setIsEditModalOpen(false)}
+                className="px-5 py-2 bg-gray-300 hover:bg-gray-400 text-gray-800 font-medium rounded-md"
+              >Cancel</button>
+              <button
+                onClick={updateStaff}
+                className="px-5 py-2 bg-green-600 hover:bg-green-700 text-white font-semibold rounded-md"
+              >Save</button>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 };

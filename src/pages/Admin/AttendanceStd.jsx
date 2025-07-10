@@ -2,7 +2,9 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import toast, { Toaster } from 'react-hot-toast';
 import Cookies from 'js-cookie';
-import { Buttons } from '../../components';
+import Select from "react-select";
+import Buttons from '../../components/Buttons';
+
 
 const API = import.meta.env.VITE_SERVER_URL;
 const API_BASE_URL = `${API}attendance/`;
@@ -22,6 +24,15 @@ const AttendanceStd = () => {
   const [studentOptions, setStudentOptions] = useState([]);
   const [classOptions, setClassOptions] = useState([]);
   const [subjectOptions, setSubjectOptions] = useState([]);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+
+  const totalPages = Math.ceil(attendanceData.length / pageSize);
+  const paginatedData = attendanceData.slice(
+    (currentPage - 1) * pageSize,
+    currentPage * pageSize
+  );
+
 
   const [formData, setFormData] = useState({
     student: '',
@@ -181,26 +192,69 @@ const AttendanceStd = () => {
         <div className="mt-6 bg-white p-6 rounded-lg shadow-md max-w-3xl mx-auto">
           <h2 className="text-xl font-semibold mb-4">Mark Attendance</h2>
           <div className="grid grid-cols-2 gap-4">
-            <select name="student" value={formData.student} onChange={handleAttendanceInputChange} className="border p-2 rounded">
-              <option value="">Select Student</option>
-              {studentOptions.filter((s) => !markedStudentIds.includes(s.profile_id)).map((s) => (
-                <option key={s.profile_id} value={s.profile_id}>{s.username}</option>
-              ))}
-            </select>
+            <Select
+              name="class_schedule"
+              value={classOptions.find(cls => cls.id === parseInt(formData.class_schedule)) || null}
+              onChange={async (selected) => {
+                const classId = selected?.id || "";
+                setFormData({ ...formData, class_schedule: classId });
 
-            <select name="subject" value={formData.subject} onChange={handleAttendanceInputChange} className="border p-2 rounded">
-              <option value="">Select Subject</option>
-              {subjectOptions.map((sub) => (
-                <option key={sub.id} value={sub.id}>{sub.subject_name}</option>
-              ))}
-            </select>
+                // 🔄 Fetch students by class ID from API
+                if (classId) {
+                  try {
+                    const token = Cookies.get("access_token");
+                    const res = await axios.get(`${API}classes/${classId}/students/`, {
+                      headers: { Authorization: `Bearer ${token}` }
+                    });
+                    const data = res.data?.data?.results || [];
+                    setStudents(data);
+                  } catch (err) {
+                    toast.error("Failed to load students for selected class.");
+                    setStudents([]);
+                  }
+                } else {
+                  setStudents([]);
+                }
+              }}
+              options={classOptions}
+              getOptionLabel={(cls) => `${cls.class_name} - ${cls.section} (${cls.session})`}
+              getOptionValue={(cls) => cls.id}
+              placeholder="Select Class"
+              isClearable
+            />
 
-            <select name="class_schedule" value={formData.class_schedule} onChange={handleAttendanceInputChange} className="border p-2 rounded">
-              <option value="">Select Class Schedule</option>
-              {classOptions.map((cls) => (
-                <option key={cls.id} value={cls.id}>{cls.class_name} - {cls.section} ({cls.session})</option>
-              ))}
-            </select>
+
+            <Select
+              name="student"
+              value={students.find(std => std.profile_id === parseInt(formData.student)) || null}
+              onChange={(selected) => {
+                setFormData({ ...formData, student: selected?.profile_id || "" });
+              }}
+              options={students.filter(s => !markedStudentIds.includes(s.profile_id))}
+              getOptionLabel={(s) => s.username}
+              getOptionValue={(s) => s.profile_id}
+              placeholder="Select Student"
+              isClearable
+            />
+
+
+
+            <Select
+              name="subject"
+              value={subjectOptions.find(sub => sub.id === parseInt(formData.subject)) || null}
+              onChange={(selected) => {
+                setFormData({ ...formData, subject: selected?.id || "" });
+              }}
+              options={subjectOptions}
+              getOptionLabel={(sub) => sub.subject_name}
+              getOptionValue={(sub) => sub.id}
+              placeholder="Select Subject"
+              isClearable
+            />
+
+
+
+
 
             <select name="status" value={formData.status} onChange={handleAttendanceInputChange} className="border p-2 rounded">
               <option value="Present">Present</option>
@@ -274,8 +328,18 @@ const AttendanceStd = () => {
       )}
 
       {canView && showReport && attendanceData.length > 0 && (
-        <div className="p-4">
-          <table className="w-full border mt-4 bg-white shadow">
+        <div className="p-6 ">
+          <Buttons
+            data={attendanceData}
+            columns={[
+              { label: "Student", key: "student" },
+              { label: "Date", key: "date" },
+              { label: "Status", key: "status" },
+            ]}
+            filename="Attendance_Report"
+          />
+
+          <table className="w-full border mt-4  bg-white shadow">
             <thead className="bg-gray-200">
               <tr>
                 <th className="border p-2">Student</th>
@@ -293,7 +357,43 @@ const AttendanceStd = () => {
               ))}
             </tbody>
           </table>
-          <Buttons />
+          <div className="flex items-center justify-between mt-4">
+            <div className="flex items-center">
+              <span className="mr-2 font-semibold">Page Size:</span>
+              <select
+                className="border px-2 py-1 rounded"
+                value={pageSize}
+                onChange={(e) => {
+                  setPageSize(parseInt(e.target.value));
+                  setCurrentPage(1);
+                }}
+              >
+                {[5, 10, 15, 20].map(size => (
+                  <option key={size} value={size}>{size}</option>
+                ))}
+              </select>
+            </div>
+
+            <div className="flex items-center space-x-2">
+              <button
+                className="px-3 py-1 rounded bg-gray-200 disabled:opacity-50"
+                onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                disabled={currentPage === 1}
+              >
+                Prev
+              </button>
+              <span className="px-3 py-1 rounded bg-blue-600 text-white">{currentPage}</span>
+              <button
+                className="px-3 py-1 rounded bg-gray-200 disabled:opacity-50"
+                onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                disabled={currentPage === totalPages}
+              >
+                Next
+              </button>
+            </div>
+          </div>
+
+
         </div>
       )}
     </div>

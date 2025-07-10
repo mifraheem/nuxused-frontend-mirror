@@ -160,17 +160,46 @@ const SubjectManagement = () => {
 
       <div className="p-6">
         {canAdd && showForm && (
-          <div className="p-6 bg-blue-50 rounded-md mb-6">
-            <h2 className="text-lg font-semibold text-blue-900">{editSubject ? "Edit Subject" : "Create Subject"}</h2>
-            <div className="grid grid-cols-2 gap-4 mt-4">
-              <input type="text" placeholder="Subject Name" className="p-2 border border-gray-300 rounded w-full" value={newSubject.subject_name} onChange={(e) => setNewSubject({ ...newSubject, subject_name: e.target.value })} />
-              <input type="text" placeholder="Course Code" className="p-2 border border-gray-300 rounded w-full" value={newSubject.course_code} onChange={(e) => setNewSubject({ ...newSubject, course_code: e.target.value })} />
+          <div className="p-6 bg-white rounded-lg shadow-md border border-gray-200 max-w-xl mx-auto mb-6">
+            <h2 className="text-xl font-semibold text-blue-800 mb-4">
+              {editSubject ? "Edit Subject Details" : "Create New Subject"}
+            </h2>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Subject Name</label>
+                <input
+                  type="text"
+                  placeholder="e.g. Mathematics"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  value={newSubject.subject_name}
+                  onChange={(e) => setNewSubject({ ...newSubject, subject_name: e.target.value })}
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Course Code</label>
+                <input
+                  type="text"
+                  placeholder="e.g. MATH-101"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  value={newSubject.course_code}
+                  onChange={(e) => setNewSubject({ ...newSubject, course_code: e.target.value })}
+                />
+              </div>
             </div>
-            <div className="flex justify-end mt-4">
-              <button onClick={handleSaveSubject} className="bg-green-500 text-white px-4 py-2 rounded-md shadow hover:bg-green-700">{editSubject ? "Update" : "Save"} Subject</button>
+
+            <div className="mt-6 text-right">
+              <button
+                onClick={handleSaveSubject}
+                className="bg-blue-600 hover:bg-blue-800 text-white font-medium px-6 py-2 rounded-md shadow-sm transition duration-150"
+              >
+                {editSubject ? "Update Subject" : "Save Subject"}
+              </button>
             </div>
           </div>
         )}
+
 
         {loading ? <p className="text-center text-gray-500">Loading...</p> : error ? <p className="text-center text-red-500">{error}</p> : subjects.length > 0 ? (
           <div className="mt-6">

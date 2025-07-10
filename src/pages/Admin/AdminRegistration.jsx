@@ -140,7 +140,10 @@ export function AdminRegistration() {
       toast.error("Failed to load parents.");
     }
   };
-
+  const classOptionsFormatted = (Array.isArray(classOptions) ? classOptions : []).map(cls => ({
+    value: cls.id,
+    label: `${cls.class_name} - ${cls.section} - ${cls.session}`
+  }));
   return (
     <div>
       <Toaster position="top-right" reverseOrder={false} />
@@ -152,30 +155,6 @@ export function AdminRegistration() {
           <h2 className="text-2xl font-bold text-blue-900 mb-6">Admin - Register New User</h2>
           <form onSubmit={handleRegistration}>
             <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-gray-700 font-semibold">Username:</label>
-                <input type="text" name="username" value={formData.username} onChange={handleChange} required className="w-full p-2 border border-gray-300 rounded" placeholder="Enter username" />
-              </div>
-              <div>
-                <label className="block text-gray-700 font-semibold">Email:</label>
-                <input type="email" name="email" value={formData.email} onChange={handleChange} required className="w-full p-2 border border-gray-300 rounded" placeholder="Enter email" />
-              </div>
-              {(formData.role === "staff" ||formData.role === "teacher" || formData.role === "parent" || formData.role === "student") && (
-                <>
-                  <div>
-                    <label className="block text-gray-700 font-semibold">First Name:</label>
-                    <input type="text" name="first_name" value={formData.first_name} onChange={handleChange} required className="w-full p-2 border border-gray-300 rounded" placeholder="Enter first name" />
-                  </div>
-                  <div>
-                    <label className="block text-gray-700 font-semibold">Last Name:</label>
-                    <input type="text" name="last_name" value={formData.last_name} onChange={handleChange} required className="w-full p-2 border border-gray-300 rounded" placeholder="Enter last name" />
-                  </div>
-                </>
-              )}
-              <div>
-                <label className="block text-gray-700 font-semibold">Password:</label>
-                <input type="password" name="password" value={formData.password} onChange={handleChange} required className="w-full p-2 border border-gray-300 rounded" placeholder="Enter password" />
-              </div>
               <div>
                 <label className="block text-gray-700 font-semibold">Select Role:</label>
                 <select
@@ -193,25 +172,45 @@ export function AdminRegistration() {
                   <option value="parent">Parent</option>
                 </select>
               </div>
+              <div>
+                <label className="block text-gray-700 font-semibold">Username:</label>
+                <input type="text" name="username" value={formData.username} onChange={handleChange} required className="w-full p-2 border border-gray-300 rounded" placeholder="Enter username" />
+              </div>
+              <div>
+                <label className="block text-gray-700 font-semibold">Email:</label>
+                <input type="email" name="email" value={formData.email} onChange={handleChange} required className="w-full p-2 border border-gray-300 rounded" placeholder="Enter email" />
+              </div>
+              {(formData.role === "staff" || formData.role === "teacher" || formData.role === "parent" || formData.role === "student") && (
+                <>
+                  <div>
+                    <label className="block text-gray-700 font-semibold">First Name:</label>
+                    <input type="text" name="first_name" value={formData.first_name} onChange={handleChange} required className="w-full p-2 border border-gray-300 rounded" placeholder="Enter first name" />
+                  </div>
+                  <div>
+                    <label className="block text-gray-700 font-semibold">Last Name:</label>
+                    <input type="text" name="last_name" value={formData.last_name} onChange={handleChange} required className="w-full p-2 border border-gray-300 rounded" placeholder="Enter last name" />
+                  </div>
+                </>
+              )}
+              <div>
+                <label className="block text-gray-700 font-semibold">Password:</label>
+                <input type="password" name="password" value={formData.password} onChange={handleChange} required className="w-full p-2 border border-gray-300 rounded" placeholder="Enter password" />
+              </div>
+
               {formData.role === "student" && (
                 <>
                   <div>
-                    <label className="block text-gray-700 font-semibold">Class:</label>
-                    <select
-                      name="class_id"
-                      value={formData.class_id}
-                      onChange={handleChange}
-                      required
-                      className="w-full p-2 border border-gray-300 rounded"
-                    >
-                      <option value="">-- Select Class --</option>
-                      {Array.isArray(classOptions) &&
-                        classOptions?.map((cls) => (
-                          <option key={cls.id} value={cls.id}>
-                            {cls.class_name} {" - "}{cls.section}{" - "}{cls.session}
-                          </option>
-                        ))}
-                    </select>
+                    <label className="block text-gray-700 font-semibold mb-1">Class:</label>
+                    <Select
+                      options={classOptionsFormatted}
+                      value={classOptionsFormatted.find(opt => opt.value === formData.class_id)}
+                      onChange={(selectedOption) => {
+                        setFormData({ ...formData, class_id: selectedOption?.value || "" });
+                      }}
+                      isClearable
+                      placeholder="-- Select Class --"
+                      className="text-sm"
+                    />
                   </div>
 
                   {/* ✅ Dropdown for Parent Email */}

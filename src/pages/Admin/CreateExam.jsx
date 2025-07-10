@@ -6,6 +6,8 @@ import Cookies from 'js-cookie';
 import toast, { Toaster } from 'react-hot-toast';
 import apiRequest from '../../helpers/apiRequest';
 import { MdEdit, MdDelete, MdVisibility } from 'react-icons/md';
+import Select from 'react-select';
+
 
 
 
@@ -282,81 +284,170 @@ const CreateExam = () => {
       </div>
 
       {(canAdd || canEdit) && showForm && (
-        <div className="p-6 bg-blue-50 rounded-md mt-4">
-          <div className="grid grid-cols-2 gap-4">
-            <input placeholder="Term Name" value={form.term_name} onChange={(e) => setForm({ ...form, term_name: e.target.value })} className="border p-2 rounded" />
-            <input placeholder="Session" value={form.session} onChange={(e) => setForm({ ...form, session: e.target.value })} className="border p-2 rounded" />
-            <select value={form.class_id} onChange={(e) => setForm({ ...form, class_id: e.target.value })} className="border p-2 rounded">
-              <option value="">Select Class</option>
-              {classes.map(c => <option key={c.id} value={c.id}>{c.class_name}-{c.section}({c.session})</option>)}
-            </select>
-            <input type="date" value={form.start_date} onChange={(e) => setForm({ ...form, start_date: e.target.value })} className="border p-2 rounded" />
-            <input type="date" value={form.end_date} onChange={(e) => setForm({ ...form, end_date: e.target.value })} className="border p-2 rounded" />
+        <div className="p-6  bg-white rounded-lg shadow-md border border-gray-200 mt-6 max-w-6xl mx-7">
+          <h2 className="text-2xl font-semibold text-blue-800 mb-4" >
+            {selectedExam ? "Edit Exam Schedule" : "Create New Exam Schedule"}
+          </h2>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Term Name</label>
+              <input
+                placeholder="e.g. Mid Term"
+                value={form.term_name}
+                onChange={(e) => setForm({ ...form, term_name: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Session</label>
+              <input
+                placeholder="e.g. 2024-2025"
+                value={form.session}
+                onChange={(e) => setForm({ ...form, session: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Class</label>
+              <Select
+                name="class_id"
+                value={classes.find(c => c.id === Number(form.class_id)) || null}
+                onChange={(selected) => setForm({ ...form, class_id: selected?.id || "" })}
+                options={classes}
+                getOptionLabel={(cls) => `${cls.class_name}-${cls.section} (${cls.session})`}
+                getOptionValue={(cls) => cls.id}
+                placeholder="Select Class"
+                isClearable
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Start Date</label>
+              <input
+                type="date"
+                value={form.start_date}
+                onChange={(e) => setForm({ ...form, start_date: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">End Date</label>
+              <input
+                type="date"
+                value={form.end_date}
+                onChange={(e) => setForm({ ...form, end_date: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
           </div>
 
-          <h3 className="mt-6 text-lg font-semibold text-blue-900">Subjects</h3>
+          <h3 className="mt-8 text-xl font-semibold text-blue-800">Subjects</h3>
+
           {form.subjects.map((sub, idx) => (
-            <div key={idx} className="grid grid-cols-6 gap-2 my-2">
+            <div key={idx} className="grid grid-cols-1 md:grid-cols-6 gap-4 mt-4 p-4 bg-gray-50 border rounded-lg">
+              <div className="col-span-2">
+                <label className="block text-sm font-medium text-gray-700 mb-1">Subject</label>
+                <Select
+                  name="subject"
+                  className="w-full"
+                  value={subjectsOptions.find(s => s.id === Number(sub.subject_id)) || null}
+                  onChange={(selected) => handleSubjectChange(idx, "subject_id", selected?.id || "")}
+                  options={subjectsOptions}
+                  getOptionLabel={(s) => s.subject_name}
+                  getOptionValue={(s) => s.id}
+                  placeholder="Select Subject"
+                  isClearable
+                />
+              </div>
 
-              <select value={sub.subject_id} onChange={(e) => handleSubjectChange(idx, 'subject_id', e.target.value)} className="border p-2 rounded">
-                <option value="">Subject</option>
-                {subjectsOptions.map((subject) => (
-                  <option key={subject.id} value={subject.id}>
-                    {subject.subject_name}
-                  </option>
-                ))}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Exam Date</label>
+                <input
+                  type="date"
+                  value={sub.exam_date}
+                  onChange={(e) => handleSubjectChange(idx, 'exam_date', e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                />
+              </div>
 
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Start Time</label>
+                <input
+                  type="time"
+                  value={sub.start_time}
+                  onChange={(e) => handleSubjectChange(idx, 'start_time', e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                />
+              </div>
 
-              </select>
-              <input type="date" value={sub.exam_date} onChange={(e) => handleSubjectChange(idx, 'exam_date', e.target.value)} className="border p-2 rounded" />
-              <input type="time" value={sub.start_time} onChange={(e) => handleSubjectChange(idx, 'start_time', e.target.value)} className="border p-2 rounded" />
-              <input type="time" value={sub.end_time} onChange={(e) => handleSubjectChange(idx, 'end_time', e.target.value)} className="border p-2 rounded" />
-              <select value={sub.room_id} onChange={(e) => handleSubjectChange(idx, 'room_id', e.target.value)} className="border p-2 rounded">
-                <option value="">Room</option>
-                {rooms.map((room) => (
-                  <option key={room.id} value={room.id}>
-                    {room.room_name}
-                  </option>
-                ))}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">End Time</label>
+                <input
+                  type="time"
+                  value={sub.end_time}
+                  onChange={(e) => handleSubjectChange(idx, 'end_time', e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                />
+              </div>
 
-              </select>
-              <select
-                value={sub.invigilator_id ?? ''}
-                onChange={(e) => {
-                  const value = e.target.value;
-                  handleSubjectChange(
-                    idx,
-                    'invigilator_id',
-                    value ? parseInt(value) : null
-                  );
-                }}
-                className="border p-2 rounded"
-              >
-                <option value="">Select Invigilator</option>
-                {invigilators.map((teacher) => (
-                  <option
-                    key={teacher.profile_id}
-                    value={teacher.profile_id}
-                  >
-                    {`${teacher.first_name || ''} ${teacher.last_name || ''}`.trim()}
-                  </option>
-                ))}
-              </select>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Room</label>
+                <Select
+                  name="room"
+                  className="w-full"
+                  value={rooms.find(r => r.id === Number(sub.room_id)) || null}
+                  onChange={(selected) => handleSubjectChange(idx, "room_id", selected?.id || "")}
+                  options={rooms}
+                  getOptionLabel={(r) => r.room_name}
+                  getOptionValue={(r) => r.id}
+                  placeholder="Room"
+                  isClearable
+                />
+              </div>
 
-
-
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Invigilator</label>
+                <Select
+                  name="invigilator"
+                  className="w-full"
+                  value={invigilators.find(t => t.profile_id === Number(sub.invigilator_id)) || null}
+                  onChange={(selected) =>
+                    handleSubjectChange(idx, "invigilator_id", selected?.profile_id || null)
+                  }
+                  options={invigilators}
+                  getOptionLabel={(t) => `${t.first_name || ""} ${t.last_name || ""}`.trim()}
+                  getOptionValue={(t) => t.profile_id}
+                  placeholder="Invigilator"
+                  isClearable
+                />
+              </div>
             </div>
           ))}
-          <button onClick={addSubject} className="mt-2 text-blue-600 font-semibold">+ Add Subject</button>
 
-          <div className="mt-6">
-            <button onClick={handleSubmit} className="bg-green-600 text-white px-6 py-2 rounded hover:bg-green-700">
+          <div className="mt-4">
+            <button
+              onClick={addSubject}
+              className="text-blue-600 font-semibold hover:underline"
+            >
+              + Add Subject
+            </button>
+          </div>
+
+          <div className="mt-6 text-right">
+            <button
+              onClick={handleSubmit}
+              className="bg-blue-600 hover:bg-blue-800 text-white font-medium px-6 py-2 rounded-md shadow-sm transition duration-150"
+            >
               {selectedExam ? 'Save Changes' : 'Create Exam'}
             </button>
-
           </div>
         </div>
       )}
+
       {/* Exam Table */}
       <div className="mt-6 p-6">
         <h2 className="text-lg font-semibold text-white bg-blue-900 px-4 py-2 rounded-t-md">Exam Terms</h2>
@@ -477,63 +568,73 @@ const CreateExam = () => {
       </div>
 
       {viewExam && (
-        <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50 pl-60 pt-6">
+        <div className="fixed inset-0 bg-black bg-opacity-40 backdrop-blur-sm flex items-center justify-center z-50 px-4 py-6">
 
-          {/* This is the printable content */}
-          <div ref={printRef} className="bg-white w-full max-w-3xl p-6 rounded shadow-lg">
-            <h2 className="text-xl font-bold mb-4">Exam Details</h2>
-            <div className="grid grid-cols-2 gap-4 text-sm">
-              <div><strong>Term Name:</strong> {viewExam.term_name}</div>
-              <div><strong>Session:</strong> {viewExam.session}</div>
-              <div><strong>Class ID:</strong> {viewExam.class_id}</div>
-              <div><strong>Start Date:</strong> {viewExam.start_date}</div>
-              <div><strong>End Date:</strong> {viewExam.end_date}</div>
+          {/* Printable Exam Details */}
+          <div ref={printRef} className="bg-white w-full max-w-4xl rounded-xl shadow-xl border border-gray-200 overflow-hidden">
+
+            {/* Header */}
+            <div className="bg-gradient-to-r from-blue-100 to-blue-200 px-6 py-4 border-b">
+              <h2 className="text-2xl font-bold text-blue-800">📝 Exam Details</h2>
             </div>
 
-            <h3 className="mt-4 font-semibold">Subjects</h3>
-            <table className="w-full border mt-2 text-sm">
-              <thead className="bg-gray-100">
-                <tr>
-                  <th className="border p-2">Name</th>
-                  <th className="border p-2">Date</th>
-                  <th className="border p-2">Time</th>
-                  <th className="border p-2">Room</th>
-                  <th className="border p-2">Invigilator</th>
-                </tr>
-              </thead>
-              <tbody>
-                {viewExam.subjects?.map((s, idx) => (
-                  <tr key={idx}>
-                    <td className="border p-2">{s.subject_name}</td>
-                    <td className="border p-2">{s.exam_date}</td>
-                    <td className="border p-2">{s.start_time} - {s.end_time}</td>
-                    <td className="border p-2">{s.room_name}</td>
-                    <td className="border p-2">{s.invigilator_name}</td>
+            {/* Exam Info */}
+            <div className="px-6 py-4 text-gray-700 grid grid-cols-2 gap-4 text-sm">
+              <div><span className="font-semibold">📘 Term Name:</span> {viewExam.term_name}</div>
+              <div><span className="font-semibold">📆 Session:</span> {viewExam.session}</div>
+              <div><span className="font-semibold">🏫 Class ID:</span> {viewExam.class_id}</div>
+              <div><span className="font-semibold">🗓️ Start Date:</span> {viewExam.start_date}</div>
+              <div><span className="font-semibold">🗓️ End Date:</span> {viewExam.end_date}</div>
+            </div>
+
+            {/* Subject Schedule Table */}
+            <div className="px-6 pb-6">
+              <h3 className="text-lg font-semibold text-blue-700 mt-4 mb-2">📚 Subject Schedule</h3>
+              <table className="w-full text-sm border border-gray-300 rounded overflow-hidden">
+                <thead className="bg-gray-100 text-gray-800">
+                  <tr>
+                    <th className="border px-4 py-2 text-left">Subject</th>
+                    <th className="border px-4 py-2 text-left">Date</th>
+                    <th className="border px-4 py-2 text-left">Time</th>
+                    <th className="border px-4 py-2 text-left">Room</th>
+                    <th className="border px-4 py-2 text-left">Invigilator</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {viewExam.subjects?.map((s, idx) => (
+                    <tr key={idx} className="hover:bg-gray-50">
+                      <td className="border px-4 py-2">{s.subject_name}</td>
+                      <td className="border px-4 py-2">{s.exam_date}</td>
+                      <td className="border px-4 py-2">{s.start_time} - {s.end_time}</td>
+                      <td className="border px-4 py-2">{s.room_name}</td>
+                      <td className="border px-4 py-2">{s.invigilator_name}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
 
-          {/* Buttons shown below modal (outside printRef), and hidden during print */}
-          <div className="absolute bottom-10 flex justify-center gap-6 no-print">
+          {/* Footer Buttons (non-printable) */}
+          <div className="absolute bottom-6 flex flex-wrap justify-center gap-4 no-print">
             <button
-              onClick={() => {
-                html2pdf().from(printRef.current).save(`${viewExam.term_name}_Exam.pdf`);
-              }}
-              className="bg-blue-600 text-white text-lg font-bold px-6 py-2 rounded-xl hover:bg-blue-700"
+              onClick={() =>
+                html2pdf().from(printRef.current).save(`${viewExam.term_name}_Exam.pdf`)
+              }
+              className="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-6 py-2 rounded-lg shadow transition"
             >
-              🖨️ Print
+              🖨️ Print PDF
             </button>
             <button
               onClick={() => setViewExam(null)}
-              className="bg-red-600 text-white text-lg font-bold px-6 py-2 rounded-xl hover:bg-red-700"
+              className="bg-red-600 hover:bg-red-700 text-white font-semibold px-6 py-2 rounded-lg shadow transition"
             >
               ❌ Close
             </button>
           </div>
         </div>
       )}
+
 
 
 

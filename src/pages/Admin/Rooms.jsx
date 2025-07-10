@@ -201,36 +201,48 @@ const Rooms = () => {
 
       <div className="p-6">
         {canAdd && showForm && (
-          <div className="p-6 bg-blue-50 rounded-md mb-6">
-            <h2 className="text-lg font-semibold text-blue-900">{editingRoom ? "Edit Room" : "Create Room"}</h2>
-            <div className="grid grid-cols-2 gap-4 mt-4">
-              <input
-                type="text"
-                placeholder="Room Name"
-                className="p-2 border border-gray-300 rounded w-full"
-                value={newRoom.room_name}
-                onChange={(e) => setNewRoom({ ...newRoom, room_name: e.target.value })}
-              />
-              <select
-                className="p-2 border border-gray-300 rounded w-full"
-                value={newRoom.room_type}
-                onChange={(e) => setNewRoom({ ...newRoom, room_type: e.target.value })}
-              >
-                <option value="room">Room</option>
-                <option value="lab">Lab</option>
-                <option value="hall">Hall</option>
-              </select>
+          <div className="p-6 bg-white rounded-lg shadow-md border border-gray-200 max-w-xl mx-auto mb-6">
+            <h2 className="text-xl font-semibold text-blue-800 mb-4">
+              {editingRoom ? "Edit Room" : "Create New Room"}
+            </h2>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Room Name</label>
+                <input
+                  type="text"
+                  placeholder="e.g. Room A-101"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-400"
+                  value={newRoom.room_name}
+                  onChange={(e) => setNewRoom({ ...newRoom, room_name: e.target.value })}
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Room Type</label>
+                <select
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-400"
+                  value={newRoom.room_type}
+                  onChange={(e) => setNewRoom({ ...newRoom, room_type: e.target.value })}
+                >
+                  <option value="room">Room</option>
+                  <option value="lab">Lab</option>
+                  <option value="hall">Hall</option>
+                </select>
+              </div>
             </div>
-            <div className="flex justify-end mt-4">
+
+            <div className="mt-6 text-right">
               <button
                 onClick={handleSaveRoom}
-                className="bg-green-500 text-white px-4 py-2 rounded-md shadow hover:bg-green-700"
+                className="bg-blue-600 hover:bg-blue-800 text-white font-medium px-6 py-2 rounded-md shadow-sm transition duration-150"
               >
                 {editingRoom ? "Update Room" : "Save Room"}
               </button>
             </div>
           </div>
         )}
+
 
         {rooms.length > 0 ? (
           <div className="mt-6">

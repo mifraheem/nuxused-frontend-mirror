@@ -3,6 +3,7 @@ import axios from "axios";
 import toast, { Toaster } from "react-hot-toast";
 import Cookies from "js-cookie";
 import { Buttons } from "../../components";
+import Select from "react-select";
 
 const API = import.meta.env.VITE_SERVER_URL;
 const API_BASE_URL = `${API}staff-attendance/`;
@@ -263,36 +264,108 @@ const AttendanceStaff = () => {
                                 </select>
                             </div>
                             {filters.type === "Daily" && (
-                                <input type="date" name="date" value={filters.date} onChange={handleFilterChange} className="border p-2 rounded-md w-full" />
+                                <input
+                                    type="date"
+                                    name="date"
+                                    value={filters.date}
+                                    onChange={handleFilterChange}
+                                    className="border border-gray-300 p-2 mt-5 rounded-md w-full h-[42px] text-sm"
+                                />
                             )}
                             {filters.type === "Weekly" && (
-                                <>
-                                    <input type="date" name="startDate" value={filters.startDate} onChange={handleFilterChange} className="border p-2 rounded-md w-full" />
-                                    <input type="date" name="endDate" value={filters.endDate} onChange={handleFilterChange} className="border p-2 rounded-md w-full" />
-                                </>
+                                <div className="grid grid-cols-2 gap-4">
+                                    <input
+                                        type="date"
+                                        name="startDate"
+                                        value={filters.startDate}
+                                        onChange={handleFilterChange}
+                                        className="border border-gray-300 p-2 mt-5 rounded-md w-full h-[42px] text-sm"
+                                    />
+                                    <input
+                                        type="date"
+                                        name="endDate"
+                                        value={filters.endDate}
+                                        onChange={handleFilterChange}
+                                        className="border border-gray-300 p-2 mt-5 rounded-md w-full h-[42px] text-sm"
+                                    />
+                                </div>
                             )}
+
                             {filters.type === "Monthly" && (
-                                <>
-                                    <select name="month" value={filters.month} onChange={handleFilterChange} className="border p-2 rounded-md w-full">
-                                        <option value="">Select Month</option>
-                                        {[...Array(12)].map((_, i) => (
-                                            <option key={i + 1} value={String(i + 1)}>{new Date(0, i).toLocaleString("default", { month: "long" })}</option>
-                                        ))}
-                                    </select>
-                                    <input type="number" name="year" value={filters.year} onChange={handleFilterChange} className="border p-2 rounded-md w-full" />
-                                </>
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <Select
+                                            name="month"
+                                            value={{
+                                                value: filters.month,
+                                                label: new Date(0, filters.month - 1).toLocaleString("default", {
+                                                    month: "long",
+                                                }),
+                                            }}
+                                            onChange={(selected) =>
+                                                handleFilterChange({
+                                                    target: { name: "month", value: selected?.value || "" },
+                                                })
+                                            }
+                                            options={[...Array(12)].map((_, i) => ({
+                                                value: String(i + 1),
+                                                label: new Date(0, i).toLocaleString("default", { month: "long" }),
+                                            }))}
+                                            placeholder="Select Month"
+                                            isClearable
+                                            className="text-sm mt-5"
+                                            styles={{
+                                                control: (base) => ({
+                                                    ...base,
+                                                    height: 42,
+                                                    borderColor: "#D1D5DB",
+                                                    fontSize: "0.875rem", // text-sm
+                                                }),
+                                            }}
+                                        />
+                                    </div>
+                                    <input
+                                        type="number"
+                                        name="year"
+                                        placeholder="Enter Year"
+                                        value={filters.year}
+                                        onChange={handleFilterChange}
+                                        className="border border-gray-300 p-2 mt-5 rounded-md w-full h-[42px] text-sm"
+                                    />
+                                </div>
                             )}
                             {filters.type === "Yearly" && (
-                                <input type="number" name="year" value={filters.year} onChange={handleFilterChange} className="border p-2 rounded-md w-full" />
+                                <input
+                                    type="number"
+                                    name="year"
+                                    placeholder="Enter Year"
+                                    value={filters.year}
+                                    onChange={handleFilterChange}
+                                    className="border border-gray-300 p-2 mt-5 rounded-md w-full h-[42px] text-sm"
+                                />
                             )}
+
                             {filters.type === "Specific" && (
-                                <select name="staffId" value={filters.staffId} onChange={handleFilterChange} className="border p-2 rounded-md w-full">
-                                    <option value="">Select Teacher</option>
-                                    {teachers.map(t => (
-                                        <option key={t.profile_id} value={t.profile_id}>{t.username}</option>
-                                    ))}
-                                </select>
+                                <div className="w-full mt-6">
+                                    <Select
+                                        name="staffId"
+                                        value={teachers.find(t => t.user_id === parseInt(filters.staffId)) || null}
+                                        onChange={(selected) =>
+                                            handleFilterChange({
+                                                target: { name: "staffId", value: selected?.user_id || "" },
+                                            })
+                                        }
+                                        options={teachers}
+                                        getOptionLabel={(t) => t.username}
+                                        getOptionValue={(t) => t.user_id}
+                                        placeholder="Search & Select Teacher"
+                                        isClearable
+                                        className="react-select-container"
+                                        classNamePrefix="react-select"
+                                    />
+                                </div>
                             )}
+
                         </div>
                         <button onClick={handleFetchAttendance} className="bg-green-500 text-white px-4 py-2 rounded-md mt-4 hover:bg-green-700">Generate Report</button>
                     </div>

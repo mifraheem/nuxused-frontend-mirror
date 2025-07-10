@@ -4,6 +4,7 @@ import axios from "axios";
 import toast, { Toaster } from "react-hot-toast";
 import { MdEdit, MdDelete, MdVisibility } from "react-icons/md";
 import { Buttons } from '../../components';
+import Select from "react-select";
 
 
 const WeeklyTaskManager = () => {
@@ -343,119 +344,118 @@ const WeeklyTaskManager = () => {
 
       {/* ✅ Form Logic */}
       {canAdd && showForm && (
-        <div className="p-6 bg-blue-50 rounded-md mb-6">
-          <h2 className="text-lg font-semibold text-blue-900">
-            {editingTask ? "Edit Task" : "Create Task"}
+        <div className="p-6 mx-5 bg-white border border-gray-200 rounded-xl shadow-lg mt-6">
+          <h2 className="text-2xl font-bold text-blue-800 mb-4">
+            {editingTask ? "Edit Task" : "Create New Task"}
           </h2>
-          <div className="grid grid-cols-2 gap-4 mt-4">
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {/* Task Title */}
             <div>
-              <label className="block text-gray-700 font-medium mb-1">
-                Task Title
+              <label className="block text-sm font-semibold text-gray-700 mb-1">
+                Task Title <span className="text-red-500">*</span>
               </label>
               <input
                 type="text"
-                placeholder="Enter Task Title"
-                className="p-2 border border-gray-300 rounded w-full"
+                placeholder="Enter task title"
+                className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400"
                 value={newTask.title}
-                onChange={(e) =>
-                  setNewTask({ ...newTask, title: e.target.value })
-                }
+                onChange={(e) => setNewTask({ ...newTask, title: e.target.value })}
               />
             </div>
 
             {/* Description */}
             <div>
-              <label className="block text-gray-700 font-medium mb-1">
-                Description
+              <label className="block text-sm font-semibold text-gray-700 mb-1">
+                Description <span className="text-red-500">*</span>
               </label>
               <input
                 type="text"
-                placeholder="Enter Description"
-                className="p-2 border border-gray-300 rounded w-full"
+                placeholder="Enter task description"
+                className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400"
                 value={newTask.description}
-                onChange={(e) =>
-                  setNewTask({ ...newTask, description: e.target.value })
-                }
+                onChange={(e) => setNewTask({ ...newTask, description: e.target.value })}
               />
             </div>
-            <select
-              name="teacher"
-              value={newTask.teacher}
-              onChange={handleInputChange}
-              className="p-2 border border-gray-300 rounded w-full"
-            >
-              <option value="">Select Teacher</option>
-              {Array.isArray(teachers) && teachers.map((teacher) => (
-                <option key={teacher.user_id} value={teacher.user_id}>
-                  {teacher.username}
-                </option>
-              ))}
 
-            </select>
-
+            {/* Teacher */}
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-1">
+                Teacher <span className="text-red-500">*</span>
+              </label>
+              <Select
+                name="teacher"
+                value={teachers.find(t => t.user_id == newTask.teacher) || null}
+                onChange={(selected) =>
+                  setNewTask({ ...newTask, teacher: selected?.user_id || "" })
+                }
+                options={teachers}
+                getOptionLabel={(t) => t.username}
+                getOptionValue={(t) => t.user_id}
+                placeholder="Search & select teacher"
+                isClearable
+                className="react-select-container"
+                classNamePrefix="react-select"
+              />
+            </div>
 
             {/* Start Date */}
             <div>
-              <label className="block text-gray-700 font-medium mb-1">
-                Start Date
+              <label className="block text-sm font-semibold text-gray-700 mb-1">
+                Start Date <span className="text-red-500">*</span>
               </label>
               <input
                 type="date"
-                className="p-2 border border-gray-300 rounded w-full"
+                className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400"
                 value={newTask.start_date}
-                onChange={(e) =>
-                  setNewTask({ ...newTask, start_date: e.target.value })
-                }
+                onChange={(e) => setNewTask({ ...newTask, start_date: e.target.value })}
               />
             </div>
 
             {/* Due Date */}
             <div>
-              <label className="block text-gray-700 font-medium mb-1">
-                Due Date
+              <label className="block text-sm font-semibold text-gray-700 mb-1">
+                Due Date <span className="text-red-500">*</span>
               </label>
               <input
                 type="date"
-                className="p-2 border border-gray-300 rounded w-full"
+                className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400"
                 value={newTask.due_date}
-                onChange={(e) =>
-                  setNewTask({ ...newTask, due_date: e.target.value })
-                }
+                onChange={(e) => setNewTask({ ...newTask, due_date: e.target.value })}
               />
             </div>
 
             {/* File Upload */}
-            <div className="col-span-2">
-              <label className="block text-gray-700 font-medium mb-1">
-                Upload File
+            <div className="md:col-span-2">
+              <label className="block text-sm font-semibold text-gray-700 mb-1">
+                Upload File (optional)
               </label>
               <input
                 type="file"
-                className="p-2 border border-gray-300 rounded w-full"
-                onChange={(e) =>
-                  setNewTask({ ...newTask, file: e.target.files[0] })
-                }
+                className="w-full border border-gray-300 rounded-lg px-4 py-2 bg-white focus:outline-none"
+                onChange={(e) => setNewTask({ ...newTask, file: e.target.files[0] })}
               />
             </div>
           </div>
-          {/* ✅ Buttons */}
-          <div className="flex justify-end mt-4">
+
+          {/* Buttons */}
+          <div className="flex justify-end gap-3 mt-6">
             <button
               onClick={() => setShowForm(false)}
-              className="bg-gray-500 text-white px-4 py-2 rounded-md shadow hover:bg-gray-700 mr-2"
+              className="bg-gray-500 text-white px-5 py-2 rounded-md hover:bg-gray-600 transition duration-150"
             >
               Cancel
             </button>
             <button
               onClick={handleSaveTask}
-              className="bg-green-500 text-white px-4 py-2 rounded-md shadow hover:bg-green-700"
+              className="bg-green-600 text-white px-6 py-2 rounded-md font-semibold shadow hover:bg-green-700 transition duration-150"
             >
               {editingTask ? "Update Task" : "Save Task"}
             </button>
           </div>
         </div>
       )}
+
       {/* Tasks Table */}
       <div className="p-6">
         <Buttons />
@@ -577,70 +577,63 @@ const WeeklyTaskManager = () => {
 
       {/* // ✅ View Task Modal */}
       {selectedTask && (
-        <div className="fixed inset-0 bg-black bg-opacity-60 flex justify-center items-center z-50">
-          <div className="bg-white p-6 rounded-xl shadow-2xl w-full max-w-lg max-h-[80vh] overflow-hidden border border-gray-300">
+        <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 px-4">
+          <div className="bg-white w-full max-w-xl rounded-2xl shadow-2xl border border-gray-300 overflow-hidden">
+
             {/* Modal Header */}
-            <div className="flex justify-between items-center border-b pb-3">
-              <h2 className="text-2xl font-bold text-blue-600">
-                {selectedTask.title || "Task Details"}
+            <div className="flex items-center justify-between px-6 py-4 border-b bg-blue-50">
+              <h2 className="text-xl font-bold text-blue-700">
+                📋 {selectedTask.title || "Task Details"}
               </h2>
               <button
                 onClick={() => setSelectedTask(null)}
-                className="text-gray-500 hover:text-gray-700 text-lg font-bold"
+                className="text-gray-600 hover:text-red-600 text-2xl font-bold leading-none"
               >
-                ✖
+                &times;
               </button>
             </div>
 
-            {/* Modal Content (Scrollable) */}
-            <div className="overflow-y-auto flex-grow mt-4 px-2" style={{ maxHeight: "60vh" }}>
-              <div className="space-y-4">
-                {/* Description */}
-                <div className="flex justify-between border-b pb-2">
-                  <span className="font-semibold text-gray-700">Description:</span>
-                  <span className="text-gray-600">
-                    {selectedTask.description || "N/A"}
-                  </span>
-                </div>
-
-                {/* Start Date */}
-                <div className="flex justify-between border-b pb-2">
-                  <span className="font-semibold text-gray-700">Start Date:</span>
-                  <span className="text-gray-600">
-                    {selectedTask.start_date || "N/A"}
-                  </span>
-                </div>
-
-                {/* Due Date */}
-                <div className="flex justify-between border-b pb-2">
-                  <span className="font-semibold text-gray-700">Due Date:</span>
-                  <span className="text-gray-600">
-                    {selectedTask.due_date || "N/A"}
-                  </span>
-                </div>
-
-                {/* File */}
-                {selectedTask.file && (
-                  <div className="flex justify-between border-b pb-2">
-                    <span className="font-semibold text-gray-700">File:</span>
-                    <a
-                      href={selectedTask.file}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-blue-500 underline hover:text-blue-700"
-                    >
-                      Download File
-                    </a>
-                  </div>
-                )}
+            {/* Modal Content */}
+            <div className="px-6 py-5 overflow-y-auto max-h-[60vh] space-y-5 text-sm text-gray-700">
+              {/* Description */}
+              <div>
+                <div className="text-gray-500 font-medium">📝 Description</div>
+                <div className="mt-1 text-gray-800">{selectedTask.description || "—"}</div>
               </div>
+
+              {/* Start Date */}
+              <div>
+                <div className="text-gray-500 font-medium">📅 Start Date</div>
+                <div className="mt-1 text-gray-800">{selectedTask.start_date || "—"}</div>
+              </div>
+
+              {/* Due Date */}
+              <div>
+                <div className="text-gray-500 font-medium">⏳ Due Date</div>
+                <div className="mt-1 text-gray-800">{selectedTask.due_date || "—"}</div>
+              </div>
+
+              {/* File Download */}
+              {selectedTask.file && (
+                <div>
+                  <div className="text-gray-500 font-medium">📎 Attachment</div>
+                  <a
+                    href={selectedTask.file}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-block mt-1 text-blue-600 hover:underline font-medium"
+                  >
+                    Download File
+                  </a>
+                </div>
+              )}
             </div>
 
             {/* Modal Footer */}
-            <div className="mt-6 flex justify-end">
+            <div className="flex justify-end px-6 py-4 border-t bg-gray-50">
               <button
                 onClick={() => setSelectedTask(null)}
-                className="bg-blue-500 text-white px-5 py-2 rounded-lg shadow-md hover:bg-blue-600 transition duration-300"
+                className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2 rounded-lg shadow transition"
               >
                 Close
               </button>
@@ -648,6 +641,7 @@ const WeeklyTaskManager = () => {
           </div>
         </div>
       )}
+
 
     </div>
   );

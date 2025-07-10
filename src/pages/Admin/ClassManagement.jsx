@@ -204,41 +204,57 @@ const ClassManagement = () => {
 
       <div className="p-6">
         {showForm && (
-          <div className="p-6 bg-blue-50 rounded-md mb-6">
-            <h2 className="text-lg font-semibold text-blue-900">{editClass ? "Edit Class" : "Create Class"}</h2>
-            <div className="grid grid-cols-2 gap-4 mt-4">
-              <input
-                type="text"
-                placeholder="Class Name"
-                className="p-2 border border-gray-300 rounded w-full"
-                value={newClass.class_name}
-                onChange={(e) => setNewClass({ ...newClass, class_name: e.target.value })}
-              />
-              <input
-                type="text"
-                placeholder="Section"
-                className="p-2 border border-gray-300 rounded w-full"
-                value={newClass.section}
-                onChange={(e) => setNewClass({ ...newClass, section: e.target.value })}
-              />
-              <input
-                type="text"
-                placeholder="Session"
-                className="p-2 border border-gray-300 rounded w-full"
-                value={newClass.session}
-                onChange={(e) => setNewClass({ ...newClass, session: e.target.value })}
-              />
+          <div className="p-6 bg-white rounded-lg shadow-md border border-gray-200 max-w-xl mx-auto mb-6">
+            <h2 className="text-xl font-semibold text-blue-800 mb-4">
+              {editClass ? "Edit Class Details" : "Create New Class"}
+            </h2>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Class Name</label>
+                <input
+                  type="text"
+                  placeholder="e.g. 10th"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  value={newClass.class_name}
+                  onChange={(e) => setNewClass({ ...newClass, class_name: e.target.value })}
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Section</label>
+                <input
+                  type="text"
+                  placeholder="e.g. A"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  value={newClass.section}
+                  onChange={(e) => setNewClass({ ...newClass, section: e.target.value })}
+                />
+              </div>
+
+              <div className="md:col-span-2">
+                <label className="block text-sm font-medium text-gray-700 mb-1">Session</label>
+                <input
+                  type="text"
+                  placeholder="e.g. 2024-2025"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  value={newClass.session}
+                  onChange={(e) => setNewClass({ ...newClass, session: e.target.value })}
+                />
+              </div>
             </div>
-            <div className="flex justify-end mt-4">
+
+            <div className="mt-6 text-right">
               <button
                 onClick={handleSaveClass}
-                className="bg-green-500 text-white px-4 py-2 rounded-md shadow hover:bg-green-700"
+                className="bg-blue-600 hover:bg-blue-800 text-white font-medium px-6 py-2 rounded-md shadow-sm transition duration-150"
               >
-                {editClass ? "Update" : "Save"} Class
+                {editClass ? "Update Class" : "Save Class"}
               </button>
             </div>
           </div>
         )}
+
 
         {loading ? (
           <p className="text-center text-gray-500">Loading...</p>
