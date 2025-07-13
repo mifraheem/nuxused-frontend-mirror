@@ -123,7 +123,7 @@ const ParentAccount = () => {
         return;
       }
       const token = Cookies.get("access_token");
-      const apiUrl = `${UPDATE_URL}${selectedParent.user_id}/`;
+      const apiUrl = `${UPDATE_URL}${selectedParent.user_id}/update-profile/`;
       const updatedData = {
         first_name: selectedParent.first_name || "",
         last_name: selectedParent.last_name || "",
@@ -142,6 +142,14 @@ const ParentAccount = () => {
       });
       if (response.status === 200) {
         toast.success("Parent updated successfully.");
+
+        // ✅ Update local state for view modal
+        setSelectedParent((prev) => ({
+          ...prev,
+          ...updatedData,
+          linked_students: (prev.linked_students || []), // keep as-is unless updated from response
+        }));
+
         fetchParents();
         setIsEditModalOpen(false);
       } else {
@@ -151,6 +159,7 @@ const ParentAccount = () => {
       toast.error(error.response?.data?.message || "Failed to update parent.");
     }
   };
+
 
   useEffect(() => {
     fetchParents();

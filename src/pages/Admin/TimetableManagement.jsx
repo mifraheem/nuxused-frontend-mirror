@@ -442,7 +442,7 @@ const TimetableManagement = () => {
                 <th className="border p-2">Class</th>
                 <th className="border p-2">Start Time</th>
                 <th className="border p-2">End Time</th>
-                {(canEdit || canDelete) && <th className="border p-2">Actions</th>}
+                <th className="border p-2">Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -466,7 +466,7 @@ const TimetableManagement = () => {
                   <td className="border p-2">{timetable.end_time || "N/A"}</td>
 
                   {/* Actions */}
-                  {(canEdit || canDelete) && (
+                  
                     <td className="border p-2 flex space-x-2 justify-center">
                       {/* Edit Button */}
                       <MdVisibility
@@ -487,7 +487,7 @@ const TimetableManagement = () => {
                       )}
 
                     </td>
-                  )}
+                  
                 </tr>
               ))}
             </tbody>

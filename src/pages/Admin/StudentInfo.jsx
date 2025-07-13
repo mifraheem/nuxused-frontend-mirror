@@ -35,14 +35,18 @@ const StudentInfo = () => {
         setStudents(data.results);
         setCurrentPage(data.current_page);
         setTotalPages(data.total_pages);
+        return data.results;
       } else {
         toast.error("Failed to fetch students.");
+        return [];
       }
     } catch (error) {
       console.error("Error fetching students:", error.response);
       toast.error(error.response?.data?.message || "Failed to fetch students.");
+      return [];
     }
   };
+
 
   const updateStudent = async () => {
     try {
@@ -57,15 +61,15 @@ const StudentInfo = () => {
         return;
       }
 
-      const apiUrl = `${API}api/auth/profile/${selectedStudent.user_id}/edit_profile/`;
+      const apiUrl = `${API}api/auth/students/${selectedStudent.user_id}/update_student/`;
+
       const updatedData = {
         first_name: selectedStudent.first_name || "",
         last_name: selectedStudent.last_name || "",
-        phone_number: selectedStudent.phone_number ? String(selectedStudent.phone_number) : "00000000000",
-        address: selectedStudent.address || "Not Provided",
-        dob: selectedStudent.dob ? selectedStudent.dob : "2000-01-01",
-        gender: selectedStudent.gender || "Male",
-        class_name: selectedStudent.class_name || "Unknown",
+        phone_number: selectedStudent.phone_number || "",
+        address: selectedStudent.address || "",
+        dob: selectedStudent.dob || "",
+        gender: selectedStudent.gender || "",
       };
 
       const response = await axios.patch(apiUrl, updatedData, {
@@ -75,8 +79,15 @@ const StudentInfo = () => {
         },
       });
 
-      if (response.status === 200) {
+      if (response.status === 200 || response.status === 202) {
         toast.success("Student updated successfully.");
+
+        // ✅ Update selectedStudent immediately so View Modal reflects the latest data
+        setSelectedStudent((prev) => ({
+          ...prev,
+          ...updatedData,
+        }));
+
         fetchStudents(currentPage, pageSize);
         setIsEditModalOpen(false);
       } else {
@@ -84,9 +95,15 @@ const StudentInfo = () => {
       }
     } catch (error) {
       console.error("Error updating student:", error.response);
-      toast.error(error.response?.data?.message || "Failed to update student.");
+      toast.error(
+        error.response?.data?.message ||
+        error.response?.data?.detail ||
+        "Failed to update student."
+      );
     }
   };
+
+
 
   const deleteStudent = async (id) => {
     try {

@@ -283,28 +283,45 @@ const ClassAnnouncements = () => {
 
             {/* View Modal */}
             {selectedItem && (
-                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 px-4">
-                    <div className="bg-white p-6 rounded-lg w-full max-w-lg border shadow">
-                        <div className="flex justify-between items-center border-b pb-2">
-                            <h2 className="text-xl font-semibold">Announcement Details</h2>
-                            <button onClick={() => setSelectedItem(null)}>✖</button>
-                        </div>
-                        <div className="mt-4 space-y-2">
-                            <div>
-                                <strong>Title:</strong> {selectedItem.title}
-                            </div>
-                            <div>
-                                <strong>Description:</strong>
-                                <div className="bg-gray-50 p-2 border mt-1 rounded">{selectedItem.description}</div>
-                            </div>
-                            <div>
-                                <strong>Class Schedule:</strong> {selectedItem.class_schedule}
-                            </div>
-                        </div>
-                        <div className="mt-4 flex justify-end">
+                <div className="fixed inset-0 bg-black bg-opacity-40 backdrop-blur-sm flex items-center justify-center z-50 px-4">
+                    <div className="bg-white p-6 rounded-xl shadow-2xl w-full max-w-lg border border-gray-200">
+                        {/* Modal Header */}
+                        <div className="flex justify-between items-center border-b pb-3">
+                            <h2 className="text-2xl font-bold text-blue-800">📢 Announcement Details</h2>
                             <button
                                 onClick={() => setSelectedItem(null)}
-                                className="bg-blue-500 text-white px-4 py-2 rounded"
+                                className="text-gray-500 hover:text-red-600 text-lg font-semibold"
+                                aria-label="Close"
+                            >
+                                ✖
+                            </button>
+                        </div>
+
+                        {/* Modal Content */}
+                        <div className="mt-5 space-y-4 text-sm text-gray-700">
+                            <div>
+                                <span className="font-semibold text-gray-800">📌 Title:</span><br />
+                                <span className="ml-1">{selectedItem.title}</span>
+                            </div>
+
+                            <div>
+                                <span className="font-semibold text-gray-800">📝 Description:</span>
+                                <div className="bg-gray-50 border border-gray-200 rounded-md p-3 mt-1 text-gray-800">
+                                    {selectedItem.description}
+                                </div>
+                            </div>
+
+                            <div>
+                                <span className="font-semibold text-gray-800">🏫 Class Schedule:</span><br />
+                                <span className="ml-1">{selectedItem.class_schedule}</span>
+                            </div>
+                        </div>
+
+                        {/* Modal Footer */}
+                        <div className="mt-6 flex justify-end">
+                            <button
+                                onClick={() => setSelectedItem(null)}
+                                className="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-6 py-2 rounded-md shadow"
                             >
                                 Close
                             </button>
@@ -312,6 +329,7 @@ const ClassAnnouncements = () => {
                     </div>
                 </div>
             )}
+
         </div>
     );
 };

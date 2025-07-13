@@ -18,6 +18,12 @@ const StudentFees = () => {
     const [page, setPage] = useState(1);
     const [pageSize, setPageSize] = useState(10);
     const [totalPages, setTotalPages] = useState(1);
+    const [selectedStudentId, setSelectedStudentId] = useState(null);
+    const [studentFeeDetails, setStudentFeeDetails] = useState([]);
+    const [editModal, setEditModal] = useState(false);
+    const [editData, setEditData] = useState({ id: null, is_paid: false, payment_date: "" });
+
+
 
     const API = import.meta.env.VITE_SERVER_URL;
 
@@ -66,8 +72,10 @@ const StudentFees = () => {
 
     const handleFilter = () => {
         let query = "";
-        if (filterType === "id" && selectedStudent) {
-            query = `?student_id=${selectedStudent.profile_id}`;
+        if (filterType === "id" && selectedStudentId) {
+            query = `?student_id=${selectedStudentId}`; // ✅ This is now correct
+            // ✅ Use std_id
+
         } else if (filterType === "class" && selectedClass) {
             query = `?class=${selectedClass.id}`;
         } else if (filterType === "class_status" && selectedClass && selectedStatus !== "") {
@@ -75,6 +83,52 @@ const StudentFees = () => {
         }
         setPage(1);
         fetchFees(query);
+    };
+
+    const fetchStudentFeeDetails = async (id) => {
+        try {
+            const token = Cookies.get("access_token");
+            const res = await axios.get(`${API}student-fees/${id}`, {
+                headers: { Authorization: `Bearer ${token}` },
+            });
+
+            const dataArray = res.data?.data || [];
+            setStudentFeeDetails(Array.isArray(dataArray) ? dataArray : []);
+        } catch (err) {
+            console.error("Failed to fetch:", err);
+            toast.error("Could not fetch student fee records");
+            setStudentFeeDetails([]);
+        }
+    };
+
+    const handleEdit = (fee) => {
+        setEditData({
+            id: fee.id,
+            is_paid: fee.is_paid,
+            payment_date: fee.payment_date || "",
+        });
+        setEditModal(true);
+    };
+
+    const handleEditSubmit = async () => {
+        try {
+            const token = Cookies.get("access_token");
+            await axios.patch(`${API}student-fees/${editData.id}/`, {
+                is_paid: editData.is_paid,
+                payment_date: editData.payment_date || null,
+            }, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            toast.success("Fee updated successfully");
+            setEditModal(false);
+            // Refresh list
+            filterType === "id"
+                ? fetchStudentFeeDetails(selectedStudentId)
+                : fetchFees();
+        } catch (err) {
+            console.error(err);
+            toast.error("Failed to update fee");
+        }
     };
 
     useEffect(() => {
@@ -117,51 +171,44 @@ const StudentFees = () => {
             {/* Filter forms */}
             <div className="flex justify-center">
                 <div className="p-6   w-full max-w-xl ">
-            {filterType === "id" && (
-                <div className="mt-6 p-4 border rounded-lg bg-white shadow-md max-w-xl">
-                    <h3 className="text-lg font-semibold text-blue-800 mb-4">🎓 Filter by Student</h3>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Select Student</label>
-                    <Select
-                        options={students}
-                        getOptionLabel={(s) => `${s.first_name} ${s.last_name} (ID: ${s.profile_id})`}
-                        getOptionValue={(s) => s.profile_id}
-                        onChange={(val) => setSelectedStudent(val)}
-                        placeholder="Search or select student"
-                        isClearable
-                    />
-                    <div className="mt-4 text-right">
-                        <button onClick={handleFilter} className="bg-blue-600 hover:bg-blue-800 text-white px-6 py-2 rounded-md shadow-sm">
-                            Apply Filter
-                        </button>
-                    </div>
-                </div>
-            )}
+                    {filterType === "id" && (
+                        <div className="mt-6 p-4 border rounded-lg bg-white shadow-md max-w-xl">
+                            <h3 className="text-lg font-semibold text-blue-800 mb-4">🎓 Filter by Student</h3>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Select Student</label>
+                            <Select
+                                options={students}
+                                getOptionLabel={(s) => `${s.first_name} ${s.last_name} (ID: ${s.profile_id})`}
+                                getOptionValue={(s) => s.profile_id}
+                                value={students.find(s => s.profile_id === selectedStudentId) || null}  // ✅ sync with selected ID
+                                onChange={(selected) => {
+                                    if (selected) {
+                                        setSelectedStudentId(selected.profile_id);
+                                        setSelectedStudent(selected); // Optional
+                                        fetchStudentFeeDetails(selected.profile_id); // ✅ correct ID here
+                                    } else {
+                                        setSelectedStudentId(null);
+                                        setStudentFeeDetails([]);
+                                    }
+                                }}
+                                placeholder="Search or select student"
+                                isClearable
+                            />
 
-            {filterType === "class" && (
-                <div className="mt-6 p-4 border rounded-lg bg-white shadow-sm max-w-xl">
-                    <h3 className="text-lg font-semibold text-blue-800 mb-4">🏫 Filter by Class</h3>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Select Class</label>
-                    <Select
-                        options={classes}
-                        getOptionLabel={(c) => `${c.class_name} ${c.section} (${c.session})`}
-                        getOptionValue={(c) => c.id}
-                        onChange={(val) => setSelectedClass(val)}
-                        placeholder="Search or select class"
-                        isClearable
-                    />
-                    <div className="mt-4 text-right">
-                        <button onClick={handleFilter} className="bg-blue-600 hover:bg-blue-800 text-white px-6 py-2 rounded-md shadow-sm">
-                            Apply Filter
-                        </button>
-                    </div>
-                </div>
-            )}
+                            <div className="mt-4 text-right">
+                                <button
+                                    onClick={handleFilter}
+                                    className="bg-blue-600 hover:bg-blue-800 text-white px-6 py-2 rounded-md shadow-sm"
+                                >
+                                    Apply Filter
+                                </button>
+                            </div>
+                        </div>
+                    )}
 
-            {filterType === "class_status" && (
-                <div className="mt-6 p-4 border rounded-lg bg-white shadow-sm max-w-3xl">
-                    <h3 className="text-lg font-semibold text-blue-800 mb-4">📊 Filter by Class & Status</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-end">
-                        <div>
+
+                    {filterType === "class" && (
+                        <div className="mt-6 p-4 border rounded-lg bg-white shadow-sm max-w-xl">
+                            <h3 className="text-lg font-semibold text-blue-800 mb-4">🏫 Filter by Class</h3>
                             <label className="block text-sm font-medium text-gray-700 mb-1">Select Class</label>
                             <Select
                                 options={classes}
@@ -171,31 +218,53 @@ const StudentFees = () => {
                                 placeholder="Search or select class"
                                 isClearable
                             />
+                            <div className="mt-4 text-right">
+                                <button onClick={handleFilter} className="bg-blue-600 hover:bg-blue-800 text-white px-6 py-2 rounded-md shadow-sm">
+                                    Apply Filter
+                                </button>
+                            </div>
                         </div>
+                    )}
 
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Select Status</label>
-                            <select
-                                value={selectedStatus}
-                                onChange={(e) => setSelectedStatus(e.target.value)}
-                                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            >
-                                <option value="">Select Status</option>
-                                <option value="true">✅ Paid</option>
-                                <option value="false">❌ Pending</option>
-                            </select>
-                        </div>
+                    {filterType === "class_status" && (
+                        <div className="mt-6 p-4 border rounded-lg bg-white shadow-sm max-w-3xl">
+                            <h3 className="text-lg font-semibold text-blue-800 mb-4">📊 Filter by Class & Status</h3>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-end">
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Select Class</label>
+                                    <Select
+                                        options={classes}
+                                        getOptionLabel={(c) => `${c.class_name} ${c.section} (${c.session})`}
+                                        getOptionValue={(c) => c.id}
+                                        onChange={(val) => setSelectedClass(val)}
+                                        placeholder="Search or select class"
+                                        isClearable
+                                    />
+                                </div>
 
-                        <div className="md:col-span-2 text-right mt-4">
-                            <button onClick={handleFilter} className="bg-blue-600 hover:bg-blue-800 text-white px-6 py-2 rounded-md shadow-sm">
-                                Apply Filter
-                            </button>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Select Status</label>
+                                    <select
+                                        value={selectedStatus}
+                                        onChange={(e) => setSelectedStatus(e.target.value)}
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    >
+                                        <option value="">Select Status</option>
+                                        <option value="true">✅ Paid</option>
+                                        <option value="false">❌ Pending</option>
+                                    </select>
+                                </div>
+
+                                <div className="md:col-span-2 text-right mt-4">
+                                    <button onClick={handleFilter} className="bg-blue-600 hover:bg-blue-800 text-white px-6 py-2 rounded-md shadow-sm">
+                                        Apply Filter
+                                    </button>
+                                </div>
+                            </div>
                         </div>
-                    </div>
+                    )}
                 </div>
-            )}
             </div>
-</div>
 
             {/* Table */}
             <div className="p-6">
@@ -215,40 +284,44 @@ const StudentFees = () => {
                             </tr>
                         </thead>
                         <tbody>
-                            {fees.length > 0 ? fees.map((fee) => (
-                                <tr key={fee.id} className={!fee.is_paid ? "bg-red-50" : ""}>
-                                    <td className="border p-2">{fee.student_name}</td>
-                                    <td className="border p-2">{fee.fee_type}</td>
-                                    <td className="border p-2">{fee.net_payable}</td>
-                                    <td className="border p-2 text-center">{fee.is_paid ? "✅ Paid" : "❌ Pending"}</td>
-                                    <td className="border p-2">{fee.payment_date || "—"}</td>
-                                    {(canView || canEdit || canDelete) && (
-                                        <td className="border p-2 flex justify-center gap-2">
-                                            {canView && (
-                                                <button onClick={() => setViewModalData(fee)} className="text-blue-600">
-                                                    <MdVisibility />
-                                                </button>
-                                            )}
-                                            {canEdit && (
-                                                <button onClick={() => handleEdit(fee)} className="text-green-600">
-                                                    <MdEdit />
-                                                </button>
-                                            )}
-                                            {canDelete && (
-                                                <button onClick={() => handleDelete(fee.id)} className="text-red-600">
-                                                    <MdDelete />
-                                                </button>
-                                            )}
-                                        </td>
-                                    )}
-
-                                </tr>
-                            )) : (
+                            {(filterType === "id" ? studentFeeDetails : fees).length > 0 ? (
+                                (filterType === "id" ? studentFeeDetails : fees).map((fee) => (
+                                    <tr key={fee.id} className={!fee.is_paid ? "bg-red-50" : ""}>
+                                        <td className="border p-2">{fee.student_name}</td>
+                                        <td className="border p-2">{fee.fee_type}</td>
+                                        <td className="border p-2">{fee.net_payable}</td>
+                                        <td className="border p-2 text-center">{fee.is_paid ? "✅ Paid" : "❌ Pending"}</td>
+                                        <td className="border p-2">{fee.payment_date || "—"}</td>
+                                        {(canView || canEdit || canDelete) && (
+                                            <td className="border p-2 flex justify-center gap-2">
+                                                {canView && (
+                                                    <button onClick={() => setViewModalData(fee)} className="text-blue-600">
+                                                        <MdVisibility />
+                                                    </button>
+                                                )}
+                                                {canEdit && (
+                                                    <button onClick={() => handleEdit(fee)} className="text-green-600">
+                                                        <MdEdit />
+                                                    </button>
+                                                )}
+                                                {/* {canDelete && (
+                                                    <button onClick={() => handleDelete(fee.id)} className="text-red-600">
+                                                        <MdDelete />
+                                                    </button>
+                                                )} */}
+                                            </td>
+                                        )}
+                                    </tr>
+                                ))
+                            ) : (
                                 <tr>
-                                    <td colSpan="6" className="text-center text-gray-500 py-4">No records found.</td>
+                                    <td colSpan="6" className="text-center text-gray-500 py-4">
+                                        No records found.
+                                    </td>
                                 </tr>
                             )}
                         </tbody>
+
 
                     </table>
                 )}
@@ -294,39 +367,100 @@ const StudentFees = () => {
                     </div>
                 </div>
             </div>
+            {/* {studentFeeDetails.length > 0 && (
+                <div className="bg-white mt-4 p-6 rounded shadow border">
+                    <h2 className="text-lg font-bold text-blue-700 mb-4">Fee Records for Selected Student</h2>
+                    <table className="w-full border text-sm">
+                        <thead className="bg-gray-200">
+                            <tr>
+                                <th className="border px-3 py-2">Fee Type</th>
+                                <th className="border px-3 py-2">Class</th>
+                                <th className="border px-3 py-2">Section</th>
+                                <th className="border px-3 py-2">Session</th>
+                                <th className="border px-3 py-2">Net Payable</th>
+                                <th className="border px-3 py-2">Status</th>
+                                <th className="border px-3 py-2">Payment Date</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {studentFeeDetails.map((fee) => (
+                                <tr key={fee.id}>
+                                    <td className="border px-3 py-1">{fee.fee_type}</td>
+                                    <td className="border px-3 py-1">{fee.class_name}</td>
+                                    <td className="border px-3 py-1">{fee.section}</td>
+                                    <td className="border px-3 py-1">{fee.session}</td>
+                                    <td className="border px-3 py-1">₨ {fee.net_payable}</td>
+                                    <td className="border px-3 py-1">
+                                        {fee.is_paid ? (
+                                            <span className="text-green-600 font-semibold">Paid</span>
+                                        ) : (
+                                            <span className="text-red-600 font-semibold">Pending</span>
+                                        )}
+                                    </td>
+                                    <td className="border px-3 py-1">{fee.payment_date || "N/A"}</td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+            )} */}
 
             {/* Edit Modal */}
-            {/* {editModal && (
-                <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50">
-                    <div className="bg-white p-6 rounded shadow-xl w-full max-w-md">
-                        <h2 className="text-xl font-bold mb-4 text-blue-800 text-center">Edit Fee Record</h2>
-                        <div className="mb-4">
-                            <label className="block text-gray-700 mb-1">Paid Status</label>
-                            <select
-                                value={editData.is_paid}
-                                onChange={(e) => setEditData({ ...editData, is_paid: e.target.value === "true" })}
-                                className="w-full p-2 border border-gray-300 rounded"
+            {editModal && (
+                <div className="fixed inset-0 bg-black bg-opacity-40 backdrop-blur-sm flex items-center justify-center z-50 px-4">
+                    <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg p-6 border border-gray-200">
+                        {/* Header */}
+                        <div className="mb-6 border-b pb-3">
+                            <h2 className="text-2xl font-bold text-center text-blue-800">📝 Edit Fee Record</h2>
+                        </div>
+
+                        {/* Form */}
+                        <div className="space-y-5">
+                            {/* Paid Status */}
+                            <div>
+                                <label className="block text-gray-700 font-medium mb-1">Paid Status</label>
+                                <select
+                                    value={editData.is_paid}
+                                    onChange={(e) => setEditData({ ...editData, is_paid: e.target.value === "true" })}
+                                    className="w-full border border-gray-300 rounded-md px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                >
+                                    <option value="false">❌ Pending</option>
+                                    <option value="true">✅ Paid</option>
+                                </select>
+                            </div>
+
+                            {/* Payment Date */}
+                            <div>
+                                <label className="block text-gray-700 font-medium mb-1">Payment Date</label>
+                                <input
+                                    type="date"
+                                    value={editData.payment_date}
+                                    onChange={(e) => setEditData({ ...editData, payment_date: e.target.value })}
+                                    className="w-full border border-gray-300 rounded-md px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                />
+                            </div>
+                        </div>
+
+                        {/* Actions */}
+                        <div className="mt-6 flex justify-end gap-3">
+                            <button
+                                onClick={() => setEditModal(false)}
+                                className="px-5 py-2 bg-gray-300 hover:bg-gray-400 text-gray-800 font-medium rounded-md transition"
                             >
-                                <option value="false">❌ Pending</option>
-                                <option value="true">✅ Paid</option>
-                            </select>
-                        </div>
-                        <div className="mb-4">
-                            <label className="block text-gray-700 mb-1">Payment Date</label>
-                            <input
-                                type="date"
-                                value={editData.payment_date}
-                                onChange={(e) => setEditData({ ...editData, payment_date: e.target.value })}
-                                className="w-full p-2 border border-gray-300 rounded"
-                            />
-                        </div>
-                        <div className="flex justify-end gap-2">
-                            <button onClick={() => setEditModal(false)} className="px-4 py-2 bg-gray-300 rounded">Cancel</button>
-                            <button onClick={handleEditSubmit} className="px-4 py-2 bg-blue-600 text-white rounded">Update</button>
+                                Cancel
+                            </button>
+                            <button
+                                onClick={handleEditSubmit}
+                                className="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-md transition"
+                            >
+                                Update
+                            </button>
                         </div>
                     </div>
                 </div>
-            )} */}
+            )}
+
+
             {viewModalData && (
                 <div className="fixed inset-0 bg-black bg-opacity-50 backdrop-blur-sm flex items-center justify-center z-50 px-4">
                     <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] border border-gray-200 p-6 overflow-hidden">

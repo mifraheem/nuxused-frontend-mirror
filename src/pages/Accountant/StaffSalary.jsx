@@ -44,6 +44,36 @@ const StaffSalary = () => {
       toast.error("Failed to fetch teacher details");
     }
   };
+  const fetchAllProfiles = async () => {
+    try {
+      const token = Cookies.get("access_token");
+
+      if (!token) {
+        toast.error("Authentication token missing");
+        return;
+      }
+
+      const [teacherRes, staffRes] = await Promise.all([
+        axios.get(`${API}api/auth/users/list_profiles/teacher/`, {
+          headers: { Authorization: `Bearer ${token}` },
+        }),
+        axios.get(`${API}api/auth/users/list_profiles/staff/`, {
+          headers: { Authorization: `Bearer ${token}` },
+        }),
+      ]);
+
+      const teacherList = teacherRes.data?.data?.results || teacherRes.data?.data || [];
+      const staffList = staffRes.data?.data?.results || staffRes.data?.data || [];
+
+      const combinedList = [...teacherList, ...staffList];
+
+      setTeachers(combinedList);
+    } catch (error) {
+      const msg = error.response?.data?.message || error.message;
+      console.error("❌ Error fetching staff or teacher profiles:", msg);
+      toast.error("Failed to fetch staff/teacher profiles");
+    }
+  };
 
 
   // ✅ Select Teacher for Editing
@@ -57,51 +87,59 @@ const StaffSalary = () => {
   // ✅ Update Salary for Selected Teacher
   // ✅ Update Salary for Selected Teacher
   const updateSalary = async () => {
-    if (!selectedTeacher?.user_id) return;
+  if (!selectedTeacher?.user_id) return;
 
-    try {
-      const token = Cookies.get("access_token");
-      const apiUrl = `${API}api/auth/update-teacher-profile/${selectedTeacher.user_id}/update/`;
+  try {
+    const token = Cookies.get("access_token");
 
-      const updatedData = {
-        salary: salary !== "" ? String(salary) : "0",
-      };
+    // ✅ Determine API endpoint based on role
+    const endpointBase =
+      selectedTeacher.role === "teacher"
+        ? "update-teacher-profile"
+        : "staff-profile";
 
-      const response = await axios.put(apiUrl, updatedData, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-      });
+    const apiUrl = `${API}api/auth/${endpointBase}/${selectedTeacher.user_id}/update/`;
 
-      if (response.status === 200) {
-        const wasEmptyBefore = !selectedTeacher.salary || selectedTeacher.salary === "0";
-        toast.success(
-          wasEmptyBefore ? "Salary added successfully" : "Salary updated successfully"
-        );
+    const updatedData = {
+      salary: salary !== "" ? String(salary) : "0",
+    };
 
-        // Update local state
-        setTeachers((prev) =>
-          prev.map((teacher) =>
-            teacher.user_id === selectedTeacher.user_id
-              ? { ...teacher, salary }
-              : teacher
-          )
-        );
+    const response = await axios.put(apiUrl, updatedData, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+    });
 
-        setIsEditModalOpen(false);
-      } else {
-        toast.error("⚠️ Unexpected response status: " + response.status);
-      }
-    } catch (error) {
-      console.error("❌ Error updating salary:", error);
-      const errMsg =
-        error.response?.data?.message ||
-        error.response?.data?.detail ||
-        error.message;
-      toast.error("Failed to update salary: " + errMsg);
+    if (response.status === 200) {
+      const wasEmptyBefore =
+        !selectedTeacher.salary || selectedTeacher.salary === "0";
+      toast.success(
+        wasEmptyBefore ? "Salary added successfully" : "Salary updated successfully"
+      );
+
+      setTeachers((prev) =>
+        prev.map((teacher) =>
+          teacher.user_id === selectedTeacher.user_id
+            ? { ...teacher, salary }
+            : teacher
+        )
+      );
+
+      setIsEditModalOpen(false);
+    } else {
+      toast.error("⚠️ Unexpected response status: " + response.status);
     }
-  };
+  } catch (error) {
+    console.error("❌ Error updating salary:", error);
+    const errMsg =
+      error.response?.data?.message ||
+      error.response?.data?.detail ||
+      error.message;
+    toast.error("Failed to update salary: " + errMsg);
+  }
+};
+
 
 
   const openAddSalaryModal = (teacher) => {
@@ -113,6 +151,7 @@ const StaffSalary = () => {
 
   useEffect(() => {
     fetchTeachers();
+    fetchAllProfiles();
   }, []);
 
   if (teachers.length === 0) {

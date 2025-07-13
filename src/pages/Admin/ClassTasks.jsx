@@ -331,30 +331,66 @@ const ClassTasks = () => {
 
       {/* View Modal */}
       {selectedTask && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50 px-4">
-          <div className="bg-white p-6 rounded-lg w-full max-w-lg border shadow">
-            <div className="flex justify-between items-center border-b pb-2">
-              <h2 className="text-xl font-semibold">Task Details</h2>
-              <button onClick={() => setSelectedTask(null)}>✖</button>
-            </div>
-            <div className="mt-4 space-y-2">
-              <div><strong>Title:</strong> {selectedTask.title}</div>
-              <div><strong>Description:</strong> {selectedTask.description}</div>
-              <div><strong>Start Date:</strong> {selectedTask.start_date}</div>
-              <div><strong>Due Date:</strong> {selectedTask.due_date}</div>
-              {selectedTask.file && (
-                <div>
-                  <strong>File:</strong>{" "}
-                  <a href={selectedTask.file} target="_blank" rel="noopener noreferrer" className="text-blue-600 underline">
-                    Download
-                  </a>
-                </div>
-              )}
-            </div>
-            <div className="mt-4 flex justify-end">
+        <div className="fixed inset-0 bg-black bg-opacity-40 backdrop-blur-sm flex justify-center items-center z-50 px-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl border border-gray-200 p-6 overflow-hidden">
+            {/* Header */}
+            <div className="flex justify-between items-center border-b pb-4">
+              <h2 className="text-2xl font-bold text-blue-800">📝 Task Overview</h2>
               <button
                 onClick={() => setSelectedTask(null)}
-                className="bg-blue-500 text-white px-4 py-2 rounded"
+                className="text-gray-500 hover:text-red-600 text-xl font-bold"
+                aria-label="Close"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Content */}
+            <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-5 text-sm text-gray-700">
+              <div>
+                <span className="font-semibold text-gray-600">📌 Title</span>
+                <p className="mt-1">{selectedTask.title}</p>
+              </div>
+
+              <div>
+                <span className="font-semibold text-gray-600">📆 Start Date</span>
+                <p className="mt-1">{selectedTask.start_date}</p>
+              </div>
+
+              <div>
+                <span className="font-semibold text-gray-600">⏰ Due Date</span>
+                <p className="mt-1">{selectedTask.due_date}</p>
+              </div>
+
+              {selectedTask.file && (
+                <div className="sm:col-span-2">
+                  <span className="font-semibold text-gray-600">📎 Attachment</span>
+                  <p className="mt-1">
+                    <a
+                      href={selectedTask.file}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-blue-600 underline hover:text-blue-800"
+                    >
+                      Download File
+                    </a>
+                  </p>
+                </div>
+              )}
+
+              <div className="sm:col-span-2">
+                <span className="font-semibold text-gray-600">🧾 Description</span>
+                <div className="bg-gray-50 p-4 mt-1 rounded-md border text-gray-800 leading-relaxed whitespace-pre-line">
+                  {selectedTask.description}
+                </div>
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="mt-8 text-right">
+              <button
+                onClick={() => setSelectedTask(null)}
+                className="bg-blue-700 hover:bg-blue-800 text-white px-6 py-2 rounded-full font-semibold shadow-sm"
               >
                 Close
               </button>
@@ -362,6 +398,8 @@ const ClassTasks = () => {
           </div>
         </div>
       )}
+
+
     </div>
   );
 };

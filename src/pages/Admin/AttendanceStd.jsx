@@ -35,13 +35,14 @@ const AttendanceStd = () => {
 
 
   const [formData, setFormData] = useState({
-    student: '',
+    student: null, // change from string to object
     subject: '',
     class_schedule: '',
     status: 'Present',
     remarks: '',
     date: '',
   });
+
   const [markedStudentIds, setMarkedStudentIds] = useState([]);
 
   const [filters, setFilters] = useState({
@@ -102,6 +103,9 @@ const AttendanceStd = () => {
     }
 
     params.push(`student_id=${filters.studentId}`);
+// ✅ use 'student', not 'student_id'
+
+
 
     if (filters.type === 'Daily' && filters.date) {
       params.push(`daily=true&date=${filters.date}`);
@@ -140,19 +144,36 @@ const AttendanceStd = () => {
     if (!token) return toast.error('Not authenticated');
 
     const { student, subject, class_schedule, status, remarks, date } = formData;
+    const studentId = student?.profile_id || student; // fallback if already number
+
     if (!student || !subject || !class_schedule || !date) return toast.error('All fields are required.');
 
     try {
-      const alreadyMarked = markedStudentIds.includes(parseInt(student));
+      const alreadyMarked = markedStudentIds.includes(parseInt(student?.profile_id || student));
       if (alreadyMarked) return toast.error('This student has already been marked.');
 
-      await axios.post(API_BASE_URL, { student, subject, class_schedule, status, remarks, date }, {
+      const res = await axios.post(API_BASE_URL, {
+        student: student?.std_id || student,
+        subject,
+        class_schedule,
+        status,
+        remarks,
+        date
+      }, {
         headers: { Authorization: `Bearer ${token}` },
       });
 
+      const newRecord = res.data?.data?.data;
+      if (newRecord) {
+        setAttendanceData(prev => [...prev, newRecord]);
+        setShowReport(true);
+      }
+
       toast.success('Attendance submitted');
-      setMarkedStudentIds((prev) => [...prev, parseInt(student)]);
-      setFormData({ student: '', subject: '', class_schedule: '', status: 'Present', remarks: '', date: '' });
+      setMarkedStudentIds((prev) => [...prev, studentId]);
+      setFormData({ student: null, subject: '', class_schedule: '', status: 'Present', remarks: '', date: '' });
+
+
     } catch (err) {
       toast.error('Failed to submit');
     }
@@ -226,9 +247,9 @@ const AttendanceStd = () => {
 
             <Select
               name="student"
-              value={students.find(std => std.profile_id === parseInt(formData.student)) || null}
+              value={formData.student}
               onChange={(selected) => {
-                setFormData({ ...formData, student: selected?.profile_id || "" });
+                setFormData((prev) => ({ ...prev, student: selected }));
               }}
               options={students.filter(s => !markedStudentIds.includes(s.profile_id))}
               getOptionLabel={(s) => s.username}
@@ -236,6 +257,7 @@ const AttendanceStd = () => {
               placeholder="Select Student"
               isClearable
             />
+
 
 
 

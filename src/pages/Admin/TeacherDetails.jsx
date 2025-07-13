@@ -18,7 +18,7 @@ const TeacherDetails = () => {
 
   const API_URL = `${API}api/auth/users/list_profiles/teacher/`;
   const DELETE_URL = `${API}api/auth/users/delete_user/`;
-  const UPDATE_URL = `${API}api/auth/profile`;
+  const UPDATE_URL = `${API}api/auth/update-teacher-profile`;
 
   const fetchTeachers = async () => {
     try {
@@ -135,7 +135,8 @@ const TeacherDetails = () => {
         return;
       }
 
-      const apiUrl = `${UPDATE_URL}/${selectedTeacher.user_id}/edit_profile/`;
+      const apiUrl = `${API}api/auth/update-teacher-profile/${selectedTeacher.user_id}/update/`;
+
       const updatedData = {
         first_name: selectedTeacher.first_name,
         last_name: selectedTeacher.last_name,
@@ -145,7 +146,7 @@ const TeacherDetails = () => {
         gender: selectedTeacher.gender,
       };
 
-      const response = await axios.patch(apiUrl, updatedData, {
+      const response = await axios.put(apiUrl, updatedData, {
         headers: {
           Authorization: `Bearer ${token}`,
           "Content-Type": "application/json",
@@ -154,15 +155,27 @@ const TeacherDetails = () => {
 
       if (response.status === 200) {
         toast.success("Teacher profile updated successfully.");
+
+        // ✅ Update state for modal consistency
+        setSelectedTeacher((prev) => ({
+          ...prev,
+          ...updatedData,
+        }));
+
         fetchTeachers();
         setIsEditModalOpen(false);
       } else {
         toast.error("Unexpected response from server.");
       }
     } catch (error) {
-      toast.error("Failed to update teacher.");
+      toast.error(
+        error.response?.data?.message ||
+        error.response?.data?.detail ||
+        "Failed to update teacher."
+      );
     }
   };
+
 
   useEffect(() => {
     fetchTeachers();

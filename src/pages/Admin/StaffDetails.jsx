@@ -16,8 +16,8 @@ const StaffDetails = () => {
 
   const API = import.meta.env.VITE_SERVER_URL;
   const API_URL = `${API}api/auth/users/list_profiles/staff/`;
-  const DELETE_URL = `${API}api/auth/users/delete_user/`;
-  const UPDATE_URL = `${API}api/auth/profile`;
+  const DELETE_URL = `${API}api/auth/users/`;
+  const UPDATE_URL = `${API}api/auth/staff-profile`;
 
   const fetchStaff = async () => {
     try {
@@ -93,7 +93,7 @@ const StaffDetails = () => {
   const updateStaff = async () => {
     try {
       const token = Cookies.get("access_token");
-      const apiUrl = `${UPDATE_URL}/${selectedStaff.user_id}/edit_profile/`;
+      const apiUrl = `${UPDATE_URL}/${selectedStaff.user_id}/update/`;
       const updated = {
         first_name: selectedStaff.first_name,
         last_name: selectedStaff.last_name,
@@ -103,7 +103,7 @@ const StaffDetails = () => {
         gender: selectedStaff.gender,
       };
 
-      const response = await axios.patch(apiUrl, updated, {
+      const response = await axios.put(apiUrl, updated, {
         headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
       });
 
@@ -171,7 +171,7 @@ const StaffDetails = () => {
           </table>
         </div>
       </div>
-      // ✅ View Modal for Staff
+      {/* // ✅ View Modal for Staff */}
       {isViewModalOpen && selectedStaff && (
         <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
           <div className="bg-white w-full max-w-md rounded-xl shadow-2xl overflow-hidden max-h-[85vh] border border-gray-200">
@@ -189,7 +189,7 @@ const StaffDetails = () => {
                 ["Address", selectedStaff.address],
                 ["Date of Birth", selectedStaff.dob],
                 ["Gender", selectedStaff.gender],
-                ["Salary", selectedStaff.salary ? `Rs.${selectedStaff.salary}` : "N/A"],
+                ["Salary", selectedStaff.salary !== null && selectedStaff.salary !== undefined ? `Rs.${selectedStaff.salary}` : "N/A"],
               ].map(([label, value], i) => (
                 <div key={i} className="flex justify-between border-b pb-1">
                   <span className="font-semibold text-gray-700">{label}:</span>
@@ -208,7 +208,7 @@ const StaffDetails = () => {
         </div>
       )}
 
-// ✅ Edit Modal for Staff
+{/* // ✅ Edit Modal for Staff */}
       {isEditModalOpen && selectedStaff && (
         <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
           <div className="bg-white w-full max-w-md rounded-xl shadow-2xl overflow-hidden max-h-[85vh] border border-gray-200">
