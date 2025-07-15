@@ -34,49 +34,74 @@ export function AdminRegistration() {
     }
 
     const API_URL = formData.role === "student" ? API_URLS.student : API_URLS.default;
-    const requestData =
-      formData.role === "student"
-        ? {
-          username: formData.username,
-          first_name: formData.first_name,
-          last_name: formData.last_name,
-          email: formData.email,
-          password: formData.password,
-          class_id: formData.class_id,
-          ...(formData.parent_email && { parent_email: formData.parent_email }), // ✅ only include if not empty
-        }
-        : {
-          username: formData.username,
-          first_name: formData.first_name,
-          last_name: formData.last_name,
-          email: formData.email,
-          password: formData.password,
-          role: formData.role,
-        };
+    const token = Cookies.get("access_token");
 
+    let requestData;
+    let headers;
+
+    if (formData.role === "student" || formData.role === "teacher" || formData.role === "staff") {
+      requestData = new FormData();
+      requestData.append("username", formData.username);
+      requestData.append("first_name", formData.first_name);
+      requestData.append("last_name", formData.last_name);
+      requestData.append("email", formData.email);
+      requestData.append("password", formData.password);
+      requestData.append("role", formData.role);
+      if (formData.profile_picture) {
+        requestData.append("profile_picture", formData.profile_picture);
+      }
+
+
+      if (formData.role === "student") {
+        requestData.append("class_id", formData.class_id);
+        if (formData.parent_email) {
+          requestData.append("parent_email", formData.parent_email);
+        }
+      }
+
+      headers = {
+        "Content-Type": "multipart/form-data",
+        Authorization: token ? `Bearer ${token}` : "",
+      };
+    } else {
+      requestData = {
+        username: formData.username,
+        first_name: formData.first_name,
+        last_name: formData.last_name,
+        email: formData.email,
+        password: formData.password,
+        role: formData.role,
+      };
+
+      headers = {
+        "Content-Type": "application/json",
+        Authorization: token ? `Bearer ${token}` : "",
+      };
+    }
 
     try {
-      const token = Cookies.get("access_token");
-      const response = await axios.post(
-        API_URL,
-        requestData,
-        {
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: token ? `Bearer ${token}` : "",
-          },
-        }
-      );
+      const response = await axios.post(API_URL, requestData, { headers });
 
       if (response.status === 201 || response.status === 200) {
         toast.success("User registered successfully!");
-        setFormData({ username: "", first_name: "", last_name: "", email: "", password: "", role: "", class_id: "", parent_email: "" });
+        setFormData({
+          username: "",
+          first_name: "",
+          last_name: "",
+          email: "",
+          password: "",
+          role: "",
+          class_id: "",
+          parent_email: "",
+          profile_picture: null,
+        });
         window.dispatchEvent(new Event("update_data"));
       }
     } catch (error) {
       toast.error(error.response?.data?.detail || "Registration failed!");
     }
   };
+
 
   const [classOptions, setClassOptions] = useState([]);
   const [parentOptions, setParentOptions] = useState([]);
@@ -144,6 +169,30 @@ export function AdminRegistration() {
     value: cls.id,
     label: `${cls.class_name} - ${cls.section} - ${cls.session}`
   }));
+
+  const handleSubmit = async () => {
+    const formDataObj = new FormData();
+    formDataObj.append("first_name", formData.first_name);
+    formDataObj.append("last_name", formData.last_name);
+    formDataObj.append("email", formData.email);
+    formDataObj.append("password", formData.password);
+    // Add other fields
+    formDataObj.append("profile_picture", formData.profile_picture); // 👈 Add this
+
+    try {
+      await axios.post(`${API}/api/auth/register-student/`, formDataObj, {
+        headers: {
+          "Content-Type": "multipart/form-data",
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      // handle success
+    } catch (err) {
+      console.error("Error registering student:", err);
+    }
+  };
+
+
   return (
     <div>
       <Toaster position="top-right" reverseOrder={false} />
@@ -197,49 +246,64 @@ export function AdminRegistration() {
                 <input type="password" name="password" value={formData.password} onChange={handleChange} required className="w-full p-2 border border-gray-300 rounded" placeholder="Enter password" />
               </div>
 
-              {formData.role === "student" && (
-                <>
-                  <div>
-                    <label className="block text-gray-700 font-semibold mb-1">Class:</label>
-                    <Select
-                      options={classOptionsFormatted}
-                      value={classOptionsFormatted.find(opt => opt.value === formData.class_id)}
-                      onChange={(selectedOption) => {
-                        setFormData({ ...formData, class_id: selectedOption?.value || "" });
-                      }}
-                      isClearable
-                      placeholder="-- Select Class --"
-                      className="text-sm"
-                    />
-                  </div>
+              {(formData.role === "student" || formData.role === "teacher" || formData.role === "staff") && (
 
-                  {/* ✅ Dropdown for Parent Email */}
-                  <div className="mt-2">
-                    <label className="block text-gray-700 font-semibold mb-1">Parent Email:</label>
-                    <Select
-                      options={parentOptionsMapped}
-                      value={parentOptionsMapped.find(opt => opt.value === formData.parent_email) || null}
-                      onChange={(selectedOption) =>
-                        setFormData({ ...formData, parent_email: selectedOption ? selectedOption.value : "" })
-                      }
-                      placeholder=" (optional)"
-                      className="basic-single"
-                      classNamePrefix="select"
-                      isSearchable
-                      isClearable // ✅ Allow clearing
-                    />
-
-                  </div>
-                </>
+                <div>
+                  <label className="block text-gray-700 font-semibold mb-1">Profile Picture:</label>
+                  <input
+                    type="file"
+                    name="profile_picture"
+                    accept="image/*"
+                    className="w-full p-2 border border-gray-300 rounded"
+                    onChange={(e) =>
+                      setFormData({ ...formData, profile_picture: e.target.files[0] })
+                    }
+                  />
+                </div>
               )}
+
+              {(formData.role === "student") && (
+                <div>
+                  <label className="block text-gray-700 font-semibold mb-1">Class:</label>
+                  <Select
+                    options={classOptionsFormatted}
+                    value={classOptionsFormatted.find(opt => opt.value === formData.class_id)}
+                    onChange={(selectedOption) => {
+                      setFormData({ ...formData, class_id: selectedOption?.value || "" });
+                    }}
+                    isClearable
+                    placeholder="-- Select Class --"
+                    className="text-sm"
+                  />
+                </div>)}
+              {/* ✅ Dropdown for Parent Email */}
+              {(formData.role === "student") && (
+                < div className="mt-2">
+                  <label className="block text-gray-700 font-semibold mb-1">Parent Email:</label>
+                  <Select
+                    options={parentOptionsMapped}
+                    value={parentOptionsMapped.find(opt => opt.value === formData.parent_email) || null}
+                    onChange={(selectedOption) =>
+                      setFormData({ ...formData, parent_email: selectedOption ? selectedOption.value : "" })
+                    }
+                    placeholder=" (optional)"
+                    className="basic-single"
+                    classNamePrefix="select"
+                    isSearchable
+                    isClearable // ✅ Allow clearing
+                  />
+
+                </div>)}
+
+
             </div>
             <button type="submit" className="w-full bg-blue-600 text-white py-2 rounded-md shadow-md hover:bg-blue-700 transition mt-4">
               Register {formData.role}
             </button>
           </form>
         </div>
-      </div>
-    </div>
+      </div >
+    </div >
   );
 }
 

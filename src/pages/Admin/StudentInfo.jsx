@@ -62,46 +62,38 @@ const StudentInfo = () => {
       }
 
       const apiUrl = `${API}api/auth/students/${selectedStudent.user_id}/update_student/`;
+      const formData = new FormData();
 
-      const updatedData = {
-        first_name: selectedStudent.first_name || "",
-        last_name: selectedStudent.last_name || "",
-        phone_number: selectedStudent.phone_number || "",
-        address: selectedStudent.address || "",
-        dob: selectedStudent.dob || "",
-        gender: selectedStudent.gender || "",
-      };
+      formData.append("first_name", selectedStudent.first_name || "");
+      formData.append("last_name", selectedStudent.last_name || "");
+      formData.append("phone_number", selectedStudent.phone_number || "");
+      formData.append("address", selectedStudent.address || "");
+      formData.append("dob", selectedStudent.dob || "");
+      formData.append("gender", selectedStudent.gender || "");
+      if (selectedStudent.profile_picture instanceof File) {
+        formData.append("profile_picture", selectedStudent.profile_picture);
+      }
 
-      const response = await axios.patch(apiUrl, updatedData, {
+      const response = await axios.patch(apiUrl, formData, {
         headers: {
           Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
+          "Content-Type": "multipart/form-data",
         },
       });
 
-      if (response.status === 200 || response.status === 202) {
+      if ([200, 202].includes(response.status)) {
         toast.success("Student updated successfully.");
-
-        // ✅ Update selectedStudent immediately so View Modal reflects the latest data
-        setSelectedStudent((prev) => ({
-          ...prev,
-          ...updatedData,
-        }));
-
         fetchStudents(currentPage, pageSize);
         setIsEditModalOpen(false);
       } else {
         toast.error("Unexpected response from server.");
       }
     } catch (error) {
-      console.error("Error updating student:", error.response);
-      toast.error(
-        error.response?.data?.message ||
-        error.response?.data?.detail ||
-        "Failed to update student."
-      );
+      console.error("Error updating student:", error);
+      toast.error(error.response?.data?.detail || "Failed to update student.");
     }
   };
+
 
 
 
@@ -337,6 +329,20 @@ const StudentInfo = () => {
                 <table className="table-auto w-full text-sm text-left border border-gray-200">
                   <tbody className="divide-y divide-gray-100">
                     <tr>
+                      <th className="px-4 py-2 text-gray-700 font-medium">Picture</th>
+                      <td className="px-4 py-2">
+                        {selectedStudent.profile_picture ? (
+                          <img
+                            src={`${API}${selectedStudent.profile_picture}`}
+                            alt="Profile"
+                            className="w-24 h-24 object-cover rounded border"
+                          />
+                        ) : (
+                          "N/A"
+                        )}
+                      </td>
+                    </tr>
+                    <tr>
                       <th className="px-4 py-2 text-gray-700 w-1/3 font-medium">Username</th>
                       <td className="px-4 py-2 text-gray-800">{selectedStudent.username || "N/A"}</td>
                     </tr>
@@ -372,10 +378,8 @@ const StudentInfo = () => {
                       <th className="px-4 py-2 text-gray-700 font-medium">Class</th>
                       <td className="px-4 py-2 text-gray-800">{selectedStudent.class_name || "N/A"}</td>
                     </tr>
-                    <tr>
-                      <th className="px-4 py-2 text-gray-700 font-medium">Role</th>
-                      <td className="px-4 py-2 text-gray-800 capitalize">{selectedStudent.role || "N/A"}</td>
-                    </tr>
+                    
+
                   </tbody>
                 </table>
               </div>
@@ -460,6 +464,34 @@ const StudentInfo = () => {
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
+                {/* Profile Picture Upload */}
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1">Profile Picture</label>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) => {
+                      const file = e.target.files[0];
+                      setSelectedStudent({ ...selectedStudent, profile_picture: file });
+                    }}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                  />
+                  {selectedStudent.profile_picture && typeof selectedStudent.profile_picture !== "string" && (
+                    <img
+                      src={URL.createObjectURL(selectedStudent.profile_picture)}
+                      alt="Preview"
+                      className="w-24 h-24 mt-2 rounded border object-cover"
+                    />
+                  )}
+                  {selectedStudent.profile_picture && typeof selectedStudent.profile_picture === "string" && (
+                    <img
+                      src={`${API}${selectedStudent.profile_picture}`}
+                      alt="Existing"
+                      className="w-24 h-24 mt-2 rounded border object-cover"
+                    />
+                  )}
+                </div>
+
 
                 {/* Gender */}
                 <div>

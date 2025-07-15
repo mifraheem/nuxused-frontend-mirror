@@ -68,6 +68,13 @@ import ClassAnnouncements from "./pages/Admin/ClassAnnouncements";
 import ClassTasks from "./pages/Admin/ClassTasks";
 import TeacherDetails from "./pages/Admin/TeacherDetails";
 import StaffDetails from "./pages/Admin/StaffDetails";
+import StudentIDCardPage from "./pages/Admin/StudentIDCardPage";
+import TeacherIDCardPage from "./pages/Admin/TeacherIDCardPage";
+import StaffIDCardPage from "./pages/Admin/StaffIDCardPage";
+import GradeCriteriaPage from "./pages/Admin/GradeCriteria";
+import GradeCriteria from "./pages/Admin/GradeCriteria";
+import StudentResults from "./pages/Admin/StudentResults";
+import FinalResults from "./pages/Admin/FinalResults";
 
 const router = createBrowserRouter([
   {
@@ -116,7 +123,7 @@ const router = createBrowserRouter([
           },
           {
             path: "/admin/generate-student-id-cards",
-            element: <IdCards />,
+            element: <StudentIDCardPage />,
           },
           {
             path: "/admin/birthday-management",
@@ -139,8 +146,12 @@ const router = createBrowserRouter([
             element: <StaffDetails />,
           },
           {
+            path: "/admin/generate-teacher-id-cards",
+            element: <TeacherIDCardPage />,
+          },
+          {
             path: "/admin/generate-staff-id-cards",
-            element: <StaffCards />,
+            element: <StaffIDCardPage />,
           },
           {
             path: "/admin/track-students-attendance",
@@ -245,6 +256,18 @@ const router = createBrowserRouter([
           {
             path: "/admin/class-tasks",
             element: <ClassTasks/>,
+          },
+          {
+            path: "/admin/grade-criteria",
+            element: <GradeCriteria/>,
+          },
+          {
+            path: "/admin/student-results",
+            element: <StudentResults/>,
+          },
+          {
+            path: "/admin/final-results",
+            element: <FinalResults/>,
           },
 
         ],

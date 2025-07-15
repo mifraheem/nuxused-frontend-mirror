@@ -41,6 +41,7 @@ const StaffDetails = () => {
           dob: s.dob || "N/A",
           gender: s.gender || "N/A",
           salary: s.salary || null,
+          profile_picture: s.profile_picture || null,
         }));
         setStaff(formatted);
         setTotalPages(response.data.data.total_pages);
@@ -94,17 +95,23 @@ const StaffDetails = () => {
     try {
       const token = Cookies.get("access_token");
       const apiUrl = `${UPDATE_URL}/${selectedStaff.user_id}/update/`;
-      const updated = {
-        first_name: selectedStaff.first_name,
-        last_name: selectedStaff.last_name,
-        phone_number: selectedStaff.phone_number,
-        address: selectedStaff.address,
-        dob: selectedStaff.dob,
-        gender: selectedStaff.gender,
-      };
 
-      const response = await axios.put(apiUrl, updated, {
-        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+      const formData = new FormData();
+      formData.append("first_name", selectedStaff.first_name);
+      formData.append("last_name", selectedStaff.last_name);
+      formData.append("phone_number", selectedStaff.phone_number);
+      formData.append("address", selectedStaff.address);
+      formData.append("dob", selectedStaff.dob);
+      formData.append("gender", selectedStaff.gender);
+      if (selectedStaff.profile_picture instanceof File) {
+        formData.append("profile_picture", selectedStaff.profile_picture);
+      }
+
+      const response = await axios.put(apiUrl, formData, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "multipart/form-data",
+        },
       });
 
       if (response.status === 200) {
@@ -180,6 +187,16 @@ const StaffDetails = () => {
             </div>
 
             <div className="p-6 overflow-y-auto max-h-[60vh] text-sm space-y-4">
+              {selectedStaff.profile_picture && (
+                <div className="flex justify-center mb-4">
+                  <img
+                    src={`${API}${selectedStaff.profile_picture}`}
+                    alt="Profile"
+                    className="w-28 h-28 rounded-full border object-cover shadow"
+                  />
+                </div>
+              )}
+
               {[
                 ["Username", selectedStaff.username],
                 ["First Name", selectedStaff.first_name],
@@ -208,7 +225,7 @@ const StaffDetails = () => {
         </div>
       )}
 
-{/* // ✅ Edit Modal for Staff */}
+      {/* // ✅ Edit Modal for Staff */}
       {isEditModalOpen && selectedStaff && (
         <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
           <div className="bg-white w-full max-w-md rounded-xl shadow-2xl overflow-hidden max-h-[85vh] border border-gray-200">
@@ -238,6 +255,15 @@ const StaffDetails = () => {
                   value={selectedStaff.dob || ""}
                   onChange={(e) => setSelectedStaff({ ...selectedStaff, dob: e.target.value })}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-1">Profile Picture</label>
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => setSelectedStaff({ ...selectedStaff, profile_picture: e.target.files[0] })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md"
                 />
               </div>
 

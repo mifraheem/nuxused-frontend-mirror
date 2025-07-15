@@ -45,6 +45,8 @@ const TeacherDetails = () => {
           dob: teacher.dob || "N/A",
           gender: teacher.gender || "N/A",
           salary: teacher.salary || null,
+          profile_picture: teacher.profile_picture || null,
+
         }));
 
         setTeachers(formattedData);
@@ -137,21 +139,24 @@ const TeacherDetails = () => {
 
       const apiUrl = `${API}api/auth/update-teacher-profile/${selectedTeacher.user_id}/update/`;
 
-      const updatedData = {
-        first_name: selectedTeacher.first_name,
-        last_name: selectedTeacher.last_name,
-        phone_number: selectedTeacher.phone_number,
-        address: selectedTeacher.address,
-        dob: selectedTeacher.dob,
-        gender: selectedTeacher.gender,
-      };
+      const formData = new FormData();
+      formData.append("first_name", selectedTeacher.first_name);
+      formData.append("last_name", selectedTeacher.last_name);
+      formData.append("phone_number", selectedTeacher.phone_number);
+      formData.append("address", selectedTeacher.address);
+      formData.append("dob", selectedTeacher.dob);
+      formData.append("gender", selectedTeacher.gender);
+      if (selectedTeacher.new_profile_picture) {
+        formData.append("profile_picture", selectedTeacher.new_profile_picture);
+      }
 
-      const response = await axios.put(apiUrl, updatedData, {
+      const response = await axios.put(apiUrl, formData, {
         headers: {
           Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
+          "Content-Type": "multipart/form-data",
         },
       });
+
 
       if (response.status === 200) {
         toast.success("Teacher profile updated successfully.");
@@ -159,7 +164,7 @@ const TeacherDetails = () => {
         // ✅ Update state for modal consistency
         setSelectedTeacher((prev) => ({
           ...prev,
-          ...updatedData,
+          ...selectedTeacher,
         }));
 
         fetchTeachers();
@@ -314,6 +319,22 @@ const TeacherDetails = () => {
               <table className="table-auto w-full text-sm text-left border border-gray-200">
                 <tbody className="divide-y divide-gray-100">
                   <tr>
+                    <th className="px-4 py-2 font-medium text-gray-700">Profile Picture</th>
+                    <td className="px-4 py-2 text-gray-800">
+                      {selectedTeacher.profile_picture ? (
+                        <img
+                          src={`${API}${selectedTeacher.profile_picture}`}
+                          alt="Profile"
+                          className="w-20 h-20 rounded-full border object-cover"
+                        />
+                      ) : (
+                        "N/A"
+                      )}
+                    </td>
+                  </tr>
+
+
+                  <tr>
                     <th className="px-4 py-2 font-medium text-gray-700 w-1/3">Username</th>
                     <td className="px-4 py-2 text-gray-800">{selectedTeacher.username || "N/A"}</td>
                   </tr>
@@ -430,6 +451,18 @@ const TeacherDetails = () => {
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-1">Profile Picture</label>
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) =>
+                    setSelectedTeacher({ ...selectedTeacher, new_profile_picture: e.target.files[0] })
+                  }
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                />
+              </div>
+
 
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-1">Gender</label>

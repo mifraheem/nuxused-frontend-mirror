@@ -84,6 +84,7 @@ const Sidebar = () => {
                                 {activeTab === 'student' && (
                                     <ul className="ml-6 mt-2 space-y-2">
                                         <li><Link to="/admin/manage-student-information" className="block px-4 py-2 hover:bg-blue-700 rounded-lg">Student Information</Link></li>
+                                        <li><Link to="/admin/generate-student-id-cards" className="block px-4 py-2 hover:bg-blue-700 rounded-lg">Student ID Cards</Link></li>
                                     </ul>
                                 )}
                             </li>
@@ -116,6 +117,7 @@ const Sidebar = () => {
                                 {activeTab === 'teacher' && (
                                     <ul className="ml-6 mt-2 space-y-2">
                                         <li><Link to="/admin/manage-teacher-details" className="block px-4 py-2 hover:bg-blue-700 rounded-lg">Manage Teacher Details</Link></li>
+                                        <li><Link to="/admin/generate-teacher-id-cards" className="block px-4 py-2 hover:bg-blue-700 rounded-lg">Teacher ID Cards</Link></li>
                                     </ul>
                                 )}
                             </li>
@@ -131,6 +133,7 @@ const Sidebar = () => {
                                 {activeTab === 'staff' && (
                                     <ul className="ml-6 mt-2 space-y-2">
                                         <li><Link to="/admin/manage-staff-details" className="block px-4 py-2 hover:bg-blue-700 rounded-lg">Manage Staff Details</Link></li>
+                                        <li><Link to="/admin/generate-staff-id-cards" className="block px-4 py-2 hover:bg-blue-700 rounded-lg">Staff ID Cards</Link></li>
                                     </ul>
                                 )}
                             </li>
@@ -164,6 +167,52 @@ const Sidebar = () => {
                                 )}
                             </li>
                         )}
+                        {/* Grade Criteria */}
+                        {permissions.includes("users.view_gradecriteria") && (
+                            <li>
+                                <Link to="/admin/grade-criteria" className="flex items-center px-4 py-2 hover:bg-blue-700 rounded-lg">
+                                    <i className="pi pi-percentage mr-2"></i> Grade Criteria
+                                </Link>
+                            </li>
+                        )}
+                        {/* Student Results */}
+                        {(permissions.includes("users.view_finalresult") || permissions.includes("users.view_result")) && (
+                            <li>
+                                <button
+                                    onClick={() => toggleTab('results')}
+                                    className="flex items-center w-full px-4 py-2 hover:bg-blue-700 rounded-lg"
+                                >
+                                    <i className="pi pi-check-square mr-2"></i> Results
+                                    <i className={`pi ${activeTab === 'results' ? 'pi-chevron-up' : 'pi-chevron-down'} ml-auto`}></i>
+                                </button>
+
+                                {activeTab === 'results' && (
+                                    <ul className="ml-6 mt-2 space-y-2">
+                                        {permissions.includes("users.view_studentresult") && (
+                                            <li>
+                                                <Link
+                                                    to="/admin/student-results"
+                                                    className="block px-4 py-2 hover:bg-blue-700 rounded-lg"
+                                                >
+                                                    Student Results
+                                                </Link>
+                                            </li>
+                                        )}
+                                        {permissions.includes("users.view_finalresult") && (
+                                            <li>
+                                                <Link
+                                                    to="/admin/final-results"
+                                                    className="block px-4 py-2 hover:bg-blue-700 rounded-lg"
+                                                >
+                                                    Final Result
+                                                </Link>
+                                            </li>
+                                        )}
+                                    </ul>
+                                )}
+                            </li>
+                        )}
+
 
 
                         {/* Exam */}
