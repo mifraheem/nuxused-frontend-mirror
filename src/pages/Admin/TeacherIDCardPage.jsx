@@ -13,6 +13,23 @@ const TeacherIDCardPage = () => {
     const [printingSingle, setPrintingSingle] = useState(false);
     const [singleProgress, setSingleProgress] = useState(0);
     const [selectedTeacherCard, setSelectedTeacherCard] = useState(null);
+    const [schoolName, setSchoolName] = useState("SCHOOL NAME");
+
+    const fetchSchoolName = async () => {
+    try {
+        const token = Cookies.get("access_token");
+        const res = await axios.get(`${API}classes/`, {
+            headers: { Authorization: `Bearer ${token}` },
+        });
+        const classes = res.data?.data?.results || [];
+        if (classes.length > 0 && classes[0].school) {
+            setSchoolName(classes[0].school);
+        }
+    } catch (error) {
+        console.error("Error fetching school name:", error);
+    }
+};
+
 
     const fetchAllTeachers = async () => {
         try {
@@ -165,6 +182,7 @@ const TeacherIDCardPage = () => {
 
     useEffect(() => {
         fetchAllTeachers();
+        fetchSchoolName();
     }, []);
 
     return (
@@ -196,7 +214,7 @@ const TeacherIDCardPage = () => {
                             <div className="w-[300px] h-[175px] relative bg-white rounded-lg overflow-hidden shadow border border-red-800">
                                 <div className="bg-red-800 px-4 py-1 text-white flex items-center justify-between">
                                     <img src="/school-logo.png" alt="Logo" className="w-6 h-6" />
-                                    <span className="text-sm font-semibold">SCHOOL NAME</span>
+                                    <span className="text-sm font-semibold">{schoolName}</span>
                                 </div>
                                 <div className="flex p-2 gap-3">
                                     <img
@@ -236,10 +254,10 @@ const TeacherIDCardPage = () => {
                             <div className="w-[300px] h-[175px] bg-white rounded-lg overflow-hidden shadow border border-red-800 text-[10px] text-gray-700 relative">
                                 <div className="bg-red-800 px-4 py-1 text-white flex items-center justify-between">
                                     <img src="/school-logo.png" alt="Logo" className="w-6 h-6" />
-                                    <span className="text-sm font-semibold">SCHOOL NAME</span>
+                                    <span className="text-sm font-semibold">{schoolName}</span>
                                 </div>
                                 <div className="px-3 pt-2 pb-1 text-center leading-snug text-[10px] mt-5">
-                                    This card confirms {selectedTeacherCard.first_name} {selectedTeacherCard.last_name} is a teacher of School Name.
+                                    This card confirms {selectedTeacherCard.first_name} {selectedTeacherCard.last_name} is a teacher of {schoolName}.
                                     It must be carried at all times during school activities. Report loss to admin.
                                 </div>
 
@@ -321,7 +339,7 @@ const TeacherIDCardPage = () => {
                         <div className="w-[300px] h-[175px] relative bg-white rounded-lg overflow-hidden shadow border border-red-800 print:block">
                             <div className="bg-red-800 px-4 py-1 text-white flex items-center justify-between">
                                 <img src="/school-logo.png" alt="Logo" className="w-6 h-6" />
-                                <span className="text-sm font-semibold">SCHOOL NAME</span>
+                                <span className="text-sm font-semibold">{schoolName}</span>
                             </div>
                             <div className="flex p-2 gap-3">
                                 <img
@@ -361,10 +379,10 @@ const TeacherIDCardPage = () => {
                         <div className="card-back w-[300px] h-[175px] hidden print:block print:mt-4 bg-white rounded-lg overflow-hidden shadow border border-red-800 text-[10px] text-gray-700 relative">
                             <div className="bg-red-800 px-4 py-1 text-white flex items-center justify-between">
                                 <img src="/school-logo.png" alt="Logo" className="w-6 h-6" />
-                                <span className="text-sm font-semibold">SCHOOL NAME</span>
+                                <span className="text-sm font-semibold">{schoolName}</span>
                             </div>
                             <div className="px-3 pt-2 pb-1 text-center leading-snug text-[10px] mt-5">
-                                This card confirms {t.first_name} {t.last_name} is a teacher of School Name.
+                                This card confirms {t.first_name} {t.last_name} is a teacher of {schoolName}.
                                 It must be carried at all times during school activities. Report loss to admin.
                             </div>
 

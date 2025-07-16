@@ -18,7 +18,6 @@ import {
   BirthdayManagement,
   BulkFee,
   ClassManagement,
-  CreateTerms,
   DecrementFee,
   Email,
   FamilyCredits,
@@ -75,6 +74,7 @@ import GradeCriteriaPage from "./pages/Admin/GradeCriteria";
 import GradeCriteria from "./pages/Admin/GradeCriteria";
 import StudentResults from "./pages/Admin/StudentResults";
 import FinalResults from "./pages/Admin/FinalResults";
+import PromotionRecords from "./pages/Admin/PromotionRecords";
 
 const router = createBrowserRouter([
   {
@@ -126,6 +126,10 @@ const router = createBrowserRouter([
             element: <StudentIDCardPage />,
           },
           {
+            path: "/admin/promotion-records",
+            element: <PromotionRecords />,
+          },
+          {
             path: "/admin/birthday-management",
             element: <BirthdayManagement />,
           },
@@ -168,10 +172,6 @@ const router = createBrowserRouter([
           {
             path: "/admin/create-exam",
             element: <CreateExam />,
-          },
-          {
-            path: "/admin/create-terms",
-            element: <CreateTerms />,
           },
           {
             path: "/admin/admit-slips",

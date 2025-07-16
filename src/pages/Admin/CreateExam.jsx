@@ -8,9 +8,6 @@ import apiRequest from '../../helpers/apiRequest';
 import { MdEdit, MdDelete, MdVisibility } from 'react-icons/md';
 import Select from 'react-select';
 
-
-
-
 const CreateExam = () => {
   const [form, setForm] = useState({
     term_name: '',
@@ -18,16 +15,17 @@ const CreateExam = () => {
     class_id: '',
     start_date: '',
     end_date: '',
+    exam_type: '',
+    title: '',
     subjects: [{
       subject_id: '',
       exam_date: '',
       start_time: '',
       end_time: '',
       room_id: '',
-      invigilator_id: null // Changed from '' to null
+      invigilator_id: null
     }]
   });
-
 
   const [showForm, setShowForm] = useState(false);
   const [classes, setClasses] = useState([]);
@@ -36,11 +34,10 @@ const CreateExam = () => {
   const [invigilators, setInvigilators] = useState([]);
   const [exams, setExams] = useState([]);
   const [selectedExam, setSelectedExam] = useState(null);
-  const [viewExam, setViewExam] = useState(null); // for modal
+  const [viewExam, setViewExam] = useState(null);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
   const [totalPages, setTotalPages] = useState(1);
-
 
   const printRef = useRef();
 
@@ -74,35 +71,37 @@ const CreateExam = () => {
     const res = await apiRequest('/api/auth/users/list_profiles/teacher/');
     setInvigilators(res.data.results || res.data);
   };
+
   const getExams = async (currentPage = page, currentSize = pageSize) => {
     try {
-      const res = await apiRequest(`/exams/?page=${currentPage}&page_size=${currentSize}`);
+      const res = await apiRequest(`/exams`);
       const data = res.data || res;
 
-      if (data.results) {
+      if (Array.isArray(data)) {
+        setExams(data);
+        setTotalPages(1);
+      } else if (data.results) {
         setExams(data.results);
-        setTotalPages(data.total_pages || 1);
+        setTotalPages(data.total_pages || Math.ceil(data.count / currentSize) || 1);
       } else {
+        console.error('Unexpected data:', data);
         toast.error('Unexpected exam response format');
       }
     } catch (error) {
       toast.error('Failed to fetch exams');
+      console.error(error);
     }
   };
-
-
 
   const handleSubjectChange = (index, field, value) => {
     const updatedSubjects = [...form.subjects];
 
-    // Special handling for ID fields
     if (['subject_id', 'room_id', 'invigilator_id'].includes(field)) {
       updatedSubjects[index][field] = value === '' || value === null ? null : Number(value);
     } else {
       updatedSubjects[index][field] = value;
     }
 
-    // Force state update by creating new array reference
     setForm({
       ...form,
       subjects: [...updatedSubjects]
@@ -120,17 +119,18 @@ const CreateExam = () => {
           start_time: '',
           end_time: '',
           room_id: '',
-          invigilator_id: null // Changed from '' to null
+          invigilator_id: null
         }
       ]
     });
   };
 
-
   const handleSubmit = async () => {
     const payload = {
       ...form,
       class_id: Number(form.class_id),
+      exam_type: form.exam_type,
+      title: form.title,
       subjects: form.subjects.map(s => ({
         subject_id: Number(s.subject_id),
         exam_date: s.exam_date,
@@ -143,7 +143,7 @@ const CreateExam = () => {
 
     try {
       const method = selectedExam ? 'put' : 'post';
-      const url = selectedExam ? `${API_URL}${selectedExam.exam_id}/` : API_URL;
+      const url = selectedExam ? `${API_URL}${selectedExam.id}/` : API_URL;
 
       await axios[method](url, payload, {
         headers: { Authorization: `Bearer ${Cookies.get('access_token')}` }
@@ -155,6 +155,8 @@ const CreateExam = () => {
         class_id: '',
         start_date: '',
         end_date: '',
+        exam_type: '',
+        title: '',
         subjects: [{
           subject_id: '',
           exam_date: '',
@@ -164,6 +166,7 @@ const CreateExam = () => {
           invigilator_id: null
         }]
       });
+
       setSelectedExam(null);
       setShowForm(false);
       toast.success(`Exam ${selectedExam ? 'updated' : 'created'} successfully`);
@@ -174,14 +177,10 @@ const CreateExam = () => {
     }
   };
 
-
-
-  // Add this right before your return statement
-  useEffect(() => {
-    console.log('Current form state:', JSON.stringify(form, null, 2));
-  }, [form]);
-
   const handleDeleteExam = (id) => {
+    const permissions = JSON.parse(localStorage.getItem("user_permissions") || "[]");
+    const canDelete = permissions.includes("users.delete_exam");
+
     if (!canDelete) {
       toast((t) => (
         <div className="text-center font-semibold p-4 bg-red-100 border border-red-400 rounded shadow-md">
@@ -211,7 +210,7 @@ const CreateExam = () => {
                   headers: { Authorization: `Bearer ${token}` }
                 });
                 toast.success("Exam deleted successfully!");
-                setExams((prev) => prev.filter((exam) => exam.exam_id !== id));
+                setExams((prev) => prev.filter((exam) => exam.id !== id));
                 toast.dismiss(t.id);
               } catch (error) {
                 toast.error("Failed to delete exam");
@@ -233,36 +232,26 @@ const CreateExam = () => {
   };
 
   useEffect(() => {
-    getClasses();
-    getSubjects();
-    getRooms();
-    getInvigilators();
-  }, []);
-
-  useEffect(() => {
     getExams();
   }, [page, pageSize]);
 
   // Get permissions from localStorage
   const permissions = JSON.parse(localStorage.getItem("user_permissions") || "[]");
-
-  // Define what the user can do
   const canAdd = permissions.includes("users.add_exam");
   const canEdit = permissions.includes("users.change_exam");
   const canDelete = permissions.includes("users.delete_exam");
 
-  <style>
-    {`
-    @media print {
-      .no-print {
-        display: none !important;
-      }
-    }
-  `}
-  </style>
-
   return (
     <div>
+      <style>
+        {`
+        @media print {
+          .no-print {
+            display: none !important;
+          }
+        }
+      `}
+      </style>
       <Toaster />
       <div className="bg-blue-900 text-white py-2 px-6 rounded-md flex justify-between items-center mt-5">
         <h1 className="text-xl font-bold">Manage Exams</h1>
@@ -270,7 +259,7 @@ const CreateExam = () => {
           <button
             onClick={() => {
               setShowForm(!showForm);
-              if (showForm) setSelectedExam(null); // reset edit mode on closing
+              if (showForm) setSelectedExam(null);
             }}
             className="flex items-center px-3 py-2 bg-cyan-400 text-white font-semibold rounded-lg shadow-md hover:bg-cyan-500 transition"
           >
@@ -280,12 +269,11 @@ const CreateExam = () => {
             {showForm ? 'Close Form' : 'Create Exam'}
           </button>
         )}
-
       </div>
 
       {(canAdd || canEdit) && showForm && (
-        <div className="p-6  bg-white rounded-lg shadow-md border border-gray-200 mt-6 max-w-6xl mx-7">
-          <h2 className="text-2xl font-semibold text-blue-800 mb-4" >
+        <div className="p-6 bg-white rounded-lg shadow-md border border-gray-200 mt-6 max-w-6xl mx-7">
+          <h2 className="text-2xl font-semibold text-blue-800 mb-4">
             {selectedExam ? "Edit Exam Schedule" : "Create New Exam Schedule"}
           </h2>
 
@@ -296,6 +284,28 @@ const CreateExam = () => {
                 placeholder="e.g. Mid Term"
                 value={form.term_name}
                 onChange={(e) => setForm({ ...form, term_name: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Exam Type</label>
+              <select
+                value={form.exam_type}
+                onChange={(e) => setForm({ ...form, exam_type: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="">-- Select Type --</option>
+                <option value="Term">Term</option>
+                <option value="Final Term">Final Term</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Title</label>
+              <input
+                placeholder="e.g. Final Exam"
+                value={form.title}
+                onChange={(e) => setForm({ ...form, title: e.target.value })}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
               />
             </div>
@@ -457,22 +467,21 @@ const CreateExam = () => {
               <th className="border p-2">#ID</th>
               <th className="border p-2">Term</th>
               <th className="border p-2">Session</th>
-              <th className="border p-2">Class ID</th>
+              <th className="border p-2">Class Name</th>
               <th className="border p-2">Start</th>
               <th className="border p-2">End</th>
               {(canEdit || canDelete) && (
                 <th className="border p-2">Action</th>
               )}
-
             </tr>
           </thead>
           <tbody>
             {exams.map(exam => (
-              <tr key={exam.exam_id}>
-                <td className="border p-2 text-center">{exam.exam_id}</td>
+              <tr key={exam.id}>
+                <td className="border p-2 text-center">{exam.id}</td>
                 <td className="border p-2">{exam.term_name}</td>
                 <td className="border p-2">{exam.session}</td>
-                <td className="border p-2 text-center">{exam.class_id}</td>
+                <td className="border p-2 text-center">{exam.class_name}-({exam.section})</td>
                 <td className="border p-2 text-center">{exam.start_date}</td>
                 <td className="border p-2 text-center">{exam.end_date}</td>
                 {(canEdit || canDelete) && (
@@ -488,16 +497,18 @@ const CreateExam = () => {
                             setForm({
                               term_name: exam.term_name,
                               session: exam.session,
-                              class_id: exam.class_id,
+                              class_id: exam.class_schedule,
                               start_date: exam.start_date,
                               end_date: exam.end_date,
-                              subjects: exam.subjects.map(s => ({
-                                subject_id: s.subject_id,
+                              exam_type: exam.exam_type || '',
+                              title: exam.title || '',
+                              subjects: exam.datesheet.map(s => ({
+                                subject_id: s.subject,
                                 exam_date: s.exam_date,
                                 start_time: s.start_time,
                                 end_time: s.end_time,
-                                room_id: s.room_id,
-                                invigilator_id: s.invigilator_id?.id || s.invigilator_id || null
+                                room_id: s.room,
+                                invigilator_id: s.invigilator || null
                               }))
                             });
                             setSelectedExam(exam);
@@ -507,14 +518,12 @@ const CreateExam = () => {
                           className="text-yellow-500 text-xl cursor-pointer hover:text-yellow-700"
                         />
                       )}
-
                       {canDelete && (
                         <MdDelete
                           className="text-red-500 text-xl cursor-pointer hover:text-red-700"
-                          onClick={() => handleDeleteExam(exam.exam_id)}
+                          onClick={() => handleDeleteExam(exam.id)}
                         />
                       )}
-
                     </div>
                   </td>
                 )}
@@ -523,7 +532,6 @@ const CreateExam = () => {
           </tbody>
         </table>
         <div className="flex justify-between items-center bg-blue-50 p-4 rounded-b-md">
-          {/* Page Size Selector */}
           <div className="flex items-center gap-2">
             <label className="text-gray-700 font-semibold">Page Size:</label>
             <select
@@ -540,54 +548,47 @@ const CreateExam = () => {
             </select>
           </div>
 
-          {/* Pagination Buttons */}
           <div className="flex items-center gap-2">
             <button
               onClick={() => setPage((prev) => Math.max(prev - 1, 1))}
               disabled={page === 1}
-              className={`px-3 py-1 rounded-md font-semibold ${page === 1 ? 'bg-gray-200 text-gray-500 cursor-not-allowed' : 'bg-white hover:bg-gray-100'
-                }`}
+              className={`px-3 py-1 rounded-md font-semibold ${
+                page === 1 ? 'bg-gray-200 text-gray-500 cursor-not-allowed' : 'bg-white hover:bg-gray-100'
+              }`}
             >
               Prev
             </button>
-
-            {/* Current Page Number */}
             <span className="px-3 py-1 bg-blue-600 text-white font-bold rounded-md">{page}</span>
-
             <button
               onClick={() => setPage((prev) => Math.min(prev + 1, totalPages))}
               disabled={page === totalPages}
-              className={`px-3 py-1 rounded-md font-semibold ${page === totalPages ? 'bg-gray-200 text-gray-500 cursor-not-allowed' : 'bg-white hover:bg-gray-100'
-                }`}
+              className={`px-3 py-1 rounded-md font-semibold ${
+                page === totalPages ? 'bg-gray-200 text-gray-500 cursor-not-allowed' : 'bg-white hover:bg-gray-100'
+              }`}
             >
               Next
             </button>
           </div>
         </div>
-
       </div>
 
+      {/* View Exam Modal - FIXED */}
       {viewExam && (
         <div className="fixed inset-0 bg-black bg-opacity-40 backdrop-blur-sm flex items-center justify-center z-50 px-4 py-6">
-
-          {/* Printable Exam Details */}
           <div ref={printRef} className="bg-white w-full max-w-4xl rounded-xl shadow-xl border border-gray-200 overflow-hidden">
-
-            {/* Header */}
             <div className="bg-gradient-to-r from-blue-100 to-blue-200 px-6 py-4 border-b">
               <h2 className="text-2xl font-bold text-blue-800">📝 Exam Details</h2>
             </div>
 
-            {/* Exam Info */}
             <div className="px-6 py-4 text-gray-700 grid grid-cols-2 gap-4 text-sm">
               <div><span className="font-semibold">📘 Term Name:</span> {viewExam.term_name}</div>
+              <div><span className="font-semibold">🧾 Type:</span> {viewExam.exam_type}</div>
               <div><span className="font-semibold">📆 Session:</span> {viewExam.session}</div>
-              <div><span className="font-semibold">🏫 Class ID:</span> {viewExam.class_id}</div>
+              <div><span className="font-semibold">🏫 Class:</span> {viewExam.class_name}-{viewExam.section}</div>
               <div><span className="font-semibold">🗓️ Start Date:</span> {viewExam.start_date}</div>
               <div><span className="font-semibold">🗓️ End Date:</span> {viewExam.end_date}</div>
             </div>
 
-            {/* Subject Schedule Table */}
             <div className="px-6 pb-6">
               <h3 className="text-lg font-semibold text-blue-700 mt-4 mb-2">📚 Subject Schedule</h3>
               <table className="w-full text-sm border border-gray-300 rounded overflow-hidden">
@@ -601,45 +602,39 @@ const CreateExam = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {viewExam.subjects?.map((s, idx) => (
+                  {viewExam.datesheet?.map((s, idx) => (
                     <tr key={idx} className="hover:bg-gray-50">
-                      <td className="border px-4 py-2">{s.subject_name}</td>
+                      <td className="border px-4 py-2">{s.subject_name || 'N/A'}</td>
                       <td className="border px-4 py-2">{s.exam_date}</td>
                       <td className="border px-4 py-2">{s.start_time} - {s.end_time}</td>
-                      <td className="border px-4 py-2">{s.room_name}</td>
-                      <td className="border px-4 py-2">{s.invigilator_name}</td>
+                      <td className="border px-4 py-2">{s.room_name || 'N/A'}</td>
+                      <td className="border px-4 py-2">{s.invigilator_name || 'N/A'}</td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
-          </div>
 
-          {/* Footer Buttons (non-printable) */}
-          <div className="absolute bottom-6 flex flex-wrap justify-center gap-4 no-print">
-            <button
-              onClick={() =>
-                html2pdf().from(printRef.current).save(`${viewExam.term_name}_Exam.pdf`)
-              }
-              className="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-6 py-2 rounded-lg shadow transition"
-            >
-              🖨️ Print PDF
-            </button>
-            <button
-              onClick={() => setViewExam(null)}
-              className="bg-red-600 hover:bg-red-700 text-white font-semibold px-6 py-2 rounded-lg shadow transition"
-            >
-              ❌ Close
-            </button>
+            <div className="px-6 pb-6 flex justify-center gap-4 no-print">
+              <button
+                onClick={() =>
+                  html2pdf().from(printRef.current).save(`${viewExam.term_name}_Exam.pdf`)
+                }
+                className="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-6 py-2 rounded-lg shadow transition"
+              >
+                🖨️ Print PDF
+              </button>
+              <button
+                onClick={() => setViewExam(null)}
+                className="bg-red-600 hover:bg-red-700 text-white font-semibold px-6 py-2 rounded-lg shadow transition"
+              >
+                ❌ Close
+              </button>
+            </div>
           </div>
         </div>
       )}
-
-
-
-
-
-    </div >
+    </div>
   );
 };
 

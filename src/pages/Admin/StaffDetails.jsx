@@ -85,7 +85,7 @@ const StaffDetails = () => {
         headers: { Authorization: `Bearer ${token}` },
       });
       toast.success("Staff deleted successfully.");
-      setStaff((prev) => prev.filter((s) => s.user_id !== id));
+      setStaff((prev) => prev.filter((s) => s.profile_id !== id));
     } catch {
       toast.error("Failed to delete staff.");
     }

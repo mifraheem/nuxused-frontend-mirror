@@ -13,6 +13,23 @@ const StaffIDCardPage = () => {
     const [printingSingle, setPrintingSingle] = useState(false);
     const [singleProgress, setSingleProgress] = useState(0);
     const [selectedStaffCard, setSelectedStaffCard] = useState(null);
+    const [schoolName, setSchoolName] = useState("SCHOOL NAME");
+
+    const fetchSchoolName = async () => {
+    try {
+        const token = Cookies.get("access_token");
+        const res = await axios.get(`${API}classes/`, {
+            headers: { Authorization: `Bearer ${token}` },
+        });
+        const classData = res.data?.data?.results || [];
+        if (classData.length > 0 && classData[0].school) {
+            setSchoolName(classData[0].school);
+        }
+    } catch (error) {
+        console.error("Error fetching school name", error);
+    }
+};
+
 
     const fetchAllStaff = async () => {
         try {
@@ -165,6 +182,7 @@ const StaffIDCardPage = () => {
 
     useEffect(() => {
         fetchAllStaff();
+        fetchSchoolName();
     }, []);
 
     return (
@@ -196,7 +214,7 @@ const StaffIDCardPage = () => {
                             <div className="w-[300px] h-[175px] relative bg-white rounded-lg overflow-hidden shadow border border-yellow-500">
                                 <div className="bg-yellow-500 px-4 py-1 text-white flex items-center justify-between">
                                     <img src="/school-logo.png" alt="Logo" className="w-6 h-6" />
-                                    <span className="text-sm font-semibold">SCHOOL NAME</span>
+                                    <span className="text-sm font-semibold">{schoolName}</span>
                                 </div>
                                 <div className="flex p-2 gap-3">
                                     <img
@@ -236,10 +254,10 @@ const StaffIDCardPage = () => {
                             <div className="w-[300px] h-[175px] bg-white rounded-lg overflow-hidden shadow border border-yellow-500 text-[10px] text-gray-700 relative">
                                 <div className="bg-yellow-500 px-4 py-1 text-white flex items-center justify-between">
                                     <img src="/school-logo.png" alt="Logo" className="w-6 h-6" />
-                                    <span className="text-sm font-semibold">SCHOOL NAME</span>
+                                    <span className="text-sm font-semibold">{schoolName}</span>
                                 </div>
                                 <div className="px-3 pt-2 pb-1 text-center leading-snug text-[10px] mt-5">
-                                    This card confirms {selectedStaffCard.first_name} {selectedStaffCard.last_name} is a staff member of School Name.
+                                    This card confirms {selectedStaffCard.first_name} {selectedStaffCard.last_name} is a staff member of {schoolName}.
                                     It must be carried at all times during school activities. Report loss to admin.
                                 </div>
 
@@ -321,7 +339,7 @@ const StaffIDCardPage = () => {
                         <div className="w-[300px] h-[175px] relative bg-white rounded-lg overflow-hidden shadow border border-yellow-500 print:block">
                             <div className="bg-yellow-500 px-4 py-1 text-white flex items-center justify-between">
                                 <img src="/school-logo.png" alt="Logo" className="w-6 h-6" />
-                                <span className="text-sm font-semibold">SCHOOL NAME</span>
+                                <span className="text-sm font-semibold">{schoolName}</span>
                             </div>
                             <div className="flex p-2 gap-3">
                                 <img
@@ -332,8 +350,8 @@ const StaffIDCardPage = () => {
                                 <div className="text-[11px] text-gray-700 space-y-[2px]">
                                     <h2 className="text-sm font-bold text-yellow-500">STAFF ID CARD</h2>
                                     <p><strong>Name:</strong> {s.first_name} {s.last_name}</p>
-                                    <p><strong>ID:</strong> {s.profile_id}</p>
-                                    <p><strong>Position:</strong> {s.position || 'Staff Member'}</p>
+                                    <p><strong>ID:</strong> {s.profile_id || "N/A"}</p>
+                                    <p><strong>Email:</strong> {s.email}</p>
                                     <p><strong>Issued:</strong> {issuedDate}</p>
                                 </div>
                             </div>
@@ -361,10 +379,10 @@ const StaffIDCardPage = () => {
                         <div className="card-back w-[300px] h-[175px] hidden print:block print:mt-4 bg-white rounded-lg overflow-hidden shadow border border-yellow-500 text-[10px] text-gray-700 relative">
                             <div className="bg-yellow-500 px-4 py-1 text-white flex items-center justify-between">
                                 <img src="/school-logo.png" alt="Logo" className="w-6 h-6" />
-                                <span className="text-sm font-semibold">SCHOOL NAME</span>
+                                <span className="text-sm font-semibold">{schoolName}</span>
                             </div>
                             <div className="px-3 pt-2 pb-1 text-center leading-snug text-[10px] mt-5">
-                                This card confirms {s.first_name} {s.last_name} is a staff member of School Name.
+                                This card confirms {s.first_name} {s.last_name} is a staff member of {schoolName}.
                                 It must be carried at all times during school activities. Report loss to admin.
                             </div>
 

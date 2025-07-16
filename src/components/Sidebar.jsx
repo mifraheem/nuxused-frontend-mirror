@@ -85,6 +85,7 @@ const Sidebar = () => {
                                     <ul className="ml-6 mt-2 space-y-2">
                                         <li><Link to="/admin/manage-student-information" className="block px-4 py-2 hover:bg-blue-700 rounded-lg">Student Information</Link></li>
                                         <li><Link to="/admin/generate-student-id-cards" className="block px-4 py-2 hover:bg-blue-700 rounded-lg">Student ID Cards</Link></li>
+                                        <li><Link to="/admin/promotion-records" className="block px-4 py-2 hover:bg-blue-700 rounded-lg">Student Promotion</Link></li>
                                     </ul>
                                 )}
                             </li>

@@ -34,7 +34,6 @@ import StaffCards from "./Admin/StaffCards";
 import AttendanceStd from "./Admin/AttendanceStd";
 import AttendanceStaff from "./Admin/AttendanceStaff";
 import SmsAlerts from "./Admin/SmsAlerts";
-import CreateTerms from "./Admin/CreateTerms";
 import AdmitSlips from "./Admin/AdmitSlips";
 import MarkSheet from "./Admin/MarkSheet";
 import TimetableManagement from "./Admin/TimetableManagement";
@@ -88,7 +87,6 @@ export {
     AttendanceStd,
     AttendanceStaff,
     SmsAlerts,
-    CreateTerms,
     AdmitSlips,
     MarkSheet,
     TimetableManagement,

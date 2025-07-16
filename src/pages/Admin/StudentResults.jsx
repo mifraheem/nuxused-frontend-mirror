@@ -163,23 +163,39 @@ const StudentResults = () => {
         toast.error("User is not authenticated.");
         return;
       }
+
       const response = await axios.get(`${API}/exams/`, {
         headers: { Authorization: `Bearer ${token}` },
       });
-      const examData = response.data.results || response.data.data?.results || response.data;
-      if (Array.isArray(examData)) {
-        setExams(examData.map(exam => ({
-          value: exam.exam_id,
-          label: exam.term_name
-        })));
+
+      console.log("Exam API raw response:", response.data); // 👈 this helps debug in future
+
+      // Most reliable way: try accessing data.results or fallback to object in array form
+      let examData = [];
+
+      if (Array.isArray(response.data)) {
+        examData = response.data;
+      } else if (Array.isArray(response.data.data?.results)) {
+        examData = response.data.data.results;
+      } else if (Array.isArray(response.data.results)) {
+        examData = response.data.results;
+      } else if (Array.isArray(response.data.data)) {
+        examData = response.data.data;
       } else {
         throw new Error("Unexpected exams API response format.");
       }
+
+      setExams(examData.map(exam => ({
+        value: exam.exam_id || exam.id,
+        label: exam.exam_type || exam.title || exam.name
+      })));
     } catch (error) {
       console.error("Error fetching exams:", error.response || error.message);
       toast.error("Failed to fetch exams. Please try again.");
     }
   };
+
+
 
   const handleSaveResult = async () => {
     console.log("New Result State:", newResult);

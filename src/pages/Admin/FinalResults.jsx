@@ -157,13 +157,14 @@ const FinalResults = () => {
                 <tr>
                   <th className="border p-2">ID</th>
                   <th className="border p-2">Student Name</th>
-                  <th className="border p-2">Class</th>
-                  <th className="border p-2">Exam</th>
+                  <th className="border p-2">Class Name</th>
+                  <th className="border p-2">Term</th>
                   <th className="border p-2">Total Marks Obtained</th>
                   <th className="border p-2">Total Marks</th>
                   <th className="border p-2">Percentage</th>
                   <th className="border p-2">Grade</th>
-                  <th className="border p-2">Remarks</th>
+                  <th className="border p-2">Pending Subjects</th>
+                  <th className="border p-2">Status</th>
                   {canView && <th className="border p-2">Actions</th>}
                 </tr>
               </thead>
@@ -179,7 +180,16 @@ const FinalResults = () => {
                       <td className="border p-2 text-center">{result.total_marks}</td>
                       <td className="border p-2 text-center">{result.percentage}%</td>
                       <td className="border p-2 text-center">{result.grade}</td>
-                      <td className="border p-2">{result.remarks || "—"}</td>
+                      <td className="border p-2 text-center">{result.pending_subjects}</td>
+                      <td className="border p-2 text-center">
+                        <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
+                          result.is_complete 
+                            ? "bg-green-100 text-green-800" 
+                            : "bg-yellow-100 text-yellow-800"
+                        }`}>
+                          {result.is_complete ? "Complete" : "Incomplete"}
+                        </span>
+                      </td>
                       {canView && (
                         <td className="border p-2 flex justify-center">
                           <button onClick={() => setViewModalData(result)} className="text-blue-600">
@@ -191,7 +201,7 @@ const FinalResults = () => {
                   ))
                 ) : (
                   <tr>
-                    <td colSpan="9" className="text-center text-gray-500 py-4">
+                    <td colSpan="12" className="text-center text-gray-500 py-4">
                       No records found.
                     </td>
                   </tr>
@@ -245,8 +255,10 @@ const FinalResults = () => {
               </div>
               <div className="grid grid-cols-2 gap-4 text-sm text-gray-700">
                 <div className="col-span-2 font-semibold text-blue-900 border-b pb-1">👤 Student Information</div>
+                <div><span className="font-semibold">Student ID:</span> {viewModalData.student}</div>
                 <div><span className="font-semibold">Student Name:</span> {viewModalData.student_name}</div>
                 <div><span className="font-semibold">Class:</span> {viewModalData.class_name}</div>
+                <div><span className="font-semibold">Exam ID:</span> {viewModalData.exam}</div>
                 <div><span className="font-semibold">Exam:</span> {viewModalData.exam_term}</div>
 
                 <div className="col-span-2 font-semibold text-blue-900 border-b pt-4 pb-1">📋 Result Details</div>
@@ -254,7 +266,17 @@ const FinalResults = () => {
                 <div><span className="font-semibold">Total Marks:</span> {viewModalData.total_marks}</div>
                 <div><span className="font-semibold">Percentage:</span> {viewModalData.percentage}%</div>
                 <div><span className="font-semibold">Grade:</span> {viewModalData.grade}</div>
-                <div><span className="font-semibold">Remarks:</span> {viewModalData.remarks || "—"}</div>
+                <div><span className="font-semibold">Pending Subjects:</span> {viewModalData.pending_subjects}</div>
+                <div><span className="font-semibold">Status:</span> 
+                  <span className={`ml-2 px-2 py-1 rounded-full text-xs font-semibold ${
+                    viewModalData.is_complete 
+                      ? "bg-green-100 text-green-800" 
+                      : "bg-yellow-100 text-yellow-800"
+                  }`}>
+                    {viewModalData.is_complete ? "Complete" : "Incomplete"}
+                  </span>
+                </div>
+                <div className="col-span-2"><span className="font-semibold">Remarks:</span> {viewModalData.remarks || "—"}</div>
               </div>
             </div>
             <div className="mt-6 text-center">
