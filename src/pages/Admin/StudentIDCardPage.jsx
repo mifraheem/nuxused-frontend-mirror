@@ -16,6 +16,8 @@ const StudentIDCardPage = () => {
     const [printingSingle, setPrintingSingle] = useState(false);
     const [singleProgress, setSingleProgress] = useState(0);
     const [selectedStudentCard, setSelectedStudentCard] = useState(null);
+    const [schoolName, setSchoolName] = useState("");
+
 
     const fetchClasses = async () => {
         try {
@@ -29,11 +31,18 @@ const StudentIDCardPage = () => {
                 : Array.isArray(resData)
                     ? resData
                     : [];
+
             setClasses(rawClasses);
+
+            // 🏫 Set school name from first class (assuming all classes are from same school)
+            if (rawClasses.length > 0 && rawClasses[0].school) {
+                setSchoolName(rawClasses[0].school);
+            }
         } catch (error) {
             console.error("Error loading classes", error);
         }
     };
+
 
     const fetchStudentsByClass = async (classId) => {
         try {
@@ -228,7 +237,7 @@ const StudentIDCardPage = () => {
                             <div className="w-[300px] h-[175px] relative bg-white rounded-lg overflow-hidden shadow border border-blue-900">
                                 <div className="bg-blue-900 px-4 py-1 text-white flex items-center justify-between">
                                     <img src="/school-logo.png" alt="Logo" className="w-6 h-6" />
-                                    <span className="text-sm font-semibold">SCHOOL NAME</span>
+                                    <span className="text-sm font-semibold">{schoolName || "SCHOOL NAME"}</span>
                                 </div>
                                 <div className="flex p-2 gap-3">
                                     <img
@@ -268,10 +277,10 @@ const StudentIDCardPage = () => {
                             <div className="w-[300px] h-[175px] bg-white rounded-lg overflow-hidden shadow border border-blue-900 text-[10px] text-gray-700 relative">
                                 <div className="bg-blue-900 px-4 py-1 text-white flex items-center justify-between">
                                     <img src="/school-logo.png" alt="Logo" className="w-6 h-6" />
-                                    <span className="text-sm font-semibold">SCHOOL NAME</span>
+                                    <span className="text-sm font-semibold">{schoolName || "SCHOOL NAME"}</span>
                                 </div>
                                 <div className="px-3 pt-2 pb-1 text-center leading-snug text-[10px] mt-5">
-                                    This card confirms {selectedStudentCard.first_name} {selectedStudentCard.last_name} is a student of School Name.
+                                    This card confirms {selectedStudentCard.first_name} {selectedStudentCard.last_name} is a student of {schoolName || "SCHOOL NAME"}.
                                     It must be carried at all times during school activities. Report loss to admin.
                                 </div>
 
@@ -369,7 +378,7 @@ const StudentIDCardPage = () => {
                         <div className="w-[300px] h-[175px] relative bg-white rounded-lg overflow-hidden shadow border border-blue-900 print:block">
                             <div className="bg-blue-900 px-4 py-1 text-white flex items-center justify-between">
                                 <img src="/school-logo.png" alt="Logo" className="w-6 h-6" />
-                                <span className="text-sm font-semibold">SCHOOL NAME</span>
+                                <span className="text-sm font-semibold">{schoolName || "SCHOOL NAME"}</span>
                             </div>
                             <div className="flex p-2 gap-3">
                                 <img
@@ -409,10 +418,10 @@ const StudentIDCardPage = () => {
                         <div className="card-back w-[300px] h-[175px] hidden print:block print:mt-4 bg-white rounded-lg overflow-hidden shadow border border-blue-900 text-[10px] text-gray-700 relative">
                             <div className="bg-blue-900 px-4 py-1 text-white flex items-center justify-between">
                                 <img src="/school-logo.png" alt="Logo" className="w-6 h-6" />
-                                <span className="text-sm font-semibold">SCHOOL NAME</span>
+                                <span className="text-sm font-semibold">{schoolName || "SCHOOL NAME"}</span>
                             </div>
                             <div className="px-3 pt-2 pb-1 text-center leading-snug text-[10px] mt-5">
-                                This card confirms {s.first_name} {s.last_name} is a student of School Name.
+                                This card confirms {s.first_name} {s.last_name} is a student of {schoolName || "SCHOOL NAME"}.
                                 It must be carried at all times during school activities. Report loss to admin.
                             </div>
 
