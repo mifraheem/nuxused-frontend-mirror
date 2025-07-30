@@ -372,79 +372,98 @@ const AttendanceStaff = () => {
                 )}
 
 
-
                 {canView && showReport && attendanceData.length > 0 && (
-                    <table className="w-full mt-4 border bg-white shadow-md">
-                        <thead className="bg-gray-200">
-                            <tr>
-                                <th className="border p-2">ID</th>
-                                <th className="border p-2">Teacher</th>
-                                <th className="border p-2">Date</th>
-                                <th className="border p-2">Status</th>
-                                {(canChange || canDelete) &&
-                                    <th className="border p-2">Remarks</th>
-                                }
-                                {(canChange || canDelete) &&
-                                    <th className="border p-2">Actions</th>
-                                }
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {attendanceData.map((item, idx) => (
-                                <tr key={item.id}>
-                                    <td className="border p-2">{item.staff}</td>
-                                    <td className="border p-2">{getTeacherName(item.staff)}</td>
-                                    <td className="border p-2">{item.date}</td>
-                                    <td className="border p-2">
-                                        <select
-                                            value={item.status}
-                                            onChange={(e) => {
-                                                const updated = [...attendanceData];
-                                                updated[idx].status = e.target.value;
-                                                setAttendanceData(updated);
-                                            }}
-                                            className="border px-2 py-1 rounded"
-                                        >
-                                            <option>Present</option>
-                                            <option>Late</option>
-                                            <option>Absent</option>
-                                            <option>Leave</option>
-                                            <option>Half-day</option>
-                                        </select>
-                                    </td>
+                    <>
+                        <Buttons
+                            data={attendanceData.map((item) => ({
+                                ID: item.staff,
+                                Teacher: getTeacherName(item.staff),
+                                Date: item.date,
+                                Status: item.status,
+                                Remarks: item.remarks || "—",
+                            }))}
+                            columns={[
+                                { label: "ID", key: "ID" },
+                                { label: "Teacher", key: "Teacher" },
+                                { label: "Date", key: "Date" },
+                                { label: "Status", key: "Status" },
+                                { label: "Remarks", key: "Remarks" },
+                            ]}
+                            filename="Staff_Attendance_Report"
+                        />
+
+                        <table className="w-full mt-4 border bg-white shadow-md">
+                            <thead className="bg-gray-200">
+                                <tr>
+                                    <th className="border p-2">ID</th>
+                                    <th className="border p-2">Teacher</th>
+                                    <th className="border p-2">Date</th>
+                                    <th className="border p-2">Status</th>
                                     {(canChange || canDelete) &&
-                                        <td className="border p-2">
-                                            <input
-                                                value={item.remarks || ""}
-                                                onChange={(e) => {
-                                                    const updated = [...attendanceData];
-                                                    updated[idx].remarks = e.target.value;
-                                                    setAttendanceData(updated);
-                                                }}
-                                                className="border px-2 py-1 rounded w-full"
-                                                placeholder="Remarks..."
-                                            />
-                                        </td>
+                                        <th className="border p-2">Remarks</th>
                                     }
                                     {(canChange || canDelete) &&
-                                        <td className="border p-2 text-center">
-                                            <button
-                                                onClick={() => handleEditAttendance(item.id, item.status, item.remarks)}
-                                                className="bg-blue-500 hover:bg-blue-700 text-white px-2 py-1 rounded"
-                                            >
-                                                Update
-                                            </button>
-                                        </td>
+                                        <th className="border p-2">Actions</th>
                                     }
                                 </tr>
-                            ))}
-                        </tbody>
-                    </table>
+                            </thead>
+                            <tbody>
+                                {attendanceData.map((item, idx) => (
+                                    <tr key={item.id}>
+                                        <td className="border p-2">{item.staff}</td>
+                                        <td className="border p-2">{getTeacherName(item.staff)}</td>
+                                        <td className="border p-2">{item.date}</td>
+                                        <td className="border p-2">
+                                            <select
+                                                value={item.status}
+                                                onChange={(e) => {
+                                                    const updated = [...attendanceData];
+                                                    updated[idx].status = e.target.value;
+                                                    setAttendanceData(updated);
+                                                }}
+                                                className="border px-2 py-1 rounded"
+                                            >
+                                                <option>Present</option>
+                                                <option>Late</option>
+                                                <option>Absent</option>
+                                                <option>Leave</option>
+                                                <option>Half-day</option>
+                                            </select>
+                                        </td>
+                                        {(canChange || canDelete) &&
+                                            <td className="border p-2">
+                                                <input
+                                                    value={item.remarks || ""}
+                                                    onChange={(e) => {
+                                                        const updated = [...attendanceData];
+                                                        updated[idx].remarks = e.target.value;
+                                                        setAttendanceData(updated);
+                                                    }}
+                                                    className="border px-2 py-1 rounded w-full"
+                                                    placeholder="Remarks..."
+                                                />
+                                            </td>
+                                        }
+                                        {(canChange || canDelete) &&
+                                            <td className="border p-2 text-center">
+                                                <button
+                                                    onClick={() => handleEditAttendance(item.id, item.status, item.remarks)}
+                                                    className="bg-blue-500 hover:bg-blue-700 text-white px-2 py-1 rounded"
+                                                >
+                                                    Update
+                                                </button>
+                                            </td>
+                                        }
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                        </>
                 )}
-                <Buttons />
+
+                    </div>
             </div>
-        </div>
-    );
+            );
 };
 
-export default AttendanceStaff;
+            export default AttendanceStaff;

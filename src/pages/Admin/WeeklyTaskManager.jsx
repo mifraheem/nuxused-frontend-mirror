@@ -80,7 +80,7 @@ const WeeklyTaskManager = () => {
   // Save a new task or update existing one
   const handleSaveTask = async () => {
     if (!newTask.title || !newTask.description || !newTask.start_date || !newTask.due_date) {
-      toast.error("All fields are required!");
+      toast.error(err.response?.data?.data?.error || err.response?.data?.message || "All fields are required!");
       return;
     }
 
@@ -103,7 +103,7 @@ const WeeklyTaskManager = () => {
       // ✅ Get teacher's profile ID
       const selectedTeacher = teachers.find(t => t.user_id === parseInt(newTask.teacher));
       if (!selectedTeacher?.profile_id) {
-        toast.error("Please select a valid teacher.");
+        toast.error(err.response?.data?.data?.error || err.response?.data?.message || "Please select a valid teacher.");
         return;
       }
       const teacherProfileId = parseInt(selectedTeacher.profile_id);
@@ -157,7 +157,7 @@ const WeeklyTaskManager = () => {
             ? prev.map((task) => (task.id === updatedTask.id ? updatedTask : task))
             : [...prev, updatedTask]
         );
-        toast.success(isEditing ? "Task updated successfully!" : "Task created successfully!");
+        toast.success(isEditing ? err.response?.data?.data?.error || err.response?.data?.message || "Task updated successfully!" : "Task created successfully!");
       }
 
       // ✅ Reset form
@@ -185,7 +185,7 @@ const WeeklyTaskManager = () => {
   // Delete a task
   const handleDeleteTask = (id) => {
     if (!canDelete) {
-      toast.error("You do not have permission to delete faculty tasks.");
+      toast.error(err.response?.data?.data?.error || err.response?.data?.message || "You do not have permission to delete faculty tasks.");
       return;
     }
 
@@ -207,8 +207,8 @@ const WeeklyTaskManager = () => {
                     prevTasks.filter((task) => task.id !== id)
                   );
                 } catch (error) {
-                  console.error("Error deleting task:", error);
-                  toast.error("Failed to delete task.");
+                  console.error(err.response?.data?.data?.error || err.response?.data?.message || "Error deleting task:", error);
+                  toast.error(err.response?.data?.data?.error || err.response?.data?.message || "Failed to delete task.");
                 }
 
                 toast.dismiss(t.id);
@@ -458,7 +458,28 @@ const WeeklyTaskManager = () => {
 
       {/* Tasks Table */}
       <div className="p-6">
-        <Buttons />
+        <Buttons
+          data={tasks.map((task) => ({
+            ID: task.id,
+            Title: task.title,
+            Description: task.description,
+            Teacher: getTeacherNames(task.teachers),
+            "Start Date": task.start_date?.split("T")[0] || "—",
+            "Due Date": task.due_date?.split("T")[0] || "—",
+            File: task.file ? "Attached" : "No File",
+          }))}
+          columns={[
+            { label: "ID", key: "ID" },
+            { label: "Title", key: "Title" },
+            { label: "Description", key: "Description" },
+            { label: "Teacher", key: "Teacher" },
+            { label: "Start Date", key: "Start Date" },
+            { label: "Due Date", key: "Due Date" },
+            { label: "File", key: "File" },
+          ]}
+          filename="Weekly_Tasks_Report"
+        />
+
         <table className="w-full border-collapse border border-gray-300 bg-white mt-4 shadow-md">
           <thead className="bg-blue-900 text-white">
             <tr>

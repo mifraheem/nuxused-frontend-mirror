@@ -186,7 +186,18 @@ const ParentAccount = () => {
       <Toaster position="top-center" reverseOrder={false} />
       <h1 className="bg-blue-900 text-white py-4 px-6 text-xl font-bold">Manage Parent </h1>
       <div className="p-6">
-        <Buttons />
+        <Buttons
+          data={parents}
+          filename="Parent_Accounts"
+          columns={[
+            { label: "User ID", key: "user_id" },
+            { label: "Username", key: "username" },
+            { label: "First Name", key: "first_name" },
+            { label: "Last Name", key: "last_name" },
+            { label: "Email", key: "email" },
+          ]}
+        />
+
 
 
         <div className="overflow-x-auto">

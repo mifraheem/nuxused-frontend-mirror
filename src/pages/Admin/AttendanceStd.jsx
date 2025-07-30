@@ -186,9 +186,9 @@ const AttendanceStd = () => {
   return (
     <div>
       <Toaster position="top-center" />
-      <div className="bg-blue-900 text-white py-2 px-8 mt-5 rounded-lg shadow-md flex justify-between items-center">
-        <h1 className="text-2xl font-bold">Student Attendance Management</h1>
-        <div className="space-x-4">
+      <div className="bg-blue-900 text-white py-2 px-2 mt-5 rounded-lg shadow-md flex justify-between items-center">
+        <h2 className="text-xl font-bold">Student Attendance Management</h2>
+        <div className="flex gap-4">
           {canAdd && (
             <button
               onClick={handleMarkAttendance}

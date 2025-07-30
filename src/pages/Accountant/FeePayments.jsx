@@ -363,7 +363,36 @@ const FeePayments = () => {
             )}
 
             <div className="mt-8">
-                <Buttons />
+                <Buttons
+                    data={payments.map((p) => ({
+                        Student: p.student_name,
+                        "Fee Type": p.fee_type,
+                        Class: p.class_name,
+                        Section: p.section,
+                        Session: p.session,
+                        "Amount Paid": `${p.amount_paid} PKR`,
+                        Discount: `${p.applied_discount || 0} PKR`,
+                        "Late Fine": `${p.applied_late_fine || 0} PKR`,
+                        "Total Paid": `${p.total_paid || 0} PKR`,
+                        "Remaining Balance": `${p.remaining_balance || 0} PKR`,
+                        "Payment Date": p.payment_date,
+                    }))}
+                    columns={[
+                        { label: "Student", key: "Student" },
+                        { label: "Fee Type", key: "Fee Type" },
+                        { label: "Class", key: "Class" },
+                        { label: "Section", key: "Section" },
+                        { label: "Session", key: "Session" },
+                        { label: "Amount Paid", key: "Amount Paid" },
+                        { label: "Discount", key: "Discount" },
+                        { label: "Late Fine", key: "Late Fine" },
+                        { label: "Total Paid", key: "Total Paid" },
+                        { label: "Remaining Balance", key: "Remaining Balance" },
+                        { label: "Payment Date", key: "Payment Date" },
+                    ]}
+                    filename="Fee_Payment_Records"
+                />
+
                 <h2 className="text-lg font-semibold text-white px-4 py-2 rounded-t-lg bg-blue-900">Payment Records</h2>
                 <table className="w-full border border-gray-300">
                     <thead className="bg-gray-300">

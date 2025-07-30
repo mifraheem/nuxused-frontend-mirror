@@ -203,7 +203,20 @@ const TeacherDetails = () => {
       <Toaster position="top-center" reverseOrder={false} />
       <h1 className="bg-blue-900 text-white py-4 px-6 text-xl font-bold">Manage Teacher Details</h1>
       <div className="p-6">
-        <Buttons />
+        <Buttons
+          data={teachers}
+          filename="Teacher_Profiles"
+          columns={[
+            { label: "User ID", key: "user_id" },
+            { label: "Username", key: "username" },
+            { label: "First Name", key: "first_name" },
+            { label: "Last Name", key: "last_name" },
+            { label: "Email", key: "email" },
+            { label: "Phone", key: "phone_number" },
+            { label: "Salary", key: "salary" },
+          ]}
+        />
+
         <div className="overflow-x-auto">
           <table className="w-full border border-gray-300 text-sm bg-white">
             <thead className="bg-blue-900 text-white">

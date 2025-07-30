@@ -4,6 +4,7 @@ import Cookies from "js-cookie";
 import toast, { Toaster } from "react-hot-toast";
 import { MdEdit, MdVisibility } from "react-icons/md";
 import Select from "react-select";
+import { Buttons } from "../../components";
 
 
 const PromotionRecords = () => {
@@ -94,6 +95,21 @@ const PromotionRecords = () => {
                 <p className="text-center text-gray-600">Loading...</p>
             ) : (
                 <div className="overflow-x-auto shadow-sm rounded-lg">
+                    <Buttons
+                        data={records}
+                        columns={[
+                            { label: "ID", key: "id" },
+                            { label: "Student", key: "student_name" },
+                            { label: "From Class", key: "from_class_name" },
+                            { label: "To Class", key: "to_class_name" },
+                            { label: "Exam", key: "exam_term" },
+                            { label: "Status", key: "status" },
+                            { label: "Promoted On", key: "promoted_on" }
+                        ]}
+                        filename="Promotion_Records"
+                    />
+
+
                     <table className="w-full border-collapse bg-white text-sm">
                         <thead className="bg-blue-900 text-white">
                             <tr>

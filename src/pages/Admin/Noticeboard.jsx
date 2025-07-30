@@ -3,6 +3,7 @@ import axios from "axios";
 import Cookies from "js-cookie";
 import { MdEdit, MdDelete, MdVisibility } from "react-icons/md";
 import toast, { Toaster } from "react-hot-toast";
+import { Buttons } from "../../components";
 
 const Noticeboard = () => {
   const [notices, setNotices] = useState([]);
@@ -330,6 +331,22 @@ const Noticeboard = () => {
           <p className="text-center text-red-500">{error}</p>
         ) : notices.length > 0 ? (
           <div className="mt-6">
+            <Buttons
+              data={notices.map((n) => ({
+                ID: n.id,
+                Title: n.title,
+                Description: n.description,
+                Audience: n.announced_for,
+              }))}
+              columns={[
+                { label: "ID", key: "ID" },
+                { label: "Title", key: "Title" },
+                { label: "Description", key: "Description" },
+                { label: "Audience", key: "Audience" },
+              ]}
+              filename="Notices_Report"
+            />
+
             <h2 className="text-lg font-semibold text-white bg-blue-900 px-4 py-2 rounded-t-md">
               Notices
             </h2>

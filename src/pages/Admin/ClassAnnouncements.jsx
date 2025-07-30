@@ -4,6 +4,7 @@ import Cookies from "js-cookie";
 import { MdEdit, MdDelete, MdVisibility } from "react-icons/md";
 import toast, { Toaster } from "react-hot-toast";
 import Select from "react-select";
+import { Buttons } from "../../components";
 
 
 const ClassAnnouncements = () => {
@@ -192,57 +193,77 @@ const ClassAnnouncements = () => {
             {loading ? (
                 <p>Loading...</p>
             ) : (
-                <table className="w-full border mt-6 bg-white">
-                    <thead className="bg-gray-200">
-                        <tr>
-                            <th className="p-2 border">ID</th>
-                            <th className="p-2 border">Title</th>
-                            <th className="p-2 border">Description</th>
-                            <th className="p-2 border">Class Schedule</th>
-                            {(canEdit || canDelete) && <th className="p-2 border">Actions</th>}
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {announcements.map((a) => (
-                            <tr key={a.id}>
-                                <td className="p-2 border">{a.id}</td>
-                                <td className="p-2 border">{a.title}</td>
-                                <td className="p-2 border">
-                                    {a.description.length > 50 ? `${a.description.slice(0, 50)}...` : a.description}
-                                </td>
-                                <td className="p-2 border">{a.class_schedule}</td>
-                                {(canEdit || canDelete) && (
-                                    <td className="p-2 border flex gap-2 justify-center">
-                                        <MdVisibility
-                                            onClick={() => setSelectedItem(a)}
-                                            className="text-blue-600 text-2xl cursor-pointer"
-                                        />
-                                        {canEdit && (
-                                            <MdEdit
-                                                onClick={() => {
-                                                    setEditingItem(a);
-                                                    setShowForm(true);
-                                                    setNewAnnouncement({
-                                                        class_schedule: a.class_schedule,
-                                                        title: a.title,
-                                                        description: a.description,
-                                                    });
-                                                }}
-                                                className="text-yellow-500 text-2xl cursor-pointer"
-                                            />
-                                        )}
-                                        {canDelete && (
-                                            <MdDelete
-                                                onClick={() => handleDelete(a.id)}
-                                                className="text-red-500 text-2xl cursor-pointer"
-                                            />
-                                        )}
-                                    </td>
-                                )}
+                <>
+                    <Buttons
+                        data={announcements.map((a) => ({
+                            ID: a.id,
+                            Title: a.title,
+                            Description: a.description,
+                            "Class Schedule": a.class_schedule,
+                        }))}
+                        columns={[
+                            { label: "ID", key: "ID" },
+                            { label: "Title", key: "Title" },
+                            { label: "Description", key: "Description" },
+                            { label: "Class Schedule", key: "Class Schedule" },
+                        ]}
+                        filename="Class_Announcements_Report"
+                    />
+                    <h2 className="text-lg font-semibold text-white bg-blue-900 px-4 py-2 rounded-t-md">
+                        Announcements
+                    </h2>
+                    <table className="w-full border  bg-white">
+                        <thead className="bg-gray-200">
+                            <tr>
+                                <th className="p-2 border">ID</th>
+                                <th className="p-2 border">Title</th>
+                                <th className="p-2 border">Description</th>
+                                <th className="p-2 border">Class Schedule</th>
+                                {(canEdit || canDelete) && <th className="p-2 border">Actions</th>}
                             </tr>
-                        ))}
-                    </tbody>
-                </table>
+                        </thead>
+                        <tbody>
+                            {announcements.map((a) => (
+                                <tr key={a.id}>
+                                    <td className="p-2 border">{a.id}</td>
+                                    <td className="p-2 border">{a.title}</td>
+                                    <td className="p-2 border">
+                                        {a.description.length > 50 ? `${a.description.slice(0, 50)}...` : a.description}
+                                    </td>
+                                    <td className="p-2 border">{a.class_schedule}</td>
+                                    {(canEdit || canDelete) && (
+                                        <td className="p-2 border flex gap-2 justify-center">
+                                            <MdVisibility
+                                                onClick={() => setSelectedItem(a)}
+                                                className="text-blue-600 text-2xl cursor-pointer"
+                                            />
+                                            {canEdit && (
+                                                <MdEdit
+                                                    onClick={() => {
+                                                        setEditingItem(a);
+                                                        setShowForm(true);
+                                                        setNewAnnouncement({
+                                                            class_schedule: a.class_schedule,
+                                                            title: a.title,
+                                                            description: a.description,
+                                                        });
+                                                    }}
+                                                    className="text-yellow-500 text-2xl cursor-pointer"
+                                                />
+                                            )}
+                                            {canDelete && (
+                                                <MdDelete
+                                                    onClick={() => handleDelete(a.id)}
+                                                    className="text-red-500 text-2xl cursor-pointer"
+                                                />
+                                            )}
+                                        </td>
+                                    )}
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </>
             )}
 
             {/* Pagination */}

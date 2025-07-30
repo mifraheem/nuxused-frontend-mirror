@@ -4,6 +4,7 @@ import axios from "axios";
 import toast, { Toaster } from "react-hot-toast";
 import { MdEdit, MdDelete, MdVisibility } from "react-icons/md";
 import Select from "react-select";
+import { Buttons } from "../../components";
 
 
 const ClassTasks = () => {
@@ -52,7 +53,7 @@ const ClassTasks = () => {
       setTasks(results);
       setTotalPages(total_pages);
     } catch (err) {
-      toast.error("Failed to load class tasks.");
+      toast.error(err.response?.data?.message || "Failed to load class tasks.");
     }
   };
 
@@ -64,7 +65,7 @@ const ClassTasks = () => {
       });
       setClassOptions(res.data?.data?.results || []);
     } catch (err) {
-      toast.error("Failed to load class list.");
+      toast.error(err.response?.data?.message || "Failed to load class list.");
     }
   };
   useEffect(() => {
@@ -79,7 +80,7 @@ const ClassTasks = () => {
   const handleSave = async () => {
     const { class_schedule, title, description, start_date, due_date } = newTask;
     if (!class_schedule || !title || !description || !start_date || !due_date) {
-      toast.error("All fields are required.");
+      toast.error(err.response?.data?.message || "All fields are required.");
       return;
     }
 
@@ -105,7 +106,7 @@ const ClassTasks = () => {
 
       const response = await axios[method](url, formData, config);
 
-      toast.success(`Task ${editingTask ? "updated" : "created"} successfully`);
+      toast.success(response.data?.message || `Task ${editingTask ? "updated" : "created"} successfully`);
       setShowForm(false);
       setNewTask({
         class_schedule: "",
@@ -118,7 +119,10 @@ const ClassTasks = () => {
       setEditingTask(null);
       fetchTasks();
     } catch (err) {
-      toast.error("Failed to save task.");
+      toast.error(
+        `${err.response?.data?.message || "Failed to save task"}${err.response?.data?.data?.error ? `: ${err.response.data.data.error}` : ""
+        }`
+      );
     }
   };
 
@@ -137,7 +141,7 @@ const ClassTasks = () => {
 
   const handleDelete = (id) => {
     if (!canDelete) {
-      toast.error("You do not have permission to delete class tasks.");
+      toast.error(err.response?.data?.message || "You do not have permission to delete class tasks.");
       return;
     }
 
@@ -153,10 +157,13 @@ const ClassTasks = () => {
                   await axios.delete(`${API_URL}${id}/`, {
                     headers: { Authorization: `Bearer ${token}` },
                   });
-                  toast.success("Task deleted.");
+                  toast.success(response.data?.message || "Task deleted.");
                   fetchTasks();
                 } catch {
-                  toast.error("Failed to delete task.");
+                  toast.error(
+                    `${err.response?.data?.message || "Failed to delete task"}${err.response?.data?.data?.error ? `: ${err.response.data.data.error}` : ""
+                    }`
+                  );
                 }
                 toast.dismiss(t.id);
               }}
@@ -255,6 +262,27 @@ const ClassTasks = () => {
           </div>
         </div>
       )}
+      <Buttons
+        data={tasks.map((task) => ({
+          ID: task.id,
+          Title: task.title,
+          Description: task.description,
+          "Class Schedule": task.class_schedule,
+          "Start Date": task.start_date?.split("T")[0],
+          "Due Date": task.due_date?.split("T")[0],
+          File: task.file ? task.file : "No File",
+        }))}
+        columns={[
+          { label: "ID", key: "ID" },
+          { label: "Title", key: "Title" },
+          { label: "Description", key: "Description" },
+          { label: "Class Schedule", key: "Class Schedule" },
+          { label: "Start Date", key: "Start Date" },
+          { label: "Due Date", key: "Due Date" },
+          { label: "File", key: "File" },
+        ]}
+        filename="Class_Tasks_Report"
+      />
 
       <table className="w-full mt-6 border border-collapse bg-white shadow-sm">
         <thead className="bg-blue-900 text-white">

@@ -4,6 +4,7 @@ import Cookies from "js-cookie";
 import toast, { Toaster } from "react-hot-toast";
 import { MdVisibility } from "react-icons/md";
 import Select from "react-select";
+import { Buttons } from "../../components";
 
 const FinalResults = () => {
   const [results, setResults] = useState([]);
@@ -140,17 +141,45 @@ const FinalResults = () => {
       <div className="bg-blue-900 text-white py-2 px-6 rounded-md flex justify-between items-center">
         <h1 className="text-xl font-bold">Manage Final Results</h1>
         <div className="relative">
-          
+
         </div>
       </div>
 
-     
+
 
       <div className="p-6">
         {isLoading ? (
           <p className="text-center text-gray-600 mt-10">Loading...</p>
         ) : (
           <div>
+            <Buttons
+              data={results.map((res) => ({
+                ID: res.id,
+                Student: res.student_name,
+                Class: res.class_name,
+                Exam: res.exam_term,
+                "Marks Obtained": res.total_marks_obtained,
+                "Total Marks": res.total_marks,
+                Percentage: `${res.percentage}%`,
+                Grade: res.grade,
+                "Pending Subjects": res.pending_subjects,
+                Status: res.is_complete ? "Complete" : "Incomplete",
+              }))}
+              columns={[
+                { label: "ID", key: "ID" },
+                { label: "Student", key: "Student" },
+                { label: "Class", key: "Class" },
+                { label: "Exam", key: "Exam" },
+                { label: "Marks Obtained", key: "Marks Obtained" },
+                { label: "Total Marks", key: "Total Marks" },
+                { label: "Percentage", key: "Percentage" },
+                { label: "Grade", key: "Grade" },
+                { label: "Pending Subjects", key: "Pending Subjects" },
+                { label: "Status", key: "Status" },
+              ]}
+              filename="Final_Results_Report"
+            />
+
             <h2 className="text-lg font-semibold text-white bg-blue-900 px-4 py-2 rounded-t-md">Final Results</h2>
             <table className="w-full border border-gray-300 text-sm bg-white">
               <thead className="bg-gray-200">
@@ -182,11 +211,10 @@ const FinalResults = () => {
                       <td className="border p-2 text-center">{result.grade}</td>
                       <td className="border p-2 text-center">{result.pending_subjects}</td>
                       <td className="border p-2 text-center">
-                        <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
-                          result.is_complete 
-                            ? "bg-green-100 text-green-800" 
+                        <span className={`px-2 py-1 rounded-full text-xs font-semibold ${result.is_complete
+                            ? "bg-green-100 text-green-800"
                             : "bg-yellow-100 text-yellow-800"
-                        }`}>
+                          }`}>
                           {result.is_complete ? "Complete" : "Incomplete"}
                         </span>
                       </td>
@@ -267,12 +295,11 @@ const FinalResults = () => {
                 <div><span className="font-semibold">Percentage:</span> {viewModalData.percentage}%</div>
                 <div><span className="font-semibold">Grade:</span> {viewModalData.grade}</div>
                 <div><span className="font-semibold">Pending Subjects:</span> {viewModalData.pending_subjects}</div>
-                <div><span className="font-semibold">Status:</span> 
-                  <span className={`ml-2 px-2 py-1 rounded-full text-xs font-semibold ${
-                    viewModalData.is_complete 
-                      ? "bg-green-100 text-green-800" 
+                <div><span className="font-semibold">Status:</span>
+                  <span className={`ml-2 px-2 py-1 rounded-full text-xs font-semibold ${viewModalData.is_complete
+                      ? "bg-green-100 text-green-800"
                       : "bg-yellow-100 text-yellow-800"
-                  }`}>
+                    }`}>
                     {viewModalData.is_complete ? "Complete" : "Incomplete"}
                   </span>
                 </div>
