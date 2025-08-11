@@ -44,7 +44,7 @@ const AdminDashboard = () => {
     subjects: 0,
     classes: 0,
   });
- const API = import.meta.env.VITE_SERVER_URL;
+  const API = import.meta.env.VITE_SERVER_URL;
   const fetchCounts = async () => {
     try {
       const token = Cookies.get("access_token");
@@ -106,25 +106,25 @@ const AdminDashboard = () => {
 
     // Map teacher IDs to usernames using the teachers state
     return teacherIds
-    .map(id => teachers.find(teacher => teacher.profile_id === id)?.username || "Unknown")
-    .join(", ");
-  }; 
+      .map(id => teachers.find(teacher => teacher.profile_id === id)?.username || "Unknown")
+      .join(", ");
+  };
 
   const fetchTeachers = async () => {
     try {
       const token = Cookies.get("access_token");
-  
+
       const res = await axios.get(`${API}api/auth/users/list_profiles/teacher/`, {
         headers: { Authorization: `Bearer ${token}` },
       });
-  
+
       const data = res.data?.data?.results || res.data?.data || [];
       setTeachers(data);
     } catch (err) {
       console.error("❌ Failed to fetch teachers:", err.response?.data || err.message);
     }
   };
-  
+
   useEffect(() => {
     fetchCounts();
     fetchAnnouncements();
@@ -139,20 +139,20 @@ const AdminDashboard = () => {
   ];
   return (
     <div className="bg-blue-50 min-h-screen p-5">
-      <div className="grid grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {stats.map((item, index) => (
           <div
             key={index}
-            className="shadow-md rounded-md p-6 flex items-center space-x-4 bg-blue-300"
+            className="shadow-md rounded-md p-6 flex flex-col items-center justify-center bg-blue-300 text-center"
           >
-            {item.icon}
-            <div>
-              <div className="text-md font-bold text-black">{item.title}</div>
-              <div className="text-2xl font-bold text-blue-900">{item.count}</div>
-            </div>
+            <div className="text-5xl flex-shrink-0 mb-3">{item.icon}</div>
+            <div className="text-md font-bold text-black">{item.title}</div>
+            <div className="text-2xl font-bold text-blue-900">{item.count}</div>
           </div>
         ))}
       </div>
+
+
 
 
       {/* Navigation Tabs */}
@@ -160,12 +160,7 @@ const AdminDashboard = () => {
         <Link to="/admin/weekly-task-manager" className="bg-blue-100 text-blue-500 font-medium px-4 py-2 rounded-full cursor-pointer shadow-inner hover:bg-blue-200">
           Activity
         </Link>
-        {/* <Link to="/admin/view-timetable" className="bg-blue-100 text-blue-500 font-medium px-4 py-2 rounded-full cursor-pointer shadow-inner hover:bg-blue-200">
-          Schedule
-        </Link>
-        <Link to="/admin/reporting" className="bg-blue-100 text-blue-500 font-medium px-4 py-2 rounded-full cursor-pointer shadow-inner hover:bg-blue-200">
-          Reports
-        </Link> */}
+
       </div>
 
       {/* Main Content */}
@@ -183,34 +178,36 @@ const AdminDashboard = () => {
             />
           </div>
           {/* weekly tasks */}
-          <div className="bg-white shadow-md rounded-md p-4 mt-4">
-            <h3 className="text-xl font-bold mb-4 text-blue-900">Weekly Tasks for Teachers</h3>
-            <table className="w-full text-left border-collapse">
-              <thead>
-                <tr>
-                  <th className="border-b-2 p-2">Task Description</th>
-                  <th className="border-b-2 p-2">Teacher</th>
-                  <th className="border-b-2 p-2">Start Date</th>
-                  <th className="border-b-2 p-2">End Date</th>
-                </tr>
-              </thead>
-              <tbody>
-                {tasks.length === 0 ? (
+          <div className="bg-white shadow-md rounded-md p-2 mt-2">
+            <h3 className="text-lg sm:text-xl font-bold mb-2 text-blue-900">Weekly Tasks for Teachers</h3>
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse min-w-[300px]">
+                <thead>
                   <tr>
-                    <td colSpan="4" className="text-center p-4">No tasks assigned yet</td>
+                    <th className="border-b-2 p-1 text-xs">Task Description</th>
+                    <th className="border-b-2 p-1 text-xs">Teacher</th>
+                    <th className="border-b-2 p-1 text-xs">Start Date</th>
+                    <th className="border-b-2 p-1 text-xs">End Date</th>
                   </tr>
-                ) : (
-                  tasks.map((task, index) => (
-                    <tr key={index}>
-                      <td className="border-b p-2">{task.title}</td>
-                      <td className="border-b p-2">{getTeacherNames(task.teachers)}</td>
-                      <td className="border-b p-2">{new Date(task.start_date).toLocaleDateString()}</td>
-                      <td className="border-b p-2">{new Date(task.due_date).toLocaleDateString()}</td>
+                </thead>
+                <tbody>
+                  {tasks.length === 0 ? (
+                    <tr>
+                      <td colSpan="4" className="text-center p-2 text-xs">No tasks assigned yet</td>
                     </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
+                  ) : (
+                    tasks.map((task, index) => (
+                      <tr key={index}>
+                        <td className="border-b p-1 text-xs">{task.title}</td>
+                        <td className="border-b p-1 text-xs">{getTeacherNames(task.teachers)}</td>
+                        <td className="border-b p-1 text-xs">{new Date(task.start_date).toLocaleDateString()}</td>
+                        <td className="border-b p-1 text-xs">{new Date(task.due_date).toLocaleDateString()}</td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
 
@@ -270,62 +267,62 @@ const AdminDashboard = () => {
 
 
           {/* Fee Collection */}
-          <div className="bg-white shadow-md rounded-lg mb-4">
-            <div className="bg-blue-700 text-white flex justify-between items-center rounded-t-lg py-2 px-4">
-              <h3 className="text-lg font-bold">Fee Collection Of The Day</h3>
-              <span className="text-sm">0/0/2025</span>
+          <div className="bg-white shadow-md rounded-md mb-2">
+            <div className="bg-blue-700 text-white flex justify-between items-center rounded-t-md py-1 px-2">
+              <h3 className="text-base sm:text-lg font-bold">Fee Collection Of The Day</h3>
+              <span className="text-xs sm:text-sm">{new Date().toLocaleDateString()}</span>
             </div>
-            <div className="flex justify-around items-center py-4">
-              <div className="flex flex-col items-center">
-                <FaMoneyBillWave className="text-green-700 text-5xl" />
-                <span className="text-xl font-bold">0</span>
-                <span className="text-sm text-gray-500">Amount</span>
+            <div className="flex flex-col sm:flex-row justify-around items-center py-2 px-2">
+              <div className="flex flex-col items-center mb-2 sm:mb-0">
+                <FaMoneyBillWave className="text-green-700 text-4xl" />
+                <span className="text-lg sm:text-xl font-bold">0</span>
+                <span className="text-xs sm:text-sm text-gray-500">Amount</span>
+              </div>
+              <div className="flex flex-col items-center mb-2 sm:mb-0">
+                <FaMoneyBillWave className="text-green-700 text-4xl" />
+                <span className="text-lg sm:text-xl font-bold">0</span>
+                <span className="text-xs sm:text-sm text-gray-500">Discount</span>
               </div>
               <div className="flex flex-col items-center">
-                <FaMoneyBillWave className="text-green-700 text-5xl" />
-                <span className="text-xl font-bold">0</span>
-                <span className="text-sm text-gray-500">Discount</span>
-              </div>
-              <div className="flex flex-col items-center">
-                <FaMoneyBillWave className="text-green-700 text-5xl" />
-                <span className="text-xl font-bold">0</span>
-                <span className="text-sm text-gray-500">Fine</span>
+                <FaMoneyBillWave className="text-green-700 text-4xl" />
+                <span className="text-lg sm:text-xl font-bold">0</span>
+                <span className="text-xs sm:text-sm text-gray-500">Fine</span>
               </div>
             </div>
           </div>
 
 
           {/* To Do */}
-          <div className="bg-white shadow-md rounded-lg mb-4">
+          <div className="bg-white shadow-md rounded-md mb-2">
             {/* Header with Toggle Button */}
             <div
-              className="bg-blue-600 text-white flex justify-between items-center rounded-t-lg py-2 px-4 cursor-pointer"
+              className="bg-blue-600 text-white flex justify-between items-center rounded-t-md py-1 px-2 cursor-pointer"
               onClick={() => setShowTasks(!showTasks)}
             >
-              <h3 className="text-lg font-bold">To Do</h3>
-              <span className="text-white transform transition-transform duration-300" style={{ transform: showTasks ? "rotate(180deg)" : "rotate(0deg)" }}>
+              <h3 className="text-base sm:text-lg font-bold">To Do</h3>
+              <span className="text-white transform transition-transform duration-300 text-sm" style={{ transform: showTasks ? "rotate(180deg)" : "rotate(0deg)" }}>
                 &#9660;
               </span>
             </div>
 
             {/* Task Input */}
-            <div className="p-4">
+            <div className="p-2">
               <input
                 type="text"
                 placeholder="Subject..."
                 value={newTask.subject}
                 onChange={(e) => setNewTask({ ...newTask, subject: e.target.value })}
-                className="w-full bg-gray-100 border border-gray-200 p-2 rounded-md mb-4 placeholder-gray-400 shadow-inner"
+                className="w-full bg-gray-100 border border-gray-200 p-1 rounded-md mb-1 text-xs placeholder-gray-400 shadow-inner"
               />
               <textarea
                 placeholder="What’s in your mind?"
                 value={newTask.description}
                 onChange={(e) => setNewTask({ ...newTask, description: e.target.value })}
-                className="w-full bg-gray-100 border border-gray-200 p-2 rounded-md h-20 placeholder-gray-400 shadow-inner"
+                className="w-full bg-gray-100 border border-gray-200 p-1 rounded-md h-12 text-xs placeholder-gray-400 shadow-inner"
               ></textarea>
               <button
                 onClick={handleAddTask}
-                className="mt-2 w-full bg-blue-600 text-white py-2 rounded-md shadow-md hover:bg-blue-700 transition"
+                className="mt-1 w-full bg-blue-600 text-white py-1 rounded-md text-xs shadow-md hover:bg-blue-700 transition"
               >
                 Add Task
               </button>
@@ -333,11 +330,11 @@ const AdminDashboard = () => {
 
             {/* Task List (Hidden Until Click) */}
             {showTasks && tasks.length > 0 && (
-              <div className="p-4 bg-gray-50 rounded-b-lg">
-                <h4 className="text-gray-700 font-semibold mb-2">Added Tasks:</h4>
-                <ul className="list-disc pl-5 text-gray-600">
+              <div className="p-2 bg-gray-50 rounded-b-md">
+                <h4 className="text-gray-700 font-semibold mb-1 text-xs">Added Tasks:</h4>
+                <ul className="list-disc pl-3 text-xs text-gray-600">
                   {tasks.map((task, index) => (
-                    <li key={index} className="mb-2">
+                    <li key={index} className="mb-1">
                       <strong>{task.subject}:</strong> {task.description}
                     </li>
                   ))}

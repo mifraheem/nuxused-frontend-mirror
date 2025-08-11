@@ -4,6 +4,7 @@ import Cookies from "js-cookie";
 import toast, { Toaster } from "react-hot-toast";
 import { FiTrash, FiEdit, FiEye } from "react-icons/fi";
 import { Buttons } from "../../components";
+import Pagination from "../../components/Pagination";
 
 const TeacherDetails = () => {
   const [teachers, setTeachers] = useState([]);
@@ -20,7 +21,7 @@ const TeacherDetails = () => {
   const DELETE_URL = `${API}api/auth/users/delete_user/`;
   const UPDATE_URL = `${API}api/auth/update-teacher-profile`;
 
-  const fetchTeachers = async () => {
+  const fetchTeachers = async (page = currentPage, size = pageSize) => {
     try {
       const token = Cookies.get("access_token");
       if (!token) {
@@ -28,7 +29,7 @@ const TeacherDetails = () => {
         return;
       }
 
-      const response = await axios.get(`${API_URL}?page=${currentPage}&page_size=${pageSize}`, {
+      const response = await axios.get(`${API_URL}?page=${page}&page_size=${size}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
 
@@ -46,7 +47,6 @@ const TeacherDetails = () => {
           gender: teacher.gender || "N/A",
           salary: teacher.salary || null,
           profile_picture: teacher.profile_picture || null,
-
         }));
 
         setTeachers(formattedData);
@@ -59,6 +59,7 @@ const TeacherDetails = () => {
       toast.error("Failed to fetch teachers.");
     }
   };
+
 
   const confirmDeleteTeacher = (id) => {
     if (!canDelete) {
@@ -183,8 +184,9 @@ const TeacherDetails = () => {
 
 
   useEffect(() => {
-    fetchTeachers();
+    fetchTeachers(currentPage, pageSize);
   }, [currentPage, pageSize]);
+
 
   const handlePageChange = (page) => setCurrentPage(page);
   const handlePageSizeChange = (e) => {
@@ -201,7 +203,7 @@ const TeacherDetails = () => {
   return (
     <div>
       <Toaster position="top-center" reverseOrder={false} />
-      <h1 className="bg-blue-900 text-white py-4 px-6 text-xl font-bold">Manage Teacher Details</h1>
+      <h1 className="bg-blue-900 text-white py-4 px-6 text-xl font-bold rounded-lg mt-6 mx-6">Manage Teacher Details</h1>
       <div className="p-6">
         <Buttons
           data={teachers}
@@ -222,7 +224,7 @@ const TeacherDetails = () => {
             <thead className="bg-blue-900 text-white">
               <tr>
                 <th className="border border-gray-300 px-4 py-2">User ID</th>
-                <th className="border border-gray-300 px-4 py-2">Username</th>
+                {/* <th className="border border-gray-300 px-4 py-2">Username</th> */}
                 <th className="border border-gray-300 px-4 py-2">FirstName</th>
                 <th className="border border-gray-300 px-4 py-2">LastName</th>
                 <th className="border border-gray-300 px-4 py-2">Email</th>
@@ -234,7 +236,7 @@ const TeacherDetails = () => {
               {teachers.map((teacher) => (
                 <tr key={teacher.id}>
                   <td className="border border-gray-300 px-4 py-2">{teacher.user_id}</td>
-                  <td className="border border-gray-300 px-4 py-2">{teacher.username || "N/A"}</td>
+                  {/* <td className="border border-gray-300 px-4 py-2">{teacher.username || "N/A"}</td> */}
                   <td className="border border-gray-300 px-4 py-2">{teacher.first_name || "N/A"}</td>
                   <td className="border border-gray-300 px-4 py-2">{teacher.last_name || "N/A"}</td>
                   <td className="border border-gray-300 px-4 py-2">{teacher.email || "N/A"}</td>
@@ -269,53 +271,26 @@ const TeacherDetails = () => {
           </table>
         </div>
 
-        {/* Pagination Below Table */}
-        <div className="flex items-center justify-between mt-6">
-          <div className="flex items-center">
-            <label className="mr-2 font-semibold text-gray-700">Page Size:</label>
-            <select
-              value={pageSize}
-              onChange={handlePageSizeChange}
-              className="border px-2 py-1 rounded"
-            >
-              <option value={5}>5</option>
-              <option value={10}>10</option>
-              <option value={15}>15</option>
-              <option value={20}>20</option>
-            </select>
-          </div>
+        {/* ✅ Pagination Below Table */}
+        <Pagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          pageSize={pageSize}
+          onPageChange={(newPage) => {
+            setCurrentPage(newPage);
+            fetchTeachers(newPage, pageSize);
+          }}
+          onPageSizeChange={(size) => {
+            setPageSize(size);
+            setCurrentPage(1);
+            fetchTeachers(1, size);
+          }}
+          totalItems={teachers.length}
+          showPageSizeSelector={true}
+          showPageInfo={true}
+        />
 
-          <div className="flex items-center space-x-2">
-            <button
-              onClick={() => handlePageChange(currentPage - 1)}
-              disabled={currentPage === 1}
-              className="px-3 py-1 rounded bg-gray-300 text-gray-700 disabled:opacity-50"
-            >
-              Prev
-            </button>
 
-            {[...Array(totalPages).keys()].map((pageNum) => (
-              <button
-                key={pageNum + 1}
-                onClick={() => handlePageChange(pageNum + 1)}
-                className={`px-3 py-1 rounded ${currentPage === pageNum + 1
-                  ? "bg-blue-600 text-white"
-                  : "bg-gray-200 text-black"
-                  }`}
-              >
-                {pageNum + 1}
-              </button>
-            ))}
-
-            <button
-              onClick={() => handlePageChange(currentPage + 1)}
-              disabled={currentPage === totalPages}
-              className="px-3 py-1 rounded bg-gray-300 text-gray-700 disabled:opacity-50"
-            >
-              Next
-            </button>
-          </div>
-        </div>
       </div>
 
       {/* ✅ View Modal */}

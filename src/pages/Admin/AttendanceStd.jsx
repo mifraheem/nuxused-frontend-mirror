@@ -2,9 +2,8 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import toast, { Toaster } from 'react-hot-toast';
 import Cookies from 'js-cookie';
-import Select from "react-select";
+import Select from 'react-select';
 import Buttons from '../../components/Buttons';
-
 
 const API = import.meta.env.VITE_SERVER_URL;
 const API_BASE_URL = `${API}attendance/`;
@@ -33,9 +32,8 @@ const AttendanceStd = () => {
     currentPage * pageSize
   );
 
-
   const [formData, setFormData] = useState({
-    student: null, // change from string to object
+    student: null,
     subject: '',
     class_schedule: '',
     status: 'Present',
@@ -44,14 +42,16 @@ const AttendanceStd = () => {
   });
 
   const [markedStudentIds, setMarkedStudentIds] = useState([]);
-
   const [filters, setFilters] = useState({
     type: 'Daily',
     date: '',
     month: '',
     year: '',
     studentId: '',
+    classId: '',
   });
+  
+  const [filteredStudents, setFilteredStudents] = useState([]);
 
   useEffect(() => {
     fetchDropdowns();
@@ -81,6 +81,27 @@ const AttendanceStd = () => {
     setFilters((prev) => ({ ...prev, [name]: value }));
   };
 
+  const handleClassFilterChange = async (selectedClass) => {
+    const classId = selectedClass?.id || '';
+    setFilters(prev => ({ ...prev, classId, studentId: '' })); // Clear student selection when class changes
+    
+    if (classId) {
+      try {
+        const token = Cookies.get('access_token');
+        const res = await axios.get(`${API}classes/${classId}/students/`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        const data = res.data?.data?.results || [];
+        setFilteredStudents(data);
+      } catch (err) {
+        toast.error('Failed to load students for selected class.');
+        setFilteredStudents([]);
+      }
+    } else {
+      setFilteredStudents([]);
+    }
+  };
+
   const handleAttendanceInputChange = (e) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
@@ -89,24 +110,18 @@ const AttendanceStd = () => {
   const handleMarkAttendance = () => {
     setShowAttendanceForm((prev) => !prev);
     setShowAttendanceTable(false);
-    setFormData({ student: '', subject: '', class_schedule: '', status: 'Present', remarks: '', date: '' });
+    setFormData({ student: null, subject: '', class_schedule: '', status: 'Present', remarks: '', date: '' });
   };
 
   const handleFetchAttendance = async () => {
     setLoading(true);
     let params = [];
-
     if (!filters.studentId) {
       toast.error('Student required');
       setLoading(false);
       return;
     }
-
     params.push(`student_id=${filters.studentId}`);
-// ✅ use 'student', not 'student_id'
-
-
-
     if (filters.type === 'Daily' && filters.date) {
       params.push(`daily=true&date=${filters.date}`);
     } else if (filters.type === 'Monthly') {
@@ -144,7 +159,7 @@ const AttendanceStd = () => {
     if (!token) return toast.error('Not authenticated');
 
     const { student, subject, class_schedule, status, remarks, date } = formData;
-    const studentId = student?.profile_id || student; // fallback if already number
+    const studentId = student?.profile_id || student;
 
     if (!student || !subject || !class_schedule || !date) return toast.error('All fields are required.');
 
@@ -172,8 +187,6 @@ const AttendanceStd = () => {
       toast.success('Attendance submitted');
       setMarkedStudentIds((prev) => [...prev, studentId]);
       setFormData({ student: null, subject: '', class_schedule: '', status: 'Present', remarks: '', date: '' });
-
-
     } catch (err) {
       toast.error('Failed to submit');
     }
@@ -183,25 +196,79 @@ const AttendanceStd = () => {
   const canAdd = permissions.includes("users.add_studentattendance");
   const canView = permissions.includes("users.view_studentattendance");
 
+  // Custom styles for react-select
+  const selectStyles = {
+    control: (provided) => ({
+      ...provided,
+      minHeight: '2rem',
+      fontSize: '0.875rem',
+      '@media (min-width: 640px)': {
+        fontSize: '1rem',
+      },
+    }),
+    menu: (provided) => ({
+      ...provided,
+      fontSize: '0.875rem',
+      maxHeight: '200px',
+      overflowY: 'auto',
+      '@media (min-width: 640px)': {
+        fontSize: '1rem',
+      },
+    }),
+    option: (provided) => ({
+      ...provided,
+      fontSize: '0.875rem',
+      padding: '0.5rem',
+      '@media (min-width: 640px)': {
+        fontSize: '1rem',
+        padding: '0.75rem',
+      },
+    }),
+  };
+
+  // Status options for react-select
+  const statusOptions = [
+    { value: 'Present', label: 'Present' },
+    { value: 'Late', label: 'Late' },
+    { value: 'Absent', label: 'Absent' },
+    { value: 'Leave', label: 'Leave' },
+    { value: 'Half-day', label: 'Half-day' },
+  ];
+
+  // Report type options for react-select
+  const reportTypeOptions = [
+    { value: 'Daily', label: 'Daily' },
+    { value: 'Monthly', label: 'Monthly' },
+    { value: 'Yearly', label: 'Yearly' },
+  ];
+
+  // Page size options for react-select
+  const pageSizeOptions = [
+    { value: 5, label: '5' },
+    { value: 10, label: '10' },
+    { value: 15, label: '15' },
+    { value: 20, label: '20' },
+  ];
+
   return (
-    <div>
+    <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-6">
       <Toaster position="top-center" />
-      <div className="bg-blue-900 text-white py-2 px-2 mt-5 rounded-lg shadow-md flex justify-between items-center">
-        <h2 className="text-xl font-bold">Student Attendance Management</h2>
-        <div className="flex gap-4">
+      {/* Header Section */}
+      <div className="bg-blue-900 text-white py-3 px-4 sm:px-6 rounded-lg shadow-md flex flex-col sm:flex-row justify-between items-center mb-6">
+        <h2 className="text-lg sm:text-xl font-bold">Student Attendance </h2>
+        <div className="flex flex-col sm:flex-row gap-3 mt-4 sm:mt-0">
           {canAdd && (
             <button
               onClick={handleMarkAttendance}
-              className="bg-cyan-500 text-white px-4 py-2 rounded-md shadow hover:bg-cyan-700"
+              className="bg-cyan-500 text-white px-3 sm:px-4 py-1.5 sm:py-2 rounded-md shadow hover:bg-cyan-700 w-full sm:w-auto text-sm sm:text-base"
             >
               {showAttendanceForm ? 'Close Attendance' : 'Mark Attendance'}
             </button>
           )}
-
           {canView && (
             <button
               onClick={() => setShowFilterForm((prev) => !prev)}
-              className="bg-green-500 text-white px-4 py-2 rounded-md shadow hover:bg-green-700"
+              className="bg-green-500 text-white px-3 sm:px-4 py-1.5 sm:py-2 rounded-md shadow hover:bg-green-700 w-full sm:w-auto text-sm sm:text-base"
             >
               {showFilterForm ? 'Close Report' : 'Fetch Attendance'}
             </button>
@@ -209,18 +276,17 @@ const AttendanceStd = () => {
         </div>
       </div>
 
+      {/* Attendance Form */}
       {canAdd && showAttendanceForm && (
-        <div className="mt-6 bg-white p-6 rounded-lg shadow-md max-w-3xl mx-auto">
-          <h2 className="text-xl font-semibold mb-4">Mark Attendance</h2>
-          <div className="grid grid-cols-2 gap-4">
+        <div className="mt-6 bg-white p-4 sm:p-6 rounded-lg shadow-md max-w-full sm:max-w-3xl mx-auto">
+          <h2 className="text-lg sm:text-xl font-semibold mb-4">Mark Attendance</h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <Select
               name="class_schedule"
               value={classOptions.find(cls => cls.id === parseInt(formData.class_schedule)) || null}
               onChange={async (selected) => {
                 const classId = selected?.id || "";
                 setFormData({ ...formData, class_schedule: classId });
-
-                // 🔄 Fetch students by class ID from API
                 if (classId) {
                   try {
                     const token = Cookies.get("access_token");
@@ -242,9 +308,8 @@ const AttendanceStd = () => {
               getOptionValue={(cls) => cls.id}
               placeholder="Select Class"
               isClearable
+              styles={selectStyles}
             />
-
-
             <Select
               name="student"
               value={formData.student}
@@ -256,11 +321,8 @@ const AttendanceStd = () => {
               getOptionValue={(s) => s.profile_id}
               placeholder="Select Student"
               isClearable
+              styles={selectStyles}
             />
-
-
-
-
             <Select
               name="subject"
               value={subjectOptions.find(sub => sub.id === parseInt(formData.subject)) || null}
@@ -272,85 +334,136 @@ const AttendanceStd = () => {
               getOptionValue={(sub) => sub.id}
               placeholder="Select Subject"
               isClearable
+              styles={selectStyles}
             />
-
-
-
-
-
-            <select name="status" value={formData.status} onChange={handleAttendanceInputChange} className="border p-2 rounded">
-              <option value="Present">Present</option>
-              <option value="Late">Late</option>
-              <option value="Absent">Absent</option>
-              <option value="Leave">Leave</option>
-              <option value="Half-day">Half-day</option>
-            </select>
-
-            <input type="date" name="date" value={formData.date} onChange={handleAttendanceInputChange} className="border p-2 rounded" required />
-            <input name="remarks" placeholder="Remarks" value={formData.remarks} onChange={handleAttendanceInputChange} className="border p-2 rounded col-span-2" />
+            <Select
+              name="status"
+              value={statusOptions.find(opt => opt.value === formData.status) || statusOptions[0]}
+              onChange={(selected) => {
+                setFormData({ ...formData, status: selected?.value || 'Present' });
+              }}
+              options={statusOptions}
+              placeholder="Select Status"
+              styles={selectStyles}
+              isSearchable={false}
+            />
+            <input
+              type="date"
+              name="date"
+              value={formData.date}
+              onChange={handleAttendanceInputChange}
+              className="border p-2 rounded text-sm sm:text-base"
+              required
+            />
+            <input
+              name="remarks"
+              placeholder="Remarks"
+              value={formData.remarks}
+              onChange={handleAttendanceInputChange}
+              className="border p-2 rounded text-sm sm:text-base col-span-1 sm:col-span-2"
+            />
           </div>
           <div className="mt-4 text-right">
-            <button onClick={handleSubmitAttendance} className="bg-blue-600 text-white px-6 py-2 rounded hover:bg-blue-800">
+            <button
+              onClick={handleSubmitAttendance}
+              className="bg-blue-600 text-white px-3 sm:px-4 py-1.5 sm:py-2 rounded hover:bg-blue-800 text-sm sm:text-base"
+            >
               Submit Attendance
             </button>
           </div>
         </div>
       )}
 
+      {/* Filter Form - All Responsive Dropdowns */}
       {canView && showFilterForm && (
-        <div className="bg-white mt-6 p-6 rounded-lg shadow-md max-w-4xl mx-auto border border-gray-200">
-          <h2 className="text-xl font-semibold text-gray-800 mb-4">Generate Attendance Report</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="bg-white mt-6 p-4 sm:p-6 rounded-lg shadow-md max-w-full sm:max-w-4xl mx-auto border border-gray-200 filter-form">
+          <h2 className="text-lg sm:text-xl font-semibold text-gray-800 mb-4">Generate Attendance Report</h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Select Student</label>
-              <select name="studentId" value={filters.studentId} onChange={handleFilterChange} className="w-full border border-gray-300 p-2 rounded-md">
-                <option value="">-- Select Student --</option>
-                {studentOptions.map((s) => (
-                  <option key={s.profile_id} value={s.profile_id}>{s.username}</option>
-                ))}
-              </select>
+              <Select
+                name="studentId"
+                value={studentOptions.find(s => s.profile_id === filters.studentId) || null}
+                onChange={(selected) => {
+                  setFilters(prev => ({ ...prev, studentId: selected?.profile_id || '' }));
+                }}
+                options={studentOptions}
+                getOptionLabel={(s) => s.username}
+                getOptionValue={(s) => s.profile_id}
+                placeholder="-- Select Student --"
+                isClearable
+                styles={selectStyles}
+              />
             </div>
-
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Report Type</label>
-              <select name="type" value={filters.type} onChange={handleFilterChange} className="w-full border border-gray-300 p-2 rounded-md">
-                <option value="Daily">Daily</option>
-                <option value="Monthly">Monthly</option>
-                <option value="Yearly">Yearly</option>
-              </select>
+              <Select
+                name="type"
+                value={reportTypeOptions.find(opt => opt.value === filters.type) || reportTypeOptions[0]}
+                onChange={(selected) => {
+                  setFilters(prev => ({ ...prev, type: selected?.value || 'Daily' }));
+                }}
+                options={reportTypeOptions}
+                placeholder="Select Report Type"
+                styles={selectStyles}
+                isSearchable={false}
+              />
             </div>
-
             {filters.type === 'Daily' && (
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Select Date</label>
-                <input type="date" name="date" value={filters.date} onChange={handleFilterChange} className="w-full border border-gray-300 p-2 rounded-md" />
+                <input
+                  type="date"
+                  name="date"
+                  value={filters.date}
+                  onChange={handleFilterChange}
+                  className="w-full border border-gray-300 p-2 sm:p-3 rounded-md text-sm sm:text-base"
+                />
               </div>
             )}
-
             {filters.type === 'Monthly' && (
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Month (1-12)</label>
-                <input type="number" name="month" min="1" max="12" placeholder="e.g., 5" value={filters.month} onChange={handleFilterChange} className="w-full border border-gray-300 p-2 rounded-md" />
+                <input
+                  type="number"
+                  name="month"
+                  min="1"
+                  max="12"
+                  placeholder="e.g., 5"
+                  value={filters.month}
+                  onChange={handleFilterChange}
+                  className="w-full border border-gray-300 p-2 sm:p-3 rounded-md text-sm sm:text-base"
+                />
               </div>
             )}
-
             {filters.type === 'Yearly' && (
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Year</label>
-                <input type="number" name="year" placeholder="e.g., 2024" value={filters.year} onChange={handleFilterChange} className="w-full border border-gray-300 p-2 rounded-md" />
+                <input
+                  type="number"
+                  name="year"
+                  placeholder="e.g., 2024"
+                  value={filters.year}
+                  onChange={handleFilterChange}
+                  className="w-full border border-gray-300 p-2 sm:p-3 rounded-md text-sm sm:text-base"
+                />
               </div>
             )}
           </div>
           <div className="mt-6 text-right">
-            <button onClick={handleFetchAttendance} className="bg-green-600 text-white px-6 py-2 rounded-md hover:bg-green-700 shadow">
+            <button
+              onClick={handleFetchAttendance}
+              className="bg-green-600 text-white px-3 sm:px-4 py-1.5 sm:py-2 rounded-md hover:bg-green-700 shadow text-sm sm:text-base"
+            >
               Generate Report
             </button>
           </div>
         </div>
       )}
 
+      {/* Attendance Report Table */}
       {canView && showReport && attendanceData.length > 0 && (
-        <div className="p-6 ">
+        <div className="p-4 sm:p-6">
           <Buttons
             data={attendanceData}
             columns={[
@@ -360,62 +473,165 @@ const AttendanceStd = () => {
             ]}
             filename="Attendance_Report"
           />
-
-          <table className="w-full border mt-4  bg-white shadow">
-            <thead className="bg-gray-200">
-              <tr>
-                <th className="border p-2">Student</th>
-                <th className="border p-2">Date</th>
-                <th className="border p-2">Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {attendanceData.map((rec) => (
-                <tr key={rec.id}>
-                  <td className="border p-2">{rec.student}</td>
-                  <td className="border p-2">{rec.date}</td>
-                  <td className="border p-2">{rec.status}</td>
+          <div className="overflow-x-auto">
+            <table className="w-full border mt-4 bg-white shadow text-sm attendance-table">
+              <thead className="bg-gray-200">
+                <tr>
+                  <th className="border p-2 sm:p-3 text-left">Student</th>
+                  <th className="border p-2 sm:p-3 text-left">Date</th>
+                  <th className="border p-2 sm:p-3 text-left">Status</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-          <div className="flex items-center justify-between mt-4">
-            <div className="flex items-center">
-              <span className="mr-2 font-semibold">Page Size:</span>
-              <select
-                className="border px-2 py-1 rounded"
-                value={pageSize}
-                onChange={(e) => {
-                  setPageSize(parseInt(e.target.value));
-                  setCurrentPage(1);
-                }}
-              >
-                {[5, 10, 15, 20].map(size => (
-                  <option key={size} value={size}>{size}</option>
+              </thead>
+              <tbody>
+                {paginatedData.map((rec) => (
+                  <tr key={rec.id} className="hover:bg-gray-50">
+                    <td className="border p-2 sm:p-3" data-label="Student">{rec.student}</td>
+                    <td className="border p-2 sm:p-3" data-label="Date">{rec.date}</td>
+                    <td className="border p-2 sm:p-3" data-label="Status">{rec.status}</td>
+                  </tr>
                 ))}
-              </select>
+              </tbody>
+            </table>
+          </div>
+          
+          {/* Responsive Pagination */}
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mt-4 gap-3 sm:gap-4">
+            {/* Page Size Selector */}
+            <div className="flex items-center gap-2 w-full sm:w-auto">
+              <label className="text-xs sm:text-sm font-medium text-gray-700 whitespace-nowrap">
+                Page Size:
+              </label>
+              <div className="w-24">
+                <Select
+                  value={pageSizeOptions.find(opt => opt.value === pageSize)}
+                  onChange={(selected) => {
+                    setPageSize(selected?.value || 10);
+                    setCurrentPage(1);
+                  }}
+                  options={pageSizeOptions}
+                  styles={{
+                    ...selectStyles,
+                    control: (provided) => ({
+                      ...provided,
+                      minHeight: '1.75rem',
+                      fontSize: '0.75rem',
+                    }),
+                    menu: (provided) => ({
+                      ...provided,
+                      fontSize: '0.75rem',
+                      maxHeight: '120px',
+                    }),
+                    option: (provided) => ({
+                      ...provided,
+                      fontSize: '0.75rem',
+                      padding: '0.25rem 0.5rem',
+                    }),
+                  }}
+                  isSearchable={false}
+                />
+              </div>
             </div>
 
-            <div className="flex items-center space-x-2">
+            {/* Pagination Buttons */}
+            <div className="flex flex-wrap justify-center sm:justify-end gap-1 sm:gap-2 w-full sm:w-auto">
               <button
-                className="px-3 py-1 rounded bg-gray-200 disabled:opacity-50"
                 onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
                 disabled={currentPage === 1}
+                className="px-2 sm:px-3 py-1 bg-gray-300 rounded disabled:opacity-50 disabled:cursor-not-allowed
+                           text-xs sm:text-sm hover:bg-gray-400 transition-colors min-w-[45px] sm:min-w-[50px]"
               >
                 Prev
               </button>
-              <span className="px-3 py-1 rounded bg-blue-600 text-white">{currentPage}</span>
+              
+              {/* Smart pagination for many pages */}
+              {totalPages <= 5 ? (
+                [...Array(totalPages)].map((_, index) => (
+                  <button
+                    key={index}
+                    onClick={() => setCurrentPage(index + 1)}
+                    className={`px-2 sm:px-3 py-1 rounded text-xs sm:text-sm min-w-[32px] sm:min-w-[36px] 
+                               transition-colors ${
+                      currentPage === index + 1
+                        ? "bg-blue-600 text-white hover:bg-blue-700"
+                        : "bg-gray-200 hover:bg-gray-300"
+                    }`}
+                  >
+                    {index + 1}
+                  </button>
+                ))
+              ) : (
+                <>
+                  {currentPage > 3 && (
+                    <>
+                      <button
+                        onClick={() => setCurrentPage(1)}
+                        className="px-2 sm:px-3 py-1 rounded text-xs sm:text-sm min-w-[32px] sm:min-w-[36px]
+                                   bg-gray-200 hover:bg-gray-300 transition-colors"
+                      >
+                        1
+                      </button>
+                      {currentPage > 4 && (
+                        <span className="px-1 py-1 text-xs sm:text-sm text-gray-500">...</span>
+                      )}
+                    </>
+                  )}
+                  
+                  {[...Array(Math.min(5, totalPages))].map((_, index) => {
+                    let pageNum;
+                    if (currentPage <= 3) {
+                      pageNum = index + 1;
+                    } else if (currentPage >= totalPages - 2) {
+                      pageNum = totalPages - 4 + index;
+                    } else {
+                      pageNum = currentPage - 2 + index;
+                    }
+                    
+                    if (pageNum > 0 && pageNum <= totalPages) {
+                      return (
+                        <button
+                          key={pageNum}
+                          onClick={() => setCurrentPage(pageNum)}
+                          className={`px-2 sm:px-3 py-1 rounded text-xs sm:text-sm min-w-[32px] sm:min-w-[36px]
+                                     transition-colors ${
+                            currentPage === pageNum
+                              ? "bg-blue-600 text-white hover:bg-blue-700"
+                              : "bg-gray-200 hover:bg-gray-300"
+                          }`}
+                        >
+                          {pageNum}
+                        </button>
+                      );
+                    }
+                    return null;
+                  })}
+                  
+                  {currentPage < totalPages - 2 && (
+                    <>
+                      {currentPage < totalPages - 3 && (
+                        <span className="px-1 py-1 text-xs sm:text-sm text-gray-500">...</span>
+                      )}
+                      <button
+                        onClick={() => setCurrentPage(totalPages)}
+                        className="px-2 sm:px-3 py-1 rounded text-xs sm:text-sm min-w-[32px] sm:min-w-[36px]
+                                   bg-gray-200 hover:bg-gray-300 transition-colors"
+                      >
+                        {totalPages}
+                      </button>
+                    </>
+                  )}
+                </>
+              )}
+              
               <button
-                className="px-3 py-1 rounded bg-gray-200 disabled:opacity-50"
                 onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
                 disabled={currentPage === totalPages}
+                className="px-2 sm:px-3 py-1 bg-gray-300 rounded disabled:opacity-50 disabled:cursor-not-allowed
+                           text-xs sm:text-sm hover:bg-gray-400 transition-colors min-w-[45px] sm:min-w-[50px]"
               >
                 Next
               </button>
             </div>
           </div>
-
-
         </div>
       )}
     </div>

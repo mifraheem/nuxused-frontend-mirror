@@ -5,6 +5,7 @@ import { MdEdit, MdDelete, MdVisibility } from "react-icons/md";
 import toast, { Toaster } from "react-hot-toast";
 import Select from "react-select";
 import { Buttons } from "../../components";
+import Pagination from "../../components/Pagination";
 
 
 const ClassAnnouncements = () => {
@@ -143,7 +144,7 @@ const ClassAnnouncements = () => {
             </div>
 
             {showForm && (canAdd || canEdit) && (
-                <div className="bg-blue-50 p-6 rounded my-4">
+                <div className="bg-white p-6 rounded-lg shadow-md my-4">
                     <h2 className="text-lg font-semibold mb-4">
                         {editingItem ? "Edit Announcement" : "Create Announcement"}
                     </h2>
@@ -267,40 +268,23 @@ const ClassAnnouncements = () => {
             )}
 
             {/* Pagination */}
-            <div className="flex justify-between items-center mt-4">
-                <div className="flex items-center gap-2">
-                    <label className="font-semibold">Page Size:</label>
-                    <select
-                        value={pageSize}
-                        onChange={(e) => {
-                            setPageSize(Number(e.target.value));
-                            setPage(1);
-                        }}
-                        className="border rounded px-3 py-1"
-                    >
-                        <option value={1}>1</option>
-                        <option value={5}>5</option>
-                        <option value={10}>10</option>
-                    </select>
-                </div>
-                <div className="flex gap-2">
-                    <button
-                        disabled={page === 1}
-                        onClick={() => setPage((p) => Math.max(1, p - 1))}
-                        className="px-3 py-1 rounded border disabled:opacity-50"
-                    >
-                        Prev
-                    </button>
-                    <span className="px-3 py-1 bg-blue-600 text-white rounded">{page}</span>
-                    <button
-                        disabled={page === totalPages}
-                        onClick={() => setPage((p) => Math.min(p + 1, totalPages))}
-                        className="px-3 py-1 rounded border disabled:opacity-50"
-                    >
-                        Next
-                    </button>
-                </div>
-            </div>
+            <Pagination
+                currentPage={page}
+                totalPages={totalPages}
+                pageSize={pageSize}
+                onPageChange={(newPage) => {
+                    setPage(newPage);
+                    fetchData(newPage, pageSize);
+                }}
+                onPageSizeChange={(size) => {
+                    setPageSize(size);
+                    setPage(1);
+                    fetchData(1, size);
+                }}
+                totalItems={ClassAnnouncements.length}
+                showPageSizeSelector={true}
+                showPageInfo={true}
+            />
 
             {/* View Modal */}
             {selectedItem && (

@@ -5,8 +5,8 @@ import toast, { Toaster } from "react-hot-toast";
 import { MdEdit, MdDelete } from "react-icons/md";
 import { Buttons } from "../../components";
 import apiRequest from '../../helpers/apiRequest';
-import Select from "react-select"
-
+import Select from "react-select";
+import Pagination from "../../components/Pagination";
 
 const FeeStructures = () => {
     const [feeStructures, setFeeStructures] = useState([]);
@@ -28,7 +28,6 @@ const FeeStructures = () => {
     const [showForm, setShowForm] = useState(false);
 
     const API = import.meta.env.VITE_SERVER_URL;
-
     const API_URL = `${API}fee-structures/`;
 
     const fetchFeeStructures = async () => {
@@ -68,7 +67,6 @@ const FeeStructures = () => {
             console.error('Error fetching fee types:', err);
         }
     };
-
 
     const handleSaveStructure = async () => {
         if (!newFeeStructure.class_assigned_id || !newFeeStructure.fee_type_id || !newFeeStructure.amount || !newFeeStructure.due_date) {
@@ -137,13 +135,13 @@ const FeeStructures = () => {
                                 toast.error("Failed to delete.");
                             }
                         }}
-                        className="bg-red-500 text-white px-3 py-1 rounded mr-2"
+                        className="bg-red-500 text-white px-2 py-1 rounded mr-1 text-xs"
                     >
                         Yes
                     </button>
                     <button
                         onClick={() => toast.dismiss(t.id)}
-                        className="bg-gray-500 text-white px-3 py-1 rounded"
+                        className="bg-gray-500 text-white px-2 py-1 rounded text-xs"
                     >
                         No
                     </button>
@@ -151,7 +149,6 @@ const FeeStructures = () => {
             </div>
         ));
     };
-
 
     const handleEdit = (structure) => {
         setEditingStructure(structure);
@@ -183,19 +180,16 @@ const FeeStructures = () => {
     ];
 
     const permissions = JSON.parse(localStorage.getItem("user_permissions") || "[]");
-
     const canAdd = permissions.includes("users.add_feestructure");
     const canEdit = permissions.includes("users.change_feestructure");
     const canDelete = permissions.includes("users.delete_feestructure");
-
     const canPerformActions = canEdit || canDelete;
 
-
     return (
-        <div>
+        <div className="p-2">
             <Toaster position="top-center" />
-            <div className="bg-blue-900 text-white py-2 px-6 rounded-md flex justify-between items-center mt-5">
-                <h1 className="text-xl font-bold">Manage Fee Structures</h1>
+            <div className="bg-blue-900 text-white py-1 px-2 rounded-md flex justify-between items-center mt-2">
+                <h1 className="text-lg font-bold">Manage Fee Structures</h1>
                 {canAdd && (
                     <button
                         onClick={() => {
@@ -209,29 +203,27 @@ const FeeStructures = () => {
                                 is_active: true,
                             });
                         }}
-                        className="flex items-center px-3 py-2 bg-cyan-400 text-white font-semibold rounded-lg shadow-md hover:bg-cyan-500"
+                        className="flex items-center px-2 py-1 bg-cyan-400 text-white font-semibold rounded-md shadow-md hover:bg-cyan-500 text-sm"
                     >
-                        <div className="flex items-center justify-center w-8 h-8 bg-black rounded-full mr-3">
-                            <span className="text-cyan-500 text-xl font-bold">
+                        <div className="flex items-center justify-center w-6 h-6 bg-black rounded-full mr-1">
+                            <span className="text-cyan-500 text-base font-bold">
                                 {showForm ? "-" : "+"}
                             </span>
                         </div>
                         {showForm ? "Close Form" : "Add Fee Structure"}
                     </button>
                 )}
-
             </div>
 
-            <div className="p-6">
+            <div className="p-2">
                 {showForm && canAdd && (
-                    <div className="p-6 bg-white rounded-lg shadow-md border border-gray-200 max-w-2xl mx-auto mb-6">
-                        <h2 className="text-xl font-semibold text-blue-800 mb-4">
+                    <div className="p-2 bg-white rounded-md shadow-md border border-gray-200 max-w-lg mx-auto mb-2">
+                        <h2 className="text-base font-semibold text-blue-800 mb-2">
                             {editingStructure ? "Edit Fee Structure" : "Create New Fee Structure"}
                         </h2>
-
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Class</label>
+                                <label className="block text-xs font-medium text-gray-700 mb-0.5">Class</label>
                                 <Select
                                     value={classes.find(cls => cls.id === newFeeStructure.class_assigned_id) || null}
                                     onChange={(selected) =>
@@ -240,13 +232,13 @@ const FeeStructures = () => {
                                     options={classes}
                                     getOptionLabel={(cls) => `${cls.class_name} ${cls.section} (${cls.session})`}
                                     getOptionValue={(cls) => cls.id}
-                                    placeholder="Search or select class"
+                                    placeholder="Select class"
                                     isClearable
+                                    className="text-xs"
                                 />
                             </div>
-
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Fee Type</label>
+                                <label className="block text-xs font-medium text-gray-700 mb-0.5">Fee Type</label>
                                 <Select
                                     value={feeTypes.find(ft => ft.id === newFeeStructure.fee_type_id) || null}
                                     onChange={(selected) =>
@@ -255,13 +247,13 @@ const FeeStructures = () => {
                                     options={feeTypes}
                                     getOptionLabel={(ft) => ft.name}
                                     getOptionValue={(ft) => ft.id}
-                                    placeholder="Search or select fee type"
+                                    placeholder="Select fee type"
                                     isClearable
+                                    className="text-xs"
                                 />
                             </div>
-
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Amount</label>
+                                <label className="block text-xs font-medium text-gray-700 mb-0.5">Amount</label>
                                 <input
                                     type="number"
                                     placeholder="e.g. 1000"
@@ -269,39 +261,36 @@ const FeeStructures = () => {
                                     onChange={(e) =>
                                         setNewFeeStructure({ ...newFeeStructure, amount: parseFloat(e.target.value) || "" })
                                     }
-                                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
+                                    className="w-full px-2 py-1 border border-gray-300 rounded-md text-xs focus:ring-2 focus:ring-blue-500"
                                 />
                             </div>
-
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Due Date</label>
+                                <label className="block text-xs font-medium text-gray-700 mb-0.5">Due Date</label>
                                 <input
                                     type="date"
                                     value={newFeeStructure.due_date}
                                     onChange={(e) =>
                                         setNewFeeStructure({ ...newFeeStructure, due_date: e.target.value })
                                     }
-                                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
+                                    className="w-full px-2 py-1 border border-gray-300 rounded-md text-xs focus:ring-2 focus:ring-blue-500"
                                 />
                             </div>
-
-                            <div className="md:col-span-2 flex items-center mt-2">
+                            <div className="sm:col-span-2 flex items-center mt-1">
                                 <input
                                     type="checkbox"
                                     checked={newFeeStructure.is_active}
                                     onChange={(e) =>
                                         setNewFeeStructure({ ...newFeeStructure, is_active: e.target.checked })
                                     }
-                                    className="mr-2"
+                                    className="mr-1"
                                 />
-                                <label className="text-sm text-gray-700 font-medium">Mark as Active</label>
+                                <label className="text-xs text-gray-700 font-medium">Mark as Active</label>
                             </div>
                         </div>
-
-                        <div className="mt-6 text-right">
+                        <div className="mt-2 text-right">
                             <button
                                 onClick={handleSaveStructure}
-                                className="bg-blue-600 hover:bg-blue-800 text-white font-medium px-6 py-2 rounded-md shadow-sm transition duration-150"
+                                className="bg-blue-600 hover:bg-blue-800 text-white font-medium px-3 py-1 rounded-md shadow-sm text-xs"
                             >
                                 {editingStructure ? "Update Structure" : "Save Structure"}
                             </button>
@@ -310,114 +299,80 @@ const FeeStructures = () => {
                 )}
 
                 {feeStructures.length > 0 ? (
-                    <div className="mt-6">
+                    <div className="mt-2">
                         <Buttons data={feeStructures} columns={columns} filename="FeeStructures" />
-                        <h2 className="text-lg font-semibold text-white bg-blue-900 px-4 py-2 rounded-t-md">
+                        <h2 className="text-base font-semibold text-white bg-blue-900 px-2 py-0.5 rounded-t-md">
                             Fee Structures
                         </h2>
-                        <table className="w-full border-collapse border border-gray-300 bg-white">
-                            <thead className="bg-gray-200">
-                                <tr>
-                                    <th className="border border-gray-300 p-2">#ID</th>
-                                    <th className="border border-gray-300 p-2">School</th>
-                                    <th className="border border-gray-300 p-2">Class</th>
-                                    <th className="border border-gray-300 p-2">Section</th>
-                                    <th className="border border-gray-300 p-2">Session</th>
-                                    <th className="border border-gray-300 p-2">Fee Type</th>
-                                    <th className="border border-gray-300 p-2">Amount</th>
-                                    <th className="border border-gray-300 p-2">Due Date</th>
-                                    <th className="border border-gray-300 p-2">Active</th>
-                                    {canPerformActions && (
-                                        <th className="border border-gray-300 p-2">Actions</th>
-                                    )}
-                                </tr>
-                            </thead>
-
-                            <tbody>
-                                {feeStructures.map((f) => (
-                                    <tr key={f.id}>
-                                        <td className="border border-gray-300 p-2 text-center">{f.id}</td>
-                                        <td className="border border-gray-300 p-2">{f.school}</td>
-                                        <td className="border border-gray-300 p-2">{f.class_name}</td>
-                                        <td className="border border-gray-300 p-2">{f.class_section}</td>
-                                        <td className="border border-gray-300 p-2">{f.class_session}</td>
-                                        <td className="border border-gray-300 p-2">{f.fee_type}</td>
-                                        <td className="border border-gray-300 p-2">{f.amount}</td>
-                                        <td className="border border-gray-300 p-2">{f.due_date}</td>
-                                        <td className="border border-gray-300 p-2 text-center">
-                                            {f.is_active ? "✅" : "❌"}
-                                        </td>
+                        <div className="overflow-x-auto">
+                            <table className="w-full border-collapse border border-gray-300 bg-white min-w-[400px]">
+                                <thead className="bg-gray-200">
+                                    <tr>
+                                        <th className="border border-gray-300 p-0.5 text-center text-xs">#ID</th>
+                                        <th className="border border-gray-300 p-0.5 text-center text-xs">Fee Type</th>
+                                        <th className="border border-gray-300 p-0.5 text-center text-xs">Class</th>
+                                        <th className="border border-gray-300 p-0.5 text-center text-xs">Section</th>
+                                        <th className="border border-gray-300 p-0.5 text-center text-xs">Session</th>
+                                        <th className="border border-gray-300 p-0.5 text-center text-xs">Amount</th>
+                                        <th className="border border-gray-300 p-0.5 text-center text-xs">Due Date</th>
+                                        <th className="border border-gray-300 p-0.5 text-center text-xs">Active</th>
                                         {canPerformActions && (
-                                            <td className="border border-gray-300 p-2 flex justify-center">
-                                                {canEdit && (
-                                                    <MdEdit
-                                                        onClick={() => handleEdit(f)}
-                                                        className="text-yellow-500 text-2xl cursor-pointer mx-2 hover:text-yellow-700"
-                                                    />
-                                                )}
-                                                {canDelete && (
-                                                    <MdDelete
-                                                        onClick={() => handleDelete(f.id)}
-                                                        className="text-red-500 text-2xl cursor-pointer mx-2 hover:text-red-700"
-                                                    />
-                                                )}
-                                            </td>
+                                            <th className="border border-gray-300 p-0.5 text-center text-xs">Actions</th>
                                         )}
-
                                     </tr>
-                                ))}
-                            </tbody>
-
-
-                        </table>
-                        <div className="flex justify-between items-center bg-blue-50 p-4 rounded-b-md mt-2">
-                            {/* Page Size Selector */}
-                            <div className="flex items-center gap-2">
-                                <label className="text-gray-700 font-semibold">Page Size:</label>
-                                <select
-                                    value={pageSize}
-                                    onChange={(e) => {
-                                        setPageSize(Number(e.target.value));
-                                        setPage(1);
-                                    }}
-                                    className="border rounded-md px-3 py-1"
-                                >
-                                    <option value={5}>5</option>
-                                    <option value={10}>10</option>
-                                    <option value={20}>20</option>
-                                </select>
-                            </div>
-
-                            {/* Pagination Controls */}
-                            <div className="flex items-center gap-2">
-                                <button
-                                    onClick={() => setPage((prev) => Math.max(prev - 1, 1))}
-                                    disabled={page === 1}
-                                    className={`px-3 py-1 rounded-md font-semibold ${page === 1
-                                        ? "bg-gray-200 text-gray-500 cursor-not-allowed"
-                                        : "bg-white hover:bg-gray-100"
-                                        }`}
-                                >
-                                    Prev
-                                </button>
-
-                                <span className="px-3 py-1 bg-blue-600 text-white font-bold rounded-md">{page}</span>
-
-                                <button
-                                    onClick={() => setPage((prev) => Math.min(prev + 1, totalPages))}
-                                    disabled={page === totalPages}
-                                    className={`px-3 py-1 rounded-md font-semibold ${page === totalPages
-                                        ? "bg-gray-200 text-gray-500 cursor-not-allowed"
-                                        : "bg-white hover:bg-gray-100"
-                                        }`}
-                                >
-                                    Next
-                                </button>
-                            </div>
+                                </thead>
+                                <tbody>
+                                    {feeStructures.map((f) => (
+                                        <tr key={f.id}>
+                                            <td className="border border-gray-300 p-0.5 text-center text-xs">{f.id}</td>
+                                            <td className="border border-gray-300 p-0.5 text-xs">{f.fee_type}</td>
+                                            <td className="border border-gray-300 p-0.5 text-xs">{f.class_name}</td>
+                                            <td className="border border-gray-300 p-0.5 text-xs">{f.class_section}</td>
+                                            <td className="border border-gray-300 p-0.5 text-xs">{f.class_session}</td>
+                                            <td className="border border-gray-300 p-0.5 text-center text-xs">{f.amount}</td>
+                                            <td className="border border-gray-300 p-0.5 text-center text-xs">{f.due_date}</td>
+                                            <td className="border border-gray-300 p-0.5 text-center text-xs">
+                                                {f.is_active ? "✅" : "❌"}
+                                            </td>
+                                            {canPerformActions && (
+                                                <td className="border border-gray-300 p-0.5 flex justify-center gap-1 text-xs">
+                                                    {canEdit && (
+                                                        <MdEdit
+                                                            onClick={() => handleEdit(f)}
+                                                            className="text-yellow-500 cursor-pointer hover:text-yellow-700"
+                                                            size={18}
+                                                        />
+                                                    )}
+                                                    {canDelete && (
+                                                        <MdDelete
+                                                            onClick={() => handleDelete(f.id)}
+                                                            className="text-red-500 cursor-pointer hover:text-red-700"
+                                                            size={18}
+                                                        />
+                                                    )}
+                                                </td>
+                                            )}
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
                         </div>
+                        <Pagination
+                            currentPage={page}
+                            totalPages={totalPages}
+                            pageSize={pageSize}
+                            onPageChange={(newPage) => setPage(newPage)}
+                            onPageSizeChange={(size) => {
+                                setPageSize(size);
+                                setPage(1);
+                            }}
+                            totalItems={feeStructures.length}
+                            showPageSizeSelector={true}
+                            showPageInfo={true}
+                        />
                     </div>
                 ) : (
-                    <p className="text-center text-gray-500">No fee structures available.</p>
+                    <p className="text-center text-gray-500 text-xs">No fee structures available.</p>
                 )}
             </div>
         </div>

@@ -4,6 +4,7 @@ import Cookies from "js-cookie";
 import { MdEdit, MdDelete, MdVisibility } from "react-icons/md";
 import toast, { Toaster } from "react-hot-toast";
 import { Buttons } from "../../components";
+import Pagination from "../../components/Pagination";
 
 const Noticeboard = () => {
   const [notices, setNotices] = useState([]);
@@ -416,51 +417,23 @@ const Noticeboard = () => {
                 ))}
               </tbody>
             </table>
-            <div className="flex justify-between items-center bg-blue-50 p-4 rounded-b-md mt-2">
-              {/* Page Size Selector */}
-              <div className="flex items-center gap-2">
-                <label className="text-gray-700 font-semibold">Page Size:</label>
-                <select
-                  value={pageSize}
-                  onChange={(e) => {
-                    setPageSize(Number(e.target.value));
-                    setPage(1);
-                  }}
-                  className="border rounded-md px-3 py-1"
-                >
-                  <option value={1}>1</option>
-                  <option value={5}>5</option>
-                  <option value={10}>10</option>
-                </select>
-              </div>
-
-              {/* Pagination Buttons */}
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => setPage((prev) => Math.max(prev - 1, 1))}
-                  disabled={page === 1}
-                  className={`px-3 py-1 rounded-md font-semibold ${page === 1
-                    ? "bg-gray-200 text-gray-500 cursor-not-allowed"
-                    : "bg-white hover:bg-gray-100"
-                    }`}
-                >
-                  Prev
-                </button>
-
-                <span className="px-3 py-1 bg-blue-600 text-white font-bold rounded-md">{page}</span>
-
-                <button
-                  onClick={() => setPage((prev) => Math.min(prev + 1, totalPages))}
-                  disabled={page === totalPages}
-                  className={`px-3 py-1 rounded-md font-semibold ${page === totalPages
-                    ? "bg-gray-200 text-gray-500 cursor-not-allowed"
-                    : "bg-white hover:bg-gray-100"
-                    }`}
-                >
-                  Next
-                </button>
-              </div>
-            </div>
+            <Pagination
+              currentPage={page}
+              totalPages={totalPages}
+              pageSize={pageSize}
+              onPageChange={(newPage) => {
+                setPage(newPage);
+                fetchData(newPage, pageSize);
+              }}
+              onPageSizeChange={(size) => {
+                setPageSize(size);
+                setPage(1);
+                fetchData(1, size);
+              }}
+              totalItems={notices.length}
+              showPageSizeSelector={true}
+              showPageInfo={true}
+            />
           </div>
 
         ) : (

@@ -4,6 +4,7 @@ import Cookies from "js-cookie";
 import toast, { Toaster } from "react-hot-toast";
 import { MdEdit, MdDelete, MdVisibility } from "react-icons/md";
 import Select from "react-select";
+import Pagination from "../../components/Pagination";
 
 const StudentFees = () => {
     const [fees, setFees] = useState([]);
@@ -325,85 +326,25 @@ const StudentFees = () => {
 
                     </table>
                 )}
-                <div className="flex justify-between items-center bg-blue-50 p-4 rounded-b-md mt-2">
-                    {/* Page Size Selector */}
-                    <div className="flex items-center gap-2">
-                        <label className="text-gray-700 font-semibold">Page Size:</label>
-                        <select
-                            value={pageSize}
-                            onChange={(e) => {
-                                setPageSize(Number(e.target.value));
-                                setPage(1);
-                            }}
-                            className="border rounded-md px-3 py-1"
-                        >
-                            <option value={5}>5</option>
-                            <option value={10}>10</option>
-                            <option value={20}>20</option>
-                        </select>
-                    </div>
-
-                    {/* Pagination Controls */}
-                    <div className="flex items-center gap-2">
-                        <button
-                            onClick={() => setPage((prev) => Math.max(prev - 1, 1))}
-                            disabled={page === 1}
-                            className={`px-3 py-1 rounded-md font-semibold ${page === 1 ? "bg-gray-200 text-gray-500 cursor-not-allowed" : "bg-white hover:bg-gray-100"
-                                }`}
-                        >
-                            Prev
-                        </button>
-
-                        <span className="px-3 py-1 bg-blue-600 text-white font-bold rounded-md">{page}</span>
-
-                        <button
-                            onClick={() => setPage((prev) => Math.min(prev + 1, totalPages))}
-                            disabled={page === totalPages}
-                            className={`px-3 py-1 rounded-md font-semibold ${page === totalPages ? "bg-gray-200 text-gray-500 cursor-not-allowed" : "bg-white hover:bg-gray-100"
-                                }`}
-                        >
-                            Next
-                        </button>
-                    </div>
-                </div>
+                <Pagination
+                    currentPage={page}
+                    totalPages={totalPages}
+                    pageSize={pageSize}
+                    onPageChange={(newPage) => {
+                        setPage(newPage);
+                        fetchData(newPage, pageSize);
+                    }}
+                    onPageSizeChange={(size) => {
+                        setPageSize(size);
+                        setPage(1);
+                        fetchData(1, size);
+                    }}
+                    totalItems={StudentFees.length}
+                    showPageSizeSelector={true}
+                    showPageInfo={true}
+                />
             </div>
-            {/* {studentFeeDetails.length > 0 && (
-                <div className="bg-white mt-4 p-6 rounded shadow border">
-                    <h2 className="text-lg font-bold text-blue-700 mb-4">Fee Records for Selected Student</h2>
-                    <table className="w-full border text-sm">
-                        <thead className="bg-gray-200">
-                            <tr>
-                                <th className="border px-3 py-2">Fee Type</th>
-                                <th className="border px-3 py-2">Class</th>
-                                <th className="border px-3 py-2">Section</th>
-                                <th className="border px-3 py-2">Session</th>
-                                <th className="border px-3 py-2">Net Payable</th>
-                                <th className="border px-3 py-2">Status</th>
-                                <th className="border px-3 py-2">Payment Date</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {studentFeeDetails.map((fee) => (
-                                <tr key={fee.id}>
-                                    <td className="border px-3 py-1">{fee.fee_type}</td>
-                                    <td className="border px-3 py-1">{fee.class_name}</td>
-                                    <td className="border px-3 py-1">{fee.section}</td>
-                                    <td className="border px-3 py-1">{fee.session}</td>
-                                    <td className="border px-3 py-1">₨ {fee.net_payable}</td>
-                                    <td className="border px-3 py-1">
-                                        {fee.is_paid ? (
-                                            <span className="text-green-600 font-semibold">Paid</span>
-                                        ) : (
-                                            <span className="text-red-600 font-semibold">Pending</span>
-                                        )}
-                                    </td>
-                                    <td className="border px-3 py-1">{fee.payment_date || "N/A"}</td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                </div>
-            )} */}
+           
 
             {/* Edit Modal */}
             {editModal && (

@@ -5,6 +5,7 @@ import toast, { Toaster } from "react-hot-toast";
 import { MdEdit, MdDelete, MdVisibility } from "react-icons/md";
 import Select from "react-select";
 import { Buttons } from "../../components";
+import Pagination from "../../components/Pagination";
 
 
 const ClassTasks = () => {
@@ -211,7 +212,7 @@ const ClassTasks = () => {
       </div>
 
       {showForm && (
-        <div className="bg-blue-50 p-6 rounded-md mt-4">
+        <div className="bg-white p-6 rounded-lg shadow-md mt-4">
           <div className="grid grid-cols-2 gap-4">
             <Select
               className="w-full"
@@ -330,32 +331,23 @@ const ClassTasks = () => {
       </table>
 
       {/* Pagination */}
-      <div className="flex justify-between items-center mt-4">
-        <div className="flex items-center gap-2">
-          <label className="font-semibold">Page Size:</label>
-          <select
-            value={pageSize}
-            onChange={(e) => {
-              setPageSize(Number(e.target.value));
-              setPage(1);
-            }}
-            className="border rounded px-3 py-1"
-          >
-            <option value={5}>5</option>
-            <option value={10}>10</option>
-            <option value={20}>20</option>
-          </select>
-        </div>
-        <div className="flex gap-2">
-          <button onClick={() => setPage((p) => Math.max(p - 1, 1))} disabled={page === 1} className="px-3 py-1 border rounded">
-            Prev
-          </button>
-          <span className="px-3 py-1 bg-blue-600 text-white rounded">{page}</span>
-          <button onClick={() => setPage((p) => Math.min(p + 1, totalPages))} disabled={page === totalPages} className="px-3 py-1 border rounded">
-            Next
-          </button>
-        </div>
-      </div>
+      <Pagination
+        currentPage={page}
+        totalPages={totalPages}
+        pageSize={pageSize}
+        onPageChange={(newPage) => {
+          setPage(newPage);
+          fetchData(newPage, pageSize);
+        }}
+        onPageSizeChange={(size) => {
+          setPageSize(size);
+          setPage(1);
+          fetchData(1, size);
+        }}
+        totalItems={ClassTasks.length}
+        showPageSizeSelector={true}
+        showPageInfo={true}
+      />
 
       {/* View Modal */}
       {selectedTask && (

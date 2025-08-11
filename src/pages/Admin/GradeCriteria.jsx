@@ -4,15 +4,16 @@ import Cookies from "js-cookie";
 import toast, { Toaster } from "react-hot-toast";
 import { MdEdit, MdDelete } from "react-icons/md";
 import { Buttons } from '../../components';
+import Pagination from "../../components/Pagination";
 
 const GradeCriteria = () => {
   const [gradeCriteria, setGradeCriteria] = useState([]);
   const [schools, setSchools] = useState([]);
-  const [newGradeCriteria, setNewGradeCriteria] = useState({ 
-    school_name: "", 
-    grade: "", 
-    min_percentage: "", 
-    max_percentage: "" 
+  const [newGradeCriteria, setNewGradeCriteria] = useState({
+    school_name: "",
+    grade: "",
+    min_percentage: "",
+    max_percentage: ""
   });
   const [editingGradeCriteria, setEditingGradeCriteria] = useState(null);
   const [showForm, setShowForm] = useState(false);
@@ -74,7 +75,7 @@ const GradeCriteria = () => {
         id: index + 1,
         name: school
       }));
-      
+
       setSchools(schoolsArray);
     } catch (error) {
       console.error("Error fetching schools:", error.response || error.message);
@@ -91,7 +92,7 @@ const GradeCriteria = () => {
     // Validate percentage range
     const minPerc = parseFloat(newGradeCriteria.min_percentage);
     const maxPerc = parseFloat(newGradeCriteria.max_percentage);
-    
+
     if (minPerc >= maxPerc) {
       toast.error("Minimum percentage must be less than maximum percentage!");
       return;
@@ -222,12 +223,12 @@ const GradeCriteria = () => {
     setShowGradeDropdown(false);
   };
 
-  const filteredSchools = schools.filter(school => 
+  const filteredSchools = schools.filter(school =>
     school.name?.toLowerCase().includes(schoolSearch.toLowerCase())
   );
 
   const gradeOptions = ["A+", "A", "A-", "B+", "B", "B-", "C+", "C", "C-", "D+", "D", "F"];
-  const filteredGrades = gradeOptions.filter(grade => 
+  const filteredGrades = gradeOptions.filter(grade =>
     grade.toLowerCase().includes(gradeSearch.toLowerCase())
   );
 
@@ -259,7 +260,7 @@ const GradeCriteria = () => {
       <div className="bg-blue-900 text-white py-2 px-6 rounded-md flex justify-between items-center mt-5">
         <h1 className="text-xl font-bold">Manage Grade Criteria</h1>
         {canAdd && (
-                      <button
+          <button
             onClick={() => {
               setShowForm((prev) => !prev);
               setEditingGradeCriteria(null);
@@ -438,8 +439,25 @@ const GradeCriteria = () => {
         ) : (
           <p className="text-center text-gray-500">No grade criteria available.</p>
         )}
+        <Pagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          pageSize={pageSize}
+          onPageChange={(page) => {
+            setCurrentPage(page);
+            fetchGradeCriteria(page, pageSize);
+          }}
+          onPageSizeChange={(size) => {
+            setPageSize(size);
+            setCurrentPage(1);
+            fetchParents(1, size);
+          }}
+          totalItems={gradeCriteria.length}
+          showPageSizeSelector={true}
+          showPageInfo={true}
+        />
 
-        <div className="flex justify-between items-center mt-4">
+        {/* <div className="flex justify-between items-center mt-4">
           <div className="flex items-center gap-2">
             <label className="text-sm font-medium text-gray-700">Page Size:</label>
             <select
@@ -477,7 +495,7 @@ const GradeCriteria = () => {
               Next
             </button>
           </div>
-        </div>
+        </div> */}
       </div>
 
       {/* Click outside to close dropdown */}

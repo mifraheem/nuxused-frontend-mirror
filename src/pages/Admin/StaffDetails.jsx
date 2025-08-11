@@ -4,6 +4,7 @@ import Cookies from "js-cookie";
 import toast, { Toaster } from "react-hot-toast";
 import { FiTrash, FiEdit, FiEye } from "react-icons/fi";
 import { Buttons } from "../../components";
+import Pagination from "../../components/Pagination";
 
 const StaffDetails = () => {
   const [staff, setStaff] = useState([]);
@@ -142,7 +143,7 @@ const StaffDetails = () => {
   return (
     <div>
       <Toaster position="top-center" reverseOrder={false} />
-      <h1 className="bg-blue-900 text-white py-4 px-6 text-xl font-bold">Manage Staff Details</h1>
+      <h1 className="bg-blue-900 text-white py-4 px-6 text-xl font-bold rounded-lg mx-6 mt-6 ">Manage Staff Details</h1>
       <div className="p-6">
         <Buttons
           data={staff}
@@ -163,7 +164,7 @@ const StaffDetails = () => {
             <thead className="bg-blue-900 text-white">
               <tr>
                 <th className="border px-4 py-2">User ID</th>
-                <th className="border px-4 py-2">Username</th>
+                {/* <th className="border px-4 py-2">Username</th> */}
                 <th className="border px-4 py-2">FirstName</th>
                 <th className="border px-4 py-2">LastName</th>
                 <th className="border px-4 py-2">Email</th>
@@ -175,7 +176,7 @@ const StaffDetails = () => {
               {staff.map((s) => (
                 <tr key={s.id}>
                   <td className="border px-4 py-2">{s.user_id}</td>
-                  <td className="border px-4 py-2">{s.username}</td>
+                  {/* <td className="border px-4 py-2">{s.username}</td> */}
                   <td className="border px-4 py-2">{s.first_name}</td>
                   <td className="border px-4 py-2">{s.last_name}</td>
                   <td className="border px-4 py-2">{s.email}</td>
@@ -190,6 +191,24 @@ const StaffDetails = () => {
             </tbody>
           </table>
         </div>
+        <Pagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          pageSize={pageSize}
+          onPageChange={(newPage) => {
+            setCurrentPage(newPage);
+            fetchStaff();
+          }}
+          onPageSizeChange={(size) => {
+            setPageSize(size);
+            setCurrentPage(1);
+            fetchStaff();
+          }}
+          totalItems={staff.length}
+          showPageSizeSelector={true}
+          showPageInfo={true}
+        />
+
       </div>
       {/* // ✅ View Modal for Staff */}
       {isViewModalOpen && selectedStaff && (

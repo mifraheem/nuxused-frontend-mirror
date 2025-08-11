@@ -4,6 +4,7 @@ import Cookies from "js-cookie";
 import toast, { Toaster } from "react-hot-toast";
 import { FiTrash, FiEdit, FiEye } from "react-icons/fi";
 import { Buttons } from "../../components";
+import Pagination from "../../components/Pagination";
 
 const ParentAccount = () => {
   const [parents, setParents] = useState([]);
@@ -184,7 +185,7 @@ const ParentAccount = () => {
   return (
     <div>
       <Toaster position="top-center" reverseOrder={false} />
-      <h1 className="bg-blue-900 text-white py-4 px-6 text-xl font-bold">Manage Parent </h1>
+      <h1 className="bg-blue-900 text-white py-4 px-6 text-xl font-bold rounded-lg mt-6">Manage Parent </h1>
       <div className="p-6">
         <Buttons
           data={parents}
@@ -250,8 +251,27 @@ const ParentAccount = () => {
           </table>
         </div>
 
+        <Pagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          pageSize={pageSize}
+          onPageChange={(page) => {
+            setCurrentPage(page);
+            fetchParents(page, pageSize);
+          }}
+          onPageSizeChange={(size) => {
+            setPageSize(size);
+            setCurrentPage(1);
+            fetchParents(1, size);
+          }}
+          totalItems={parents.length}
+          showPageSizeSelector={true}
+          showPageInfo={true}
+        />
+
+
         {/* Pagination Controls */}
-        <div className="flex items-center justify-between mt-6">
+        {/* <div className="flex items-center justify-between mt-6">
           <div className="flex items-center">
             <label className="mr-2 font-semibold text-gray-700">Page Size:</label>
             <select
@@ -297,7 +317,7 @@ const ParentAccount = () => {
             </button>
           </div>
 
-        </div>
+        </div> */}
       </div>
 
 

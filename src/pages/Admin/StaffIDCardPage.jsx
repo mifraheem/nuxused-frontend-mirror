@@ -1,402 +1,522 @@
-import React, { useState, useEffect } from "react";
-import axios from "axios";
-import Cookies from "js-cookie";
-import Barcode from "react-barcode";
-import { jsPDF } from "jspdf";
+import React, { useEffect, useRef, useState } from "react";
+import {
+  User, RefreshCw, Download, IdCard, Briefcase
+} from "lucide-react";
 import html2canvas from "html2canvas";
+import jsPDF from "jspdf";
+
+const CARD_WIDTH_REM = 20; // ~320px readable width
+const CARD_HEIGHT_PX = 420; // shared height front/back
 
 const StaffIDCardPage = () => {
-    const API = import.meta.env.VITE_SERVER_URL;
-    const [staff, setStaff] = useState([]);
-    const [loadingPDF, setLoadingPDF] = useState(false);
-    const [progress, setProgress] = useState(0);
-    const [printingSingle, setPrintingSingle] = useState(false);
-    const [singleProgress, setSingleProgress] = useState(0);
-    const [selectedStaffCard, setSelectedStaffCard] = useState(null);
-    const [schoolName, setSchoolName] = useState("SCHOOL NAME");
+  const API = import.meta.env.VITE_SERVER_URL || "http://localhost:8000";
 
-    const fetchSchoolName = async () => {
+  const [staff, setStaff] = useState([]);
+  const [selectedStaff, setSelectedStaff] = useState(null);
+  const [schoolData, setSchoolData] = useState({
+    name: "Institute Name",
+    logo: null,
+    slogan: "Slogan text line goes here",
+    phone: "+92-123-4567890",
+  });
+
+  // progress overlay
+  const [busy, setBusy] = useState(false);
+  const [progress, setProgress] = useState(0);
+
+  // modal refs
+  const modalFrontRef = useRef(null);
+  const modalBackRef = useRef(null);
+
+  const getToken = () => {
+    const getCookie = (name) => {
+      const value = `; ${document.cookie}`;
+      const parts = value.split(`; ${name}=`);
+      if (parts.length === 2) return parts.pop().split(";").shift();
+      return null;
+    };
+    return (
+      getCookie("access_token") ||
+      localStorage.getItem("access_token") ||
+      sessionStorage.getItem("access_token")
+    );
+  };
+
+  const fetchSchoolData = async () => {
     try {
-        const token = Cookies.get("access_token");
-        const res = await axios.get(`${API}classes/`, {
-            headers: { Authorization: `Bearer ${token}` },
+      const token = getToken();
+      if (!token) return;
+      const res = await fetch(`${API}/classes/`, {
+        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+      });
+      if (!res.ok) throw new Error();
+      const data = await res.json();
+      const list = data?.data?.results || [];
+      if (list.length) {
+        const s = list[0];
+        setSchoolData({
+          name: s.school_name || s.school || "Institute Name",
+          logo: s.school_logo || s.logo || s.school_logo_url || s.logo_url || null,
+          slogan: s.slogan || "Slogan text line goes here",
+          phone: s.phone || "+92-123-4567890",
         });
-        const classData = res.data?.data?.results || [];
-        if (classData.length > 0 && classData[0].school) {
-            setSchoolName(classData[0].school);
-        }
-    } catch (error) {
-        console.error("Error fetching school name", error);
+      }
+    } catch { /* defaults ok */ }
+  };
+
+  const fetchStaff = async () => {
+    try {
+      const token = getToken();
+      if (!token) return;
+      const res = await fetch(`${API}/api/auth/users/list_profiles/staff/`, {
+        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+      });
+      if (!res.ok) throw new Error();
+      const data = await res.json();
+      setStaff(data?.data?.results || []);
+    } catch {
+      setStaff([]);
     }
-};
+  };
 
+  useEffect(() => {
+    fetchSchoolData();
+    fetchStaff();
+  }, []);
 
-    const fetchAllStaff = async () => {
-        try {
-            const token = Cookies.get("access_token");
-            const res = await axios.get(`${API}api/auth/users/list_profiles/staff/`, {
-                headers: { Authorization: `Bearer ${token}` },
-            });
-            const staff = res.data.data?.results || [];
-            setStaff(staff);
-        } catch (error) {
-            console.error("Error loading staff", error);
-        }
-    };
+  const getProfilePictureUrl = (s) =>
+    s?.profile_picture
+      ? s.profile_picture.startsWith("http")
+        ? s.profile_picture
+        : `${API}${s.profile_picture}`
+      : null;
 
-    const issuedDate = new Date().toLocaleDateString("en-US", {
-        month: "short",
-        day: "2-digit",
-        year: "numeric",
-    });
+  const getSchoolLogoUrl = () => {
+    if (!schoolData.logo) return null;
+    return schoolData.logo.startsWith("http") || schoolData.logo.startsWith("data:")
+      ? schoolData.logo
+      : `${API}${schoolData.logo}`;
+  };
 
-    const generatePDF = async () => {
-        setLoadingPDF(true);
-        setProgress(0);
+  // --- date helpers (handles multiple possible backend keys) ---
+  const formatDate = (val) => {
+    if (!val) return "—";
+    try {
+      const d = new Date(val);
+      if (isNaN(d.getTime())) return "—";
+      return d.toLocaleDateString();
+    } catch {
+      return "—";
+    }
+  };
+  const getIssued = (s) =>
+    s.issue_date || s.issued_date || s.issued_on || s.card_issued_on || null;
+  const getExpiry = (s) =>
+    s.expire_date || s.expiry_date || s.valid_till || s.valid_until || s.card_expiry || null;
 
-        try {
-            const cards = document.querySelectorAll(".card-container");
-            const totalCards = cards.length;
+  /* ===================== CARDS ===================== */
 
-            if (totalCards === 0) {
-                alert("No cards to generate!");
-                setLoadingPDF(false);
-                return;
-            }
+  // FRONT — sea‑green theme, fixed size, + validity row
+  const CardFront = (staffMember, forwardedRef) => {
+    if (!staffMember) return null;
 
-            const doc = new jsPDF("landscape", "mm", [85.6, 54]);
-            const backSides = document.querySelectorAll(".card-back");
-            backSides.forEach((back) => back.classList.remove("hidden"));
+    const initials =
+      (schoolData?.name || "School")
+        .split(" ")
+        .map(w => w[0])
+        .join("")
+        .slice(0, 2)
+        .toUpperCase();
 
-            const canvasOptions = {
-                scale: 2,
-                useCORS: true,
-                logging: false,
-                allowTaint: true,
-                backgroundColor: "#ffffff",
-            };
-
-            let processedCards = 0;
-
-            for (let i = 0; i < totalCards; i++) {
-                const card = cards[i];
-                const front = card.children[0];
-                const back = card.children[1];
-
-                try {
-                    setProgress((processedCards / totalCards) * 50);
-
-                    const frontCanvas = await Promise.race([
-                        html2canvas(front, canvasOptions),
-                        new Promise((_, reject) => setTimeout(() => reject(new Error("Timeout")), 5000)),
-                    ]);
-
-                    const backCanvas = await Promise.race([
-                        html2canvas(back, canvasOptions),
-                        new Promise((_, reject) => setTimeout(() => reject(new Error("Timeout")), 5000)),
-                    ]);
-
-                    const frontImg = frontCanvas.toDataURL("image/jpeg", 0.95);
-                    const backImg = backCanvas.toDataURL("image/jpeg", 0.95);
-
-                    if (i > 0) doc.addPage();
-                    doc.addImage(frontImg, "JPEG", 0, 0, 85.6, 54);
-                    doc.addPage();
-                    doc.addImage(backImg, "JPEG", 0, 0, 85.6, 54);
-
-                    processedCards++;
-                    setProgress(50 + (processedCards / totalCards) * 50);
-
-                    await new Promise((resolve) => setTimeout(resolve, 10));
-                } catch (error) {
-                    console.error(`Error processing card ${i}:`, error);
-                }
-            }
-
-            backSides.forEach((back) => back.classList.add("hidden"));
-
-            if (doc.getNumberOfPages() > totalCards * 2) {
-                doc.deletePage(doc.getNumberOfPages());
-            }
-
-            doc.save("staff-id-cards.pdf");
-        } catch (error) {
-            console.error("PDF generation error:", error);
-            alert("Error generating PDF. Please try again.");
-        } finally {
-            setLoadingPDF(false);
-            setProgress(0);
-        }
-    };
-
-    const printSingleCard = async (staffMember) => {
-        setPrintingSingle(true);
-        setSingleProgress(0);
-        try {
-            const card = document.getElementById(`card-${staffMember.profile_id}`);
-            const front = card.children[0];
-            const back = card.children[1];
-            back.classList.remove("hidden");
-
-            const canvasOptions = {
-                scale: 2,
-                useCORS: true,
-                logging: false,
-                allowTaint: true,
-                backgroundColor: "#ffffff",
-            };
-
-            setSingleProgress(30);
-            const frontCanvas = await html2canvas(front, canvasOptions);
-
-            setSingleProgress(65);
-            const backCanvas = await html2canvas(back, canvasOptions);
-
-            const frontImg = frontCanvas.toDataURL("image/jpeg", 0.95);
-            const backImg = backCanvas.toDataURL("image/jpeg", 0.95);
-
-            const doc = new jsPDF("landscape", "mm", [85.6, 54]);
-            doc.addImage(frontImg, "JPEG", 0, 0, 85.6, 54);
-            doc.addPage();
-            doc.addImage(backImg, "JPEG", 0, 0, 85.6, 54);
-
-            setSingleProgress(95);
-            await new Promise((resolve) => setTimeout(resolve, 500)); // for smooth animation
-
-            // 📌 Save instead of opening new tab
-            const fileName = `staff-id-card-${staffMember.first_name}-${staffMember.last_name}.pdf`;
-            doc.save(fileName);
-
-            back.classList.add("hidden");
-            setSingleProgress(100);
-        } catch (error) {
-            console.error("Error printing card:", error);
-            alert("Error generating card. Please try again.");
-        } finally {
-            setTimeout(() => {
-                setPrintingSingle(false);
-                setSingleProgress(0);
-            }, 800);
-        }
-    };
-
-    useEffect(() => {
-        fetchAllStaff();
-        fetchSchoolName();
-    }, []);
+    const issued = formatDate(getIssued(staffMember));
+    const expiry = formatDate(getExpiry(staffMember));
 
     return (
-        <div className="p-6 bg-blue-50 min-h-screen">
-            {/* Loading Overlay */}
-            {loadingPDF && (
-                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-                    <div className="bg-white p-6 rounded-lg shadow-lg flex flex-col items-center max-w-sm">
-                        <div className="animate-spin rounded-full h-12 w-12 border-t-4 border-yellow-500"></div>
-                        <p className="mt-4 text-gray-700 font-medium">Generating PDF...</p>
-                        <div className="w-64 bg-gray-200 rounded-full h-3 mt-3">
-                            <div
-                                className="bg-yellow-600 h-3 rounded-full transition-all duration-300 ease-out"
-                                style={{ width: `${progress}%` }}
-                            ></div>
-                        </div>
-                        <p className="mt-2 text-sm text-gray-600">{Math.round(progress)}% Complete</p>
-                        <p className="mt-1 text-xs text-gray-500">Processing in batches for optimal speed</p>
-                    </div>
-                </div>
+      <div
+        ref={forwardedRef}
+        className="staff-card-front bg-white border-4 border-[#3a6b6b] rounded-2xl shadow-lg overflow-hidden relative flex flex-col"
+        style={{ width: `${CARD_WIDTH_REM}rem`, height: CARD_HEIGHT_PX }}
+      >
+        {/* Header */}
+        <div className="relative h-28 bg-gradient-to-br from-[#2e4f4f] via-[#3a6b6b] to-[#4f8a8a]">
+          <div className="absolute top-2 left-3 right-20">
+            <h3 className="text-white font-semibold text-sm sm:text-base leading-tight truncate drop-shadow">
+              {schoolData.name}
+            </h3>
+          </div>
+
+          {/* Logo */}
+          <div className="absolute top-2 right-2 w-14 h-14 rounded-full bg-[#2e4f4f]/50 backdrop-blur-sm ring-2 ring-[#4f8a8a]/50 flex items-center justify-center shadow-sm">
+            {getSchoolLogoUrl() ? (
+              <img
+                src={getSchoolLogoUrl()}
+                alt="School Logo"
+                className="w-10 h-10 object-contain"
+                crossOrigin="anonymous"
+              />
+            ) : (
+              <span className="text-white font-bold">{initials}</span>
             )}
+          </div>
 
-            {/* Modal for Selected Card */}
-            {selectedStaffCard && (
-                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-                    <div className="bg-white p-6 rounded-lg shadow-lg max-w-lg w-full">
-                        <div className="flex flex-col items-center gap-4">
-                            {/* Modal Front Side */}
-                            <div className="w-[300px] h-[175px] relative bg-white rounded-lg overflow-hidden shadow border border-yellow-500">
-                                <div className="bg-yellow-500 px-4 py-1 text-white flex items-center justify-between">
-                                    <img src="/school-logo.png" alt="Logo" className="w-6 h-6" />
-                                    <span className="text-sm font-semibold">{schoolName}</span>
-                                </div>
-                                <div className="flex p-2 gap-3">
-                                    <img
-                                        src={selectedStaffCard.profile_picture ? `${API}${selectedStaffCard.profile_picture}` : "/default-avatar.png"}
-                                        alt="staff"
-                                        className="w-[60px] h-[70px] rounded border object-cover"
-                                    />
-                                    <div className="text-[11px] text-gray-700 space-y-[2px]">
-                                        <h2 className="text-sm font-bold text-yellow-500">STAFF ID CARD</h2>
-                                        <p><strong>Name:</strong> {selectedStaffCard.first_name} {selectedStaffCard.last_name}</p>
-                                        <p><strong>ID:</strong> {selectedStaffCard.profile_id}</p>
-                                        <p><strong>Position:</strong> {selectedStaffCard.position || 'Staff Member'}</p>
-                                        <p><strong>Issued:</strong> {issuedDate}</p>
-                                    </div>
-                                </div>
-                                <div className="absolute bottom-0 left-0 w-[280px] h-[45px] flex justify-center items-end overflow-hidden mb-3">
-                                    <div className="relative w-[280px] top-[135px] px-7">
-                                        <Barcode
-                                            value={JSON.stringify({
-                                                name: `${selectedStaffCard.first_name} ${selectedStaffCard.last_name}`,
-                                                staff_id: selectedStaffCard.profile_id,
-                                                position: selectedStaffCard.position || 'Staff Member',
-                                                issued_on: issuedDate,
-                                            })}
-                                            format="CODE128"
-                                            width={1.5}
-                                            height={150}
-                                            fontSize={12}
-                                            displayValue={false}
-                                            margin={0}
-                                        />
-                                    </div>
-                                </div>
-                            </div>
+          {/* Shapes */}
+          <div className="absolute -bottom-8 -right-10 w-28 h-28 bg-[#2e4f4f]/20 rounded-full" />
+          <div className="absolute -top-8 -left-8 w-24 h-24 bg-black/20 rounded-full" />
 
-                            {/* Modal Back Side */}
-                            <div className="w-[300px] h-[175px] bg-white rounded-lg overflow-hidden shadow border border-yellow-500 text-[10px] text-gray-700 relative">
-                                <div className="bg-yellow-500 px-4 py-1 text-white flex items-center justify-between">
-                                    <img src="/school-logo.png" alt="Logo" className="w-6 h-6" />
-                                    <span className="text-sm font-semibold">{schoolName}</span>
-                                </div>
-                                <div className="px-3 pt-2 pb-1 text-center leading-snug text-[10px] mt-5">
-                                    This card confirms {selectedStaffCard.first_name} {selectedStaffCard.last_name} is a staff member of {schoolName}.
-                                    It must be carried at all times during school activities. Report loss to admin.
-                                </div>
-
-                                <div className="absolute bottom-1 left-0 w-full px-3 flex justify-between text-[9px] text-yellow-500">
-                                    <span>📞 {selectedStaffCard.phone || '+92-000-0000000'}</span>
-                                    <span>🌐 {selectedStaffCard.email || 'school@example.com'}</span>
-                                    <span>📍 {selectedStaffCard.address || 'Kotli, AJK'}</span>
-                                </div>
-                            </div>
-
-                            {/* Modal Buttons */}
-                            <div className="flex gap-3 mt-4">
-                                <button
-                                    onClick={() => printSingleCard(selectedStaffCard)}
-                                    className="bg-yellow-500 text-white px-4 py-2 rounded hover:bg-yellow-600 transition-colors"
-                                >
-                                    Print Card
-                                </button>
-                                <button
-                                    onClick={() => setSelectedStaffCard(null)}
-                                    className="bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600 transition-colors"
-                                >
-                                    Close
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            )}
-            {printingSingle && (
-                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-                    <div className="bg-white p-6 rounded-lg shadow-lg flex flex-col items-center max-w-sm w-full">
-                        <div className="animate-spin rounded-full h-12 w-12 border-t-4 border-yellow-500"></div>
-                        <p className="mt-4 text-gray-700 font-medium">Preparing Card for Print...</p>
-                        <div className="w-64 bg-gray-200 rounded-full h-3 mt-3">
-                            <div
-                                className="bg-yellow-600 h-3 rounded-full transition-all duration-300 ease-out"
-                                style={{ width: `${singleProgress}%` }}
-                            ></div>
-                        </div>
-                        <p className="mt-2 text-sm text-gray-600">{Math.round(singleProgress)}% Complete</p>
-                    </div>
-                </div>
-            )}
-
-            {/* Header and Filter Controls */}
-            <div className="flex justify-between items-center bg-blue-900 text-white px-6 py-3 rounded-t-md shadow">
-                <h1 className="text-xl font-bold">Generate Staff ID Cards</h1>
-                <div className="flex gap-3">
-                    {staff.length > 0 && (
-                        <button
-                            onClick={generatePDF}
-                            className="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-500 transition-colors flex items-center gap-2"
-                            disabled={loadingPDF}
-                        >
-                            {loadingPDF ? (
-                                <>
-                                    <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-white"></div>
-                                    Generating...
-                                </>
-                            ) : (
-                                "Download PDF"
-                            )}
-                        </button>
-                    )}
-                </div>
-            </div>
-
-            {/* Cards Grid */}
-            <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
-                {staff.map((s) => (
-                    <div
-                        key={s.profile_id}
-                        id={`card-${s.profile_id}`}
-                        className="card-container flex flex-col items-center gap-4 cursor-pointer hover:shadow-lg transition-shadow"
-                        onClick={() => setSelectedStaffCard(s)}
-                    >
-                        {/* FRONT SIDE */}
-                        <div className="w-[300px] h-[175px] relative bg-white rounded-lg overflow-hidden shadow border border-yellow-500 print:block">
-                            <div className="bg-yellow-500 px-4 py-1 text-white flex items-center justify-between">
-                                <img src="/school-logo.png" alt="Logo" className="w-6 h-6" />
-                                <span className="text-sm font-semibold">{schoolName}</span>
-                            </div>
-                            <div className="flex p-2 gap-3">
-                                <img
-                                    src={s.profile_picture ? `${API}${s.profile_picture}` : "/default-avatar.png"}
-                                    alt="staff"
-                                    className="w-[60px] h-[70px] rounded border object-cover"
-                                />
-                                <div className="text-[11px] text-gray-700 space-y-[2px]">
-                                    <h2 className="text-sm font-bold text-yellow-500">STAFF ID CARD</h2>
-                                    <p><strong>Name:</strong> {s.first_name} {s.last_name}</p>
-                                    <p><strong>ID:</strong> {s.profile_id || "N/A"}</p>
-                                    <p><strong>Email:</strong> {s.email}</p>
-                                    <p><strong>Issued:</strong> {issuedDate}</p>
-                                </div>
-                            </div>
-                            <div className="absolute bottom-0 left-0 w-[280px] h-[45px] flex justify-center items-end overflow-hidden mb-3">
-                                <div className="relative w-[280px] top-[135px] px-7">
-                                    <Barcode
-                                        value={JSON.stringify({
-                                            name: `${s.first_name} ${s.last_name}`,
-                                            staff_id: s.profile_id,
-                                            position: s.position || 'Staff Member',
-                                            issued_on: issuedDate,
-                                        })}
-                                        format="CODE128"
-                                        width={1.5}
-                                        height={150}
-                                        fontSize={12}
-                                        displayValue={false}
-                                        margin={0}
-                                    />
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* BACK SIDE */}
-                        <div className="card-back w-[300px] h-[175px] hidden print:block print:mt-4 bg-white rounded-lg overflow-hidden shadow border border-yellow-500 text-[10px] text-gray-700 relative">
-                            <div className="bg-yellow-500 px-4 py-1 text-white flex items-center justify-between">
-                                <img src="/school-logo.png" alt="Logo" className="w-6 h-6" />
-                                <span className="text-sm font-semibold">{schoolName}</span>
-                            </div>
-                            <div className="px-3 pt-2 pb-1 text-center leading-snug text-[10px] mt-5">
-                                This card confirms {s.first_name} {s.last_name} is a staff member of {schoolName}.
-                                It must be carried at all times during school activities. Report loss to admin.
-                            </div>
-
-                            <div className="absolute bottom-1 left-0 w-full px-3 flex justify-between text-[9px] text-yellow-500">
-                                <span>📞 {s.phone || '+92-000-0000000'}</span>
-                                <span>🌐 {s.email || 'school@example.com'}</span>
-                                <span>📍 {s.address || 'Kotli, AJK'}</span>
-                            </div>
-                        </div>
-                    </div>
-                ))}
-            </div>
+          {/* Role chip */}
+          <div className="absolute -bottom-4 left-1/2 -translate-x-1/2">
+            <span className="inline-flex items-center gap-2 bg-[#2e4f4f] text-white border border-[#3a6b6b] px-3 py-1 rounded-full shadow-sm text-xs font-bold tracking-wide">
+              <IdCard className="w-4 h-4" />
+              STAFF
+            </span>
+          </div>
         </div>
+
+        {/* Avatar */}
+        <div className="mt-8 flex justify-center">
+          <div className="relative">
+            <div className="w-28 h-28 rounded-full ring-4 ring-[#3a6b6b] shadow-md overflow-hidden bg-gray-100 flex items-center justify-center">
+              {getProfilePictureUrl(staffMember) ? (
+                <img
+                  src={getProfilePictureUrl(staffMember)}
+                  alt="Staff"
+                  className="w-full h-full object-cover"
+                  crossOrigin="anonymous"
+                />
+              ) : (
+                <User className="w-14 h-14 text-[#a3c6c6]" />
+              )}
+            </div>
+            <span className="absolute inset-0 rounded-full ring-1 ring-[#3a6b6b]/30" />
+          </div>
+        </div>
+
+        {/* Name + ID */}
+        <div className="mt-3 text-center px-4">
+          <h2 className="text-lg font-extrabold text-[#2e4f4f] leading-tight truncate">
+            {staffMember.first_name} {staffMember.last_name}
+          </h2>
+          <p className="text-xs text-[#3a6b6b] mt-0.5 truncate">ID: {staffMember.profile_id}</p>
+        </div>
+
+        {/* Info rows */}
+        <div className="mt-2 mx-4 rounded-xl border border-[#3a6b6b] overflow-hidden">
+          <div className="grid grid-cols-[118px,1fr]">
+            <div className="bg-[#2e4f4f] text-white px-3 py-2 text-xs font-semibold flex items-center gap-2">
+              <Briefcase className="w-4 h-4 text-white/90" />
+              <span>Position</span>
+            </div>
+            <div className="px-3 py-2 text-sm text-[#2e4f4f] bg-white break-words">
+              {staffMember.position || "Not provided"}
+            </div>
+          </div>
+
+          {/* Validity row */}
+          <div className="h-px bg-[#3a6b6b]/40" />
+          <div className="grid grid-cols-2 text-xs">
+            <div className="px-3 py-2 bg-white">
+              <span className="block font-semibold text-[#2e4f4f]">Issued</span>
+              <span className="block text-[#3a6b6b]">{issued}</span>
+            </div>
+            <div className="px-3 py-2 bg-white border-l border-[#3a6b6b]/40">
+              <span className="block font-semibold text-[#2e4f4f]">Expires</span>
+              <span className="block text-[#3a6b6b]">{expiry}</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Spacer to keep height equal to back */}
+        <div className="flex-1" />
+      </div>
     );
+  };
+
+  // BACK — fixed size
+  const CardBack = (staffMember, forwardedRef) => {
+    if (!staffMember) return null;
+
+    const qrData = encodeURIComponent(JSON.stringify({
+      role: "Staff",
+      name: `${staffMember.first_name} ${staffMember.last_name}`,
+      id: staffMember.profile_id,
+      position: staffMember.position || "Not provided",
+      phone: staffMember.phone || "Not provided",
+      email: staffMember.email || "Not provided",
+      school: schoolData.name,
+    }));
+    const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${qrData}`;
+
+    return (
+      <div
+        ref={forwardedRef}
+        className="bg-white border-4 border-[#3a6b6b] rounded-xl shadow-lg overflow-hidden relative"
+        style={{ width: `${CARD_WIDTH_REM}rem`, height: CARD_HEIGHT_PX }}
+      >
+        <div className="p-4">
+          <h3 className="text-sm font-bold text-[#2e4f4f] border-b border-[#3a6b6b] pb-1 text-center">
+            Personal Details
+          </h3>
+
+          <div className="text-xs text-[#3a6b6b] space-y-1 mt-2">
+            <div><span className="font-semibold">CNIC:</span> {staffMember.cnic || "Not provided"}</div>
+            <div>
+              <span className="font-semibold">DOB:</span>{" "}
+              {staffMember.date_of_birth
+                ? new Date(staffMember.date_of_birth).toLocaleDateString()
+                : (staffMember.dob ? new Date(staffMember.dob).toLocaleDateString() : "Not provided")}
+            </div>
+            <div><span className="font-semibold">Blood Group:</span> {staffMember.blood_group || "Not provided"}</div>
+            <div><span className="font-semibold">Phone:</span> {staffMember.phone || "+92-000-0000000"}</div>
+            <div className="break-all"><span className="font-semibold">Email:</span> {staffMember.email || "school@example.com"}</div>
+            <div><span className="font-semibold">Address:</span> {staffMember.address || "Address not provided"}</div>
+          </div>
+
+          <div className="mt-4 flex flex-col items-center">
+            <div className="bg-white border-2 border-[#3a6b6b] rounded-lg p-2 inline-block">
+              <img src={qrUrl} alt="QR Code" className="w-32 h-32" crossOrigin="anonymous" />
+            </div>
+            <div className="text-xs text-[#a3c6c6] mt-1">Scan for Details</div>
+          </div>
+
+          <div className="mt-3 text-center text-[10px] text-[#a3c6c6]">
+            If lost, contact: {schoolData.name} | Phone: {schoolData.phone}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  /* ===================== DOWNLOADS ===================== */
+
+  const renderOffscreen = async (jsx) => {
+    const host = document.createElement("div");
+    host.style.position = "fixed";
+    host.style.left = "-10000px";
+    host.style.top = "0";
+    host.style.zIndex = "-1";
+    document.body.appendChild(host);
+    const { createRoot } = await import("react-dom/client");
+    const root = createRoot(host);
+    root.render(jsx);
+    await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+    return { host, root };
+  };
+
+  const captureNode = async (node) =>
+    await html2canvas(node, {
+      scale: 3,
+      useCORS: true,
+      backgroundColor: "#ffffff",
+      imageTimeout: 0,
+    });
+
+  const downloadAllBothSides = async () => {
+    if (!staff.length) return;
+    setBusy(true);
+    setProgress(5);
+
+    const totalFaces = staff.length * 2;
+    let done = 0;
+
+    try {
+      const pdf = new jsPDF({ unit: "mm", format: "a4", orientation: "portrait" });
+
+      for (let i = 0; i < staff.length; i++) {
+        const s = staff[i];
+
+        // FRONT
+        const frontOS = await renderOffscreen(<div>{CardFront(s)}</div>);
+        const frontCanvas = await captureNode(frontOS.host);
+        frontOS.root.unmount(); frontOS.host.remove();
+
+        const pageW = pdf.internal.pageSize.getWidth();
+        const pageH = pdf.internal.pageSize.getHeight();
+        const frRatio = frontCanvas.height / frontCanvas.width;
+        const frW = pageW - 20;
+        const frH = frW * frRatio;
+        if (i > 0) pdf.addPage();
+        pdf.addImage(frontCanvas.toDataURL("image/png"), "PNG", 10, (pageH - frH) / 2, frW, frH, undefined, "FAST");
+
+        done += 1;
+        setProgress(Math.min(95, Math.round((done / totalFaces) * 100)));
+
+        // BACK
+        const backOS = await renderOffscreen(<div>{CardBack(s)}</div>);
+        const backCanvas = await captureNode(backOS.host);
+        backOS.root.unmount(); backOS.host.remove();
+
+        const bkRatio = backCanvas.height / backCanvas.width;
+        const bkW = pageW - 20;
+        const bkH = bkW * bkRatio;
+        pdf.addPage();
+        pdf.addImage(backCanvas.toDataURL("image/png"), "PNG", 10, (pageH - bkH) / 2, bkW, bkH, undefined, "FAST");
+
+        done += 1;
+        setProgress(Math.min(98, Math.round((done / totalFaces) * 100)));
+      }
+
+      pdf.save(`Staff_ID_Cards_${(schoolData.name || "School").replace(/\s+/g, "")}.pdf`);
+      setProgress(100);
+    } catch (e) {
+      console.error(e);
+      alert("Error generating PDF.");
+    } finally {
+      setTimeout(() => { setBusy(false); setProgress(0); }, 400);
+    }
+  };
+
+  const downloadSelectedBoth = async () => {
+    if (!selectedStaff) return;
+    setBusy(true);
+    setProgress(10);
+    try {
+      const pdf = new jsPDF({ unit: "mm", format: "a4", orientation: "portrait" });
+
+      const frontCanvas = await captureNode(modalFrontRef.current);
+      setProgress(45);
+      const backCanvas = await captureNode(modalBackRef.current);
+      setProgress(75);
+
+      const pageW = pdf.internal.pageSize.getWidth();
+      const pageH = pdf.internal.pageSize.getHeight();
+
+      const frRatio = frontCanvas.height / frontCanvas.width;
+      const frW = pageW - 20;
+      const frH = frW * frRatio;
+      pdf.addImage(frontCanvas.toDataURL("image/png"), "PNG", 10, (pageH - frH) / 2, frW, frH, undefined, "FAST");
+
+      const bkRatio = backCanvas.height / backCanvas.width;
+      const bkW = pageW - 20;
+      const bkH = bkW * bkRatio;
+      pdf.addPage();
+      pdf.addImage(backCanvas.toDataURL("image/png"), "PNG", 10, (pageH - bkH) / 2, bkW, bkH, undefined, "FAST");
+
+      const name = `${selectedStaff.first_name || "Staff"}_${selectedStaff.last_name || ""}`.trim();
+      pdf.save(`${name}_ID_Card.pdf`);
+      setProgress(100);
+    } catch (e) {
+      console.error(e);
+      alert("Error generating PDF.");
+    } finally {
+      setTimeout(() => { setBusy(false); setProgress(0); }, 400);
+    }
+  };
+
+  /* ===================== UI ===================== */
+
+  return (
+    <div className="min-h-screen bg-white p-3 sm:p-4 lg:p-6">
+      {/* Progress overlay */}
+      {busy && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[100] p-4">
+          <div className="bg-white p-6 rounded-lg shadow-xl flex flex-col items-center max-w-sm w-full">
+            <div className="animate-spin rounded-full h-12 w-12 border-t-4 border-[#4f8a8a] mb-4"></div>
+            <p className="mt-1 text-[#2e4f4f] font-semibold text-lg">
+              {progress < 25 ? "Initializing..." :
+               progress < 55 ? "Rendering cards..." :
+               progress < 85 ? "Generating PDF..." :
+               "Finalizing..."}
+            </p>
+            <div className="w-full bg-gray-200 rounded-full h-3 mt-4">
+              <div
+                className="bg-gradient-to-r from-[#4f8a8a] to-[#6aa8a8] h-3 rounded-full transition-all duration-300"
+                style={{ width: `${progress}%` }}
+              />
+            </div>
+            <p className="mt-2 text-sm text-[#3a6b6b] font-medium">{Math.round(progress)}% Complete</p>
+            {progress < 95 && <p className="mt-1 text-xs text-[#a3c6c6]">Please wait…</p>}
+          </div>
+        </div>
+      )}
+
+      {/* cap width so layout stays identical on wide screens */}
+      <div className="max-w-5xl mx-auto">
+        {/* Header */}
+        <div className="bg-blue-900 text-white rounded-lg shadow mb-4 sm:mb-6">
+          <div className="p-3 sm:p-4">
+            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
+              <h1 className="text-base sm:text-lg font-bold">Print Staff ID-Cards</h1>
+              <div className="flex flex-wrap gap-2 items-center">
+                <button
+                  onClick={fetchStaff}
+                  className="bg-[#3a6b6b]/50 hover:bg-[#4f8a8a]/50 text-white text-xs px-3 py-1 rounded-md flex items-center gap-2"
+                >
+                  <RefreshCw className="w-4 h-4" />
+                  Refresh
+                </button>
+                <button
+                  onClick={downloadAllBothSides}
+                  className="bg-[#3a6b6b]/50 hover:bg-[#4f8a8a]/50 text-white text-xs px-3 py-1 rounded-md flex items-center gap-2 disabled:opacity-50"
+                  disabled={!staff.length}
+                >
+                  <Download className="w-4 h-4" />
+                  Download All
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Grid — fixed 2 cols ≥ sm, 1 col on mobile; center items */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6 place-items-center">
+          {staff.map((s) => (
+            <button
+              key={s.profile_id}
+              className="mx-auto focus:outline-none"
+              style={{ width: `${CARD_WIDTH_REM}rem` }}
+              onClick={() => setSelectedStaff(s)}
+              aria-label={`Open ${s.first_name} ${s.last_name} card`}
+            >
+              {CardFront(s)}
+            </button>
+          ))}
+          {!staff.length && (
+            <div className="col-span-full text-center text-[#3a6b6b] py-8">
+              No staff found.
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Modal */}
+      {selectedStaff && (
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-2 sm:p-4">
+          <div className="bg-white rounded-lg shadow-lg w-full max-w-[98vw] sm:max-w-[92vw] lg:w-[980px] max-h-[92vh] overflow-hidden relative">
+            <button
+              onClick={() => setSelectedStaff(null)}
+              className="absolute top-2 right-2 text-[#a3c6c6] hover:text-[#2e4f4f] text-xl leading-none z-10"
+              aria-label="Close"
+            >
+              ×
+            </button>
+
+            <div className="p-2 sm:p-4 overflow-y-auto max-h-[92vh]">
+              <div className="flex flex-col lg:flex-row items-center lg:items-start justify-center gap-4">
+                <div ref={modalFrontRef}>{CardFront(selectedStaff)}</div>
+                <div ref={modalBackRef}>{CardBack(selectedStaff)}</div>
+              </div>
+
+              <div className="mt-4 flex flex-col sm:flex-row gap-2 justify-end">
+                <button
+                  onClick={downloadSelectedBoth}
+                  className="bg-[#3a6b6b] hover:bg-[#4f8a8a] text-white px-4 py-2 rounded-md flex items-center gap-2"
+                >
+                  <Download className="w-4 h-4" />
+                  Download
+                </button>
+                <button
+                  onClick={() => setSelectedStaff(null)}
+                  className="bg-gray-200 hover:bg-gray-300 text-[#2e4f4f] px-4 py-2 rounded-md"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
 };
 
 export default StaffIDCardPage;

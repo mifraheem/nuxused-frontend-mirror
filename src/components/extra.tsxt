@@ -1,0 +1,148 @@
+import React, { useState, useEffect } from 'react';
+import { Link, useLocation } from 'react-router-dom';
+import 'primeicons/primeicons.css';
+import logo from '/school-logo.png';
+
+const Sidebar = ({ isSidebarOpen, toggleSidebar, activeTab, setActiveTab }) => {
+    const permissions = JSON.parse(localStorage.getItem("user_permissions") || "[]");
+    const location = useLocation();
+
+    const toggleTab = (tab) => {
+        setActiveTab(activeTab === tab ? null : tab);
+    };
+
+    useEffect(() => {
+        if (!isSidebarOpen) {
+            setActiveTab(null);
+        }
+    }, [isSidebarOpen]);
+
+    return (
+        <div className={`hidden sm:flex flex-col fixed top-0 left-0 h-screen overflow-y-auto no-scrollbar transition-all duration-300 z-40 ${isSidebarOpen ? 'w-64 bg-blue-900 text-white' : 'w-0'}`}>
+            {isSidebarOpen && (
+                <>
+                    <div className="relative px-4 py-4 flex items-center border-b border-blue-700">
+                        <img src={logo} alt="Logo" className="w-12 h-12 mr-2" />
+                        <span className="font-bold text-xl">Acadian</span>
+                        <button
+                            onClick={toggleSidebar}
+                            className="absolute -right-3 top-4 bg-white text-blue-900 p-1 px-2 rounded-full shadow-md hover:bg-blue-300 transition-all duration-200 mr-5"
+                        >
+                            <i className="pi pi-bars"></i>
+                        </button>
+                    </div>
+                    <nav className="flex-1 px-2 py-4">
+                        <ul className="space-y-2">
+                            <SidebarLink to="/admin" icon="pi pi-home" label="Home" currentPath={location.pathname} />
+                            {permissions.includes("users.add_user") && <SidebarLink to="/admin/registration" icon="pi pi-user-plus" label="Registration" currentPath={location.pathname} />}
+                            {permissions.includes("users.view_room") && <SidebarLink to="/admin/rooms-management" icon="pi pi-building" label="Rooms Management" currentPath={location.pathname} />}
+                            {permissions.includes("users.view_classname") && <SidebarLink to="/admin/class-management" icon="pi pi-table" label="Class Management" currentPath={location.pathname} />}
+                            {permissions.includes("users.view_subject") && <SidebarLink to="/admin/subject-management" icon="pi pi-book" label="Subject Management" currentPath={location.pathname} />}
+                            {permissions.includes("users.view_timetable") && <SidebarLink to="/admin/manage-timetable" icon="pi pi-calendar" label="Timetable Management" currentPath={location.pathname} />}
+                            {permissions.includes("users.view_announcement") && <SidebarLink to="/admin/noticeboard" icon="pi pi-bell" label="Noticeboard" currentPath={location.pathname} />}
+                            {permissions.includes("users.view_classannouncement") && <SidebarLink to="/admin/class-announcements" icon="pi pi-bell" label="Class Announcements" currentPath={location.pathname} />}
+                            {permissions.includes("users.view_facultytask") && <SidebarLink to="/admin/weekly-task-manager" icon="pi pi-briefcase" label="Weekly Tasks" currentPath={location.pathname} />}
+                            {permissions.includes("users.view_classtask") && <SidebarLink to="/admin/class-tasks" icon="pi pi-list" label="Class Tasks" currentPath={location.pathname} />}
+                            {permissions.includes("users.view_studentprofile") && (
+                                <SidebarDropdown
+                                    label="Student Management"
+                                    icon="pi pi-users"
+                                    tabKey="student"
+                                    activeTab={activeTab}
+                                    toggleTab={toggleTab}
+                                    items={[
+                                        { to: "/admin/manage-student-information", label: "Student Information" },
+                                        { to: "/admin/generate-student-id-cards", label: "Student ID Cards" },
+                                        { to: "/admin/promotion-records", label: "Student Promotion" },
+                                        { to: "/admin/track-students-attendance", label: "Student Attendance" },
+                                        { to: "/admin/student-results", label: "Student Results" },
+                                        { to: "/admin/final-results", label: "Final Results" },
+                                        { to: "/admin/student-fee", label: "Student Fees" }
+                                    ]}
+                                />
+                            )}
+                            {permissions.includes("users.view_parentprofile") && (
+                                <SidebarDropdown
+                                    label="Parent Management"
+                                    icon="pi pi-user"
+                                    tabKey="parent"
+                                    activeTab={activeTab}
+                                    toggleTab={toggleTab}
+                                    items={[{ to: "/admin/manage-parent-account", label: "Manage Parent" }]}
+                                />
+                            )}
+                            {permissions.includes("users.view_teacherprofile") && (
+                                <SidebarDropdown
+                                    label="Teacher Management"
+                                    icon="pi pi-id-card"
+                                    tabKey="teacher"
+                                    activeTab={activeTab}
+                                    toggleTab={toggleTab}
+                                    items={[{ to: "/admin/manage-teacher-details", label: "Manage Teacher Details" },{ to: "/admin/generate-teacher-id-cards", label: "Teacher ID Cards" }]}
+                                />
+                            )}
+                            {permissions.includes("users.view_staffprofile") && (
+                                <SidebarDropdown
+                                    label="Staff Management"
+                                    icon="pi pi-id-card"
+                                    tabKey="staff"
+                                    activeTab={activeTab}
+                                    toggleTab={toggleTab}
+                                    items={[{ to: "/admin/manage-staff-details", label: "Manage Staff Details" },{ to: "/admin/generate-staff-id-cards", label: "Staff ID Cards" }]}
+                                />
+                            )}
+                            {permissions.includes("users.view_feetype") && <SidebarLink to="/admin/fee-type" icon="pi pi-money-bill" label="Fee Types" currentPath={location.pathname} />}
+                            {permissions.includes("users.view_feestructure") && <SidebarLink to="/admin/fee-structure" icon="pi pi-sitemap" label="Fee Structures" currentPath={location.pathname} />}
+                            {permissions.includes("users.view_feepayment") && <SidebarLink to="/admin/fee-payment" icon="pi pi-credit-card" label="Fee Payments" currentPath={location.pathname} />}
+                            {permissions.includes("users.view_gradecriteria") && <SidebarLink to="/admin/grade-criteria" icon="pi pi-chart-line" label="Grade Criteria" currentPath={location.pathname} />}
+                        </ul>
+                    </nav>
+                </>
+            )}
+
+            {!isSidebarOpen && (
+                <button
+                    onClick={toggleSidebar}
+                    className="hidden sm:flex fixed top-4 left-2 bg-blue-900 text-white p-3 rounded-full shadow-md hover:bg-blue-800 transition-all duration-200 z-50"
+                >
+                    <i className="pi pi-bars"></i>
+                </button>
+            )}
+        </div>
+    );
+};
+
+export default Sidebar;
+
+const SidebarLink = ({ to, icon, label, currentPath }) => (
+    <li>
+        <Link
+            to={to}
+            className={`flex items-center px-4 py-2 rounded-lg transition-all duration-200 hover:bg-blue-700 ${currentPath === to ? 'bg-blue-800 font-semibold' : ''}`}
+        >
+            <i className={`${icon} mr-2`}></i>
+            <span>{label}</span>
+        </Link>
+    </li>
+);
+
+const SidebarDropdown = ({ label, icon, tabKey, activeTab, toggleTab, items }) => (
+    <li>
+        <button onClick={() => toggleTab(tabKey)} className="flex items-center w-full px-4 py-2 hover:bg-blue-700 rounded-lg">
+            <i className={`${icon} mr-2`}></i>
+            <span>{label}</span>
+            <i className={`pi ${activeTab === tabKey ? 'pi-chevron-up' : 'pi-chevron-down'} ml-auto`}></i>
+        </button>
+        {activeTab === tabKey && (
+            <ul className="ml-6 mt-2 space-y-2">
+                {items.map((item, idx) => (
+                    <li key={idx}>
+                        <Link to={item.to} className={`block px-4 py-2 rounded-lg transition-all duration-200 hover:bg-blue-700 ${location.pathname === item.to ? 'bg-blue-800 font-semibold' : ''}`}>
+                            {item.label}
+                        </Link>
+                    </li>
+                ))}
+            </ul>
+        )}
+    </li>
+);

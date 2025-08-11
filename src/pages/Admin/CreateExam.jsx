@@ -7,6 +7,7 @@ import toast, { Toaster } from 'react-hot-toast';
 import apiRequest from '../../helpers/apiRequest';
 import { MdEdit, MdDelete, MdVisibility } from 'react-icons/md';
 import Select from 'react-select';
+import Pagination from '../../components/Pagination';
 
 const CreateExam = () => {
   const [form, setForm] = useState({
@@ -289,16 +290,23 @@ const CreateExam = () => {
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Exam Type</label>
-              <select
-                value={form.exam_type}
-                onChange={(e) => setForm({ ...form, exam_type: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="">-- Select Type --</option>
-                <option value="Term">Term</option>
-                <option value="Final Term">Final Term</option>
-              </select>
+              <Select
+                name="exam_type"
+                value={
+                  form.exam_type
+                    ? { value: form.exam_type, label: form.exam_type }
+                    : null
+                }
+                onChange={(selected) => setForm({ ...form, exam_type: selected?.value || "" })}
+                options={[
+                  { value: "Term", label: "Term" },
+                  { value: "Final Term", label: "Final Term" },
+                ]}
+                placeholder="Select Exam Type"
+                isClearable
+              />
             </div>
+
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Title</label>
@@ -459,7 +467,7 @@ const CreateExam = () => {
       )}
 
       {/* Exam Table */}
-      <div className="mt-6 p-6">
+      <div className="mt-6 py-6">
         <h2 className="text-lg font-semibold text-white bg-blue-900 px-4 py-2 rounded-t-md">Exam Terms</h2>
         <table className="w-full border-collapse border border-gray-300 bg-white">
           <thead className="bg-gray-200">
@@ -531,45 +539,23 @@ const CreateExam = () => {
             ))}
           </tbody>
         </table>
-        <div className="flex justify-between items-center bg-blue-50 p-4 rounded-b-md">
-          <div className="flex items-center gap-2">
-            <label className="text-gray-700 font-semibold">Page Size:</label>
-            <select
-              value={pageSize}
-              onChange={(e) => {
-                setPageSize(Number(e.target.value));
-                setPage(1);
-              }}
-              className="border rounded-md px-3 py-1"
-            >
-              <option value={5}>5</option>
-              <option value={10}>10</option>
-              <option value={20}>20</option>
-            </select>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => setPage((prev) => Math.max(prev - 1, 1))}
-              disabled={page === 1}
-              className={`px-3 py-1 rounded-md font-semibold ${
-                page === 1 ? 'bg-gray-200 text-gray-500 cursor-not-allowed' : 'bg-white hover:bg-gray-100'
-              }`}
-            >
-              Prev
-            </button>
-            <span className="px-3 py-1 bg-blue-600 text-white font-bold rounded-md">{page}</span>
-            <button
-              onClick={() => setPage((prev) => Math.min(prev + 1, totalPages))}
-              disabled={page === totalPages}
-              className={`px-3 py-1 rounded-md font-semibold ${
-                page === totalPages ? 'bg-gray-200 text-gray-500 cursor-not-allowed' : 'bg-white hover:bg-gray-100'
-              }`}
-            >
-              Next
-            </button>
-          </div>
-        </div>
+        <Pagination
+          currentPage={page}
+          totalPages={totalPages}
+          pageSize={pageSize}
+          onPageChange={(newPage) => {
+            setPage(newPage);
+            fetchData(newPage, pageSize);
+          }}
+          onPageSizeChange={(size) => {
+            setPageSize(size);
+            setPage(1);
+            fetchData(1, size);
+          }}
+          totalItems={CreateExam.length}
+          showPageSizeSelector={true}
+          showPageInfo={true}
+        />
       </div>
 
       {/* View Exam Modal - FIXED */}

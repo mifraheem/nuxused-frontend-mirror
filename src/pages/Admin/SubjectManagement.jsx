@@ -4,6 +4,7 @@ import Cookies from "js-cookie";
 import toast, { Toaster } from "react-hot-toast";
 import { MdEdit, MdDelete } from "react-icons/md";
 import { Buttons } from '../../components';
+import Pagination from "../../components/Pagination";
 
 const SubjectManagement = () => {
   const [subjects, setSubjects] = useState([]);
@@ -245,23 +246,22 @@ const SubjectManagement = () => {
                 ))}
               </tbody>
             </table>
-            <div className="flex justify-between items-center mt-4">
-              <div className="flex items-center gap-2">
-                <label className="text-sm font-medium text-gray-700">Page Size:</label>
-                <select value={pageSize} onChange={(e) => setPageSize(Number(e.target.value))} className="border rounded px-2 py-1">
-                  {[5, 10, 25, 50].map((size) => (
-                    <option key={size} value={size}>{size}</option>
-                  ))}
-                </select>
-              </div>
-              <div className="flex gap-2">
-                <button onClick={() => goToPage(currentPage - 1)} disabled={currentPage === 1} className="px-3 py-1 bg-gray-300 rounded disabled:opacity-50">Prev</button>
-                {[...Array(totalPages)].map((_, index) => (
-                  <button key={index} onClick={() => goToPage(index + 1)} className={`px-3 py-1 rounded ${currentPage === index + 1 ? "bg-blue-600 text-white" : "bg-gray-200"}`}>{index + 1}</button>
-                ))}
-                <button onClick={() => goToPage(currentPage + 1)} disabled={currentPage === totalPages} className="px-3 py-1 bg-gray-300 rounded disabled:opacity-50">Next</button>
-              </div>
-            </div>
+            <Pagination
+              currentPage={currentPage}
+              totalPages={totalPages}
+              pageSize={pageSize}
+              onPageChange={goToPage}
+              onPageSizeChange={(size) => {
+                setPageSize(size);
+                setCurrentPage(1);
+                fetchSubjects(1, size);
+              }}
+              totalItems={subjects.length}
+              showPageSizeSelector={true}
+              showPageInfo={true}
+            />
+
+
           </div>
         ) : <p className="text-center text-gray-500">No subjects available.</p>}
       </div>

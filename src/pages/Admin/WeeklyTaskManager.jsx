@@ -5,7 +5,7 @@ import toast, { Toaster } from "react-hot-toast";
 import { MdEdit, MdDelete, MdVisibility } from "react-icons/md";
 import { Buttons } from '../../components';
 import Select from "react-select";
-
+import Pagination from "../../components/Pagination";
 
 const WeeklyTaskManager = () => {
   const [showModal, setShowModal] = useState(false);
@@ -23,7 +23,7 @@ const WeeklyTaskManager = () => {
     start_date: "",
     due_date: "",
     file: null,
-    teacher: "", // ✅ Added teacher field
+    teacher: "",
   });
 
   const API = import.meta.env.VITE_SERVER_URL;
@@ -31,20 +31,12 @@ const WeeklyTaskManager = () => {
   const API_URL = `${API}faculty-tasks/`;
   const TEACHER_API_URL = `${API}api/auth/users/list_profiles/teacher/`;
 
-  // Fetch tasks from the API
   const fetchTasks = async () => {
     try {
       const token = Cookies.get("access_token");
-      if (!token) {
-        toast.error("User is not authenticated.");
-        return;
-      }
-
       const response = await axios.get(`${API_URL}?page=${page}&page_size=${pageSize}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
-
-      console.log("Fetch Tasks Response:", response.data);
 
       if (response.status === 200 && response.data.data) {
         const { results, total_pages } = response.data.data;
@@ -54,33 +46,22 @@ const WeeklyTaskManager = () => {
         toast.error("Unexpected API response format.");
       }
     } catch (error) {
-      console.error("Error fetching tasks:", error);
-      toast.error(error.response?.data?.message || "Failed to fetch tasks. Please try again.");
+      toast.error(error.response?.data?.message || "Failed to fetch tasks.");
     }
   };
 
-
-
-
-
-
-
-  // Handle input change in modal fields
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     setNewTask((prev) => ({ ...prev, [name]: value }));
   };
 
-  // Handle file input
   const handleFileChange = (e) => {
     setNewTask((prev) => ({ ...prev, file: e.target.files[0] }));
   };
 
-  // Save a new task
-  // Save a new task or update existing one
   const handleSaveTask = async () => {
     if (!newTask.title || !newTask.description || !newTask.start_date || !newTask.due_date) {
-      toast.error(err.response?.data?.data?.error || err.response?.data?.message || "All fields are required!");
+      toast.error("All fields are required!");
       return;
     }
 
@@ -93,17 +74,15 @@ const WeeklyTaskManager = () => {
         Authorization: `Bearer ${token}`,
       };
 
-      // ✅ Format date to yyyy-mm-dd (HTML form accepts this)
       const formatDate = (dateString) => {
         if (!dateString) return "";
         const [yyyy, mm, dd] = dateString.split("-");
         return `${yyyy}-${mm}-${dd}`;
       };
 
-      // ✅ Get teacher's profile ID
       const selectedTeacher = teachers.find(t => t.user_id === parseInt(newTask.teacher));
       if (!selectedTeacher?.profile_id) {
-        toast.error(err.response?.data?.data?.error || err.response?.data?.message || "Please select a valid teacher.");
+        toast.error("Please select a valid teacher.");
         return;
       }
       const teacherProfileId = parseInt(selectedTeacher.profile_id);
@@ -111,7 +90,6 @@ const WeeklyTaskManager = () => {
       let response;
 
       if (newTask.file) {
-        // ✅ Use FormData if there's a file
         const formData = new FormData();
         formData.append("title", newTask.title);
         formData.append("description", newTask.description);
@@ -130,7 +108,6 @@ const WeeklyTaskManager = () => {
           data: formData,
         });
       } else {
-        // ✅ JSON fallback if no file
         const json = {
           title: newTask.title,
           description: newTask.description,
@@ -157,10 +134,9 @@ const WeeklyTaskManager = () => {
             ? prev.map((task) => (task.id === updatedTask.id ? updatedTask : task))
             : [...prev, updatedTask]
         );
-        toast.success(isEditing ? err.response?.data?.data?.error || err.response?.data?.message || "Task updated successfully!" : "Task created successfully!");
+        toast.success(isEditing ? "Task updated successfully!" : "Task created successfully!");
       }
 
-      // ✅ Reset form
       setShowForm(false);
       setEditingTask(null);
       setNewTask({
@@ -181,11 +157,9 @@ const WeeklyTaskManager = () => {
     }
   };
 
-
-  // Delete a task
   const handleDeleteTask = (id) => {
     if (!canDelete) {
-      toast.error(err.response?.data?.data?.error || err.response?.data?.message || "You do not have permission to delete faculty tasks.");
+      toast.error("You do not have permission to delete faculty tasks.");
       return;
     }
 
@@ -207,8 +181,8 @@ const WeeklyTaskManager = () => {
                     prevTasks.filter((task) => task.id !== id)
                   );
                 } catch (error) {
-                  console.error(err.response?.data?.data?.error || err.response?.data?.message || "Error deleting task:", error);
-                  toast.error(err.response?.data?.data?.error || err.response?.data?.message || "Failed to delete task.");
+                  console.error("Error deleting task:", error);
+                  toast.error("Failed to delete task.");
                 }
 
                 toast.dismiss(t.id);
@@ -230,8 +204,6 @@ const WeeklyTaskManager = () => {
     );
   };
 
-
-
   const handleEditTask = (task) => {
     setNewTask({
       title: task.title || "",
@@ -246,16 +218,12 @@ const WeeklyTaskManager = () => {
     setShowForm(true);
   };
 
-
   const getTeacherNames = (teacherIds) => {
     if (!teacherIds?.length) return "N/A";
-
-    // Map teacher IDs to usernames using the teachers state
     return teacherIds
       .map(id => teachers.find(teacher => teacher.profile_id === id)?.username || "Unknown")
       .join(", ");
   };
-
 
   const handleViewTask = (task) => {
     setSelectedTask(task);
@@ -270,13 +238,13 @@ const WeeklyTaskManager = () => {
       start_date: "",
       due_date: "",
       file: null,
+      teacher: "",
     });
   };
+
   const fetchTeachers = async () => {
     try {
       const token = Cookies.get("access_token");
-      console.log("Access Token:", token);
-
       if (!token) {
         toast.error("User is not authenticated.");
         return;
@@ -289,11 +257,7 @@ const WeeklyTaskManager = () => {
         },
       });
 
-      console.log("Teachers Response:", response.data);
-
-      // ✅ Extract from the correct structure
       const teacherList = response.data?.data?.results || [];
-
       if (!Array.isArray(teacherList)) {
         throw new Error("Invalid response format for teachers");
       }
@@ -307,80 +271,68 @@ const WeeklyTaskManager = () => {
     }
   };
 
-
   useEffect(() => {
     fetchTasks();
     fetchTeachers();
   }, [page, pageSize]);
 
   const permissions = JSON.parse(localStorage.getItem("user_permissions") || "[]");
-
   const canAdd = permissions.includes("users.add_facultytask");
   const canEdit = permissions.includes("users.change_facultytask");
   const canDelete = permissions.includes("users.delete_facultytask");
 
-
   return (
-    <div>
+    <div className="p-2">
       <Toaster position="top-center" reverseOrder={false} />
-      {/* Header and Add Task Button */}
-      <div className="bg-blue-900 text-white py-2 px-6 rounded-md flex justify-between items-center mt-5">
-        <h1 className="text-xl font-bold">Weekly Task Manager</h1>
+      <div className="bg-blue-900 text-white py-1 px-2 rounded-md flex justify-between items-center mt-2">
+        <h1 className="text-lg font-bold">Weekly Task Manager</h1>
         {canAdd && (
           <button
             onClick={handleToggleForm}
-            className="flex items-center px-3 py-2 bg-cyan-400 text-white font-semibold rounded-lg shadow-md hover:bg-cyan-500 transition"
+            className="flex items-center px-2 py-1 bg-cyan-400 text-white font-semibold rounded-md shadow-md hover:bg-cyan-500 transition text-sm"
           >
-            <div className="flex items-center justify-center w-8 h-8 bg-black rounded-full mr-3">
-              <span className="text-cyan-500 text-xl font-bold">
+            <div className="flex items-center justify-center w-6 h-6 bg-black rounded-full mr-1">
+              <span className="text-cyan-500 text-base font-bold">
                 {showForm ? "-" : "+"}
               </span>
             </div>
             {showForm ? "Close Form" : "Add New Task"}
           </button>
         )}
-
       </div>
 
-      {/* ✅ Form Logic */}
       {canAdd && showForm && (
-        <div className="p-6 mx-5 bg-white border border-gray-200 rounded-xl shadow-lg mt-6">
-          <h2 className="text-2xl font-bold text-blue-800 mb-4">
+        <div className="p-2 mx-2 bg-white border border-gray-200 rounded-lg shadow-md mt-2">
+          <h2 className="text-lg font-bold text-blue-800 mb-2">
             {editingTask ? "Edit Task" : "Create New Task"}
           </h2>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* Task Title */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
             <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-1">
+              <label className="block text-xs font-semibold text-gray-700 mb-0.5">
                 Task Title <span className="text-red-500">*</span>
               </label>
               <input
                 type="text"
                 placeholder="Enter task title"
-                className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                className="w-full border border-gray-300 rounded-md px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-blue-400"
                 value={newTask.title}
                 onChange={(e) => setNewTask({ ...newTask, title: e.target.value })}
               />
             </div>
-
-            {/* Description */}
             <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-1">
+              <label className="block text-xs font-semibold text-gray-700 mb-0.5">
                 Description <span className="text-red-500">*</span>
               </label>
               <input
                 type="text"
                 placeholder="Enter task description"
-                className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                className="w-full border border-gray-300 rounded-md px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-blue-400"
                 value={newTask.description}
                 onChange={(e) => setNewTask({ ...newTask, description: e.target.value })}
               />
             </div>
-
-            {/* Teacher */}
             <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-1">
+              <label className="block text-xs font-semibold text-gray-700 mb-0.5">
                 Teacher <span className="text-red-500">*</span>
               </label>
               <Select
@@ -392,63 +344,55 @@ const WeeklyTaskManager = () => {
                 options={teachers}
                 getOptionLabel={(t) => t.username}
                 getOptionValue={(t) => t.user_id}
-                placeholder="Search & select teacher"
+                placeholder="Select teacher"
                 isClearable
-                className="react-select-container"
+                className="react-select-container text-xs"
                 classNamePrefix="react-select"
               />
             </div>
-
-            {/* Start Date */}
             <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-1">
+              <label className="block text-xs font-semibold text-gray-700 mb-0.5">
                 Start Date <span className="text-red-500">*</span>
               </label>
               <input
                 type="date"
-                className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                className="w-full border border-gray-300 rounded-md px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-blue-400"
                 value={newTask.start_date}
                 onChange={(e) => setNewTask({ ...newTask, start_date: e.target.value })}
               />
             </div>
-
-            {/* Due Date */}
             <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-1">
+              <label className="block text-xs font-semibold text-gray-700 mb-0.5">
                 Due Date <span className="text-red-500">*</span>
               </label>
               <input
                 type="date"
-                className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                className="w-full border border-gray-300 rounded-md px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-blue-400"
                 value={newTask.due_date}
                 onChange={(e) => setNewTask({ ...newTask, due_date: e.target.value })}
               />
             </div>
-
-            {/* File Upload */}
-            <div className="md:col-span-2">
-              <label className="block text-sm font-semibold text-gray-700 mb-1">
+            <div className="sm:col-span-2">
+              <label className="block text-xs font-semibold text-gray-700 mb-0.5">
                 Upload File (optional)
               </label>
               <input
                 type="file"
-                className="w-full border border-gray-300 rounded-lg px-4 py-2 bg-white focus:outline-none"
+                className="w-full border border-gray-300 rounded-md px-2 py-1 text-xs bg-white focus:outline-none"
                 onChange={(e) => setNewTask({ ...newTask, file: e.target.files[0] })}
               />
             </div>
           </div>
-
-          {/* Buttons */}
-          <div className="flex justify-end gap-3 mt-6">
+          <div className="flex justify-end gap-2 mt-2">
             <button
               onClick={() => setShowForm(false)}
-              className="bg-gray-500 text-white px-5 py-2 rounded-md hover:bg-gray-600 transition duration-150"
+              className="bg-gray-500 text-white px-2 py-1 rounded-md hover:bg-gray-600 text-xs"
             >
               Cancel
             </button>
             <button
               onClick={handleSaveTask}
-              className="bg-green-600 text-white px-6 py-2 rounded-md font-semibold shadow hover:bg-green-700 transition duration-150"
+              className="bg-green-600 text-white px-3 py-1 rounded-md font-semibold shadow hover:bg-green-700 text-xs"
             >
               {editingTask ? "Update Task" : "Save Task"}
             </button>
@@ -456,8 +400,7 @@ const WeeklyTaskManager = () => {
         </div>
       )}
 
-      {/* Tasks Table */}
-      <div className="p-6">
+      <div className="p-2">
         <Buttons
           data={tasks.map((task) => ({
             ID: task.id,
@@ -480,161 +423,117 @@ const WeeklyTaskManager = () => {
           filename="Weekly_Tasks_Report"
         />
 
-        <table className="w-full border-collapse border border-gray-300 bg-white mt-4 shadow-md">
-          <thead className="bg-blue-900 text-white">
-            <tr>
-              <th className="border border-gray-300 p-2">#</th>
-              <th className="border border-gray-300 p-2">Task Title</th>
-              <th className="border border-gray-300 p-2">Teacher</th>
-              <th className="border border-gray-300 p-2">Start Date</th>
-              <th className="border border-gray-300 p-2">Due Date</th>
-              <th className="border border-gray-300 p-2">File</th>
-              {(canEdit || canDelete) && <th className="border border-gray-300 p-2">Actions</th>}
-            </tr>
-          </thead>
-          <tbody>
-            {tasks.map((task, index) => (
-              <tr key={task.id}>
-                <td className="border border-gray-300 p-2">{task.id}</td>
-                <td className="border border-gray-300 p-2">
-                  <span className="block max-w-[200px] truncate" title={task.title}>
-                    {task.title}
-                  </span>
-                </td>
-
-                <td className="border border-gray-300 p-2">{getTeacherNames(task.teachers)}</td>
-                <td className="border border-gray-300 p-2">
-                  {task.start_date?.split("T")[0] || "N/A"}
-                </td>
-                <td className="border border-gray-300 p-2">
-                  {task.due_date?.split("T")[0] || "N/A"}
-                </td>
-                <td className="border border-gray-300 p-2">
-                  {task.file ? (
-                    <a
-                      href={task.file}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-blue-500 hover:underline"
-                    >
-                      Download File
-                    </a>
-                  ) : (
-                    "No File"
-                  )}
-                </td>
-                {(canEdit || canDelete) && (
-                  <td className="border border-gray-300 p-2 flex justify-center gap-2">
-                    <MdVisibility
-                      onClick={() => handleViewTask(task)}
-                      className="text-blue-500 cursor-pointer hover:text-blue-700"
-                      size={24}
-                    />
-                    {canEdit && (
-                      <MdEdit
-                        onClick={() => handleEditTask(task)}
-                        className="text-yellow-500 text-2xl cursor-pointer hover:text-yellow-700"
-                      />
-                    )}
-                    {canDelete && (
-                      <MdDelete
-                        onClick={() => handleDeleteTask(task.id)}
-                        className="text-red-500 text-2xl cursor-pointer hover:text-red-700"
-                      />
-                    )}
-                  </td>
-                )}
+        <div className="overflow-x-auto">
+          <table className="w-full border-collapse border border-gray-300 bg-white mt-2 min-w-[400px]">
+            <thead className="bg-blue-900 text-white">
+              <tr>
+                <th className="border border-gray-300 p-0.5 text-center text-xs">#</th>
+                <th className="border border-gray-300 p-0.5 text-center text-xs">Title</th>
+                <th className="border border-gray-300 p-0.5 text-center text-xs">Teacher</th>
+                <th className="border border-gray-300 p-0.5 text-center text-xs">Start</th>
+                <th className="border border-gray-300 p-0.5 text-center text-xs">Due</th>
+                <th className="border border-gray-300 p-0.5 text-center text-xs">File</th>
+                {(canEdit || canDelete) && <th className="border border-gray-300 p-0.5 text-center text-xs">Actions</th>}
               </tr>
-            ))}
-          </tbody>
-
-        </table>
-        <div className="flex justify-between items-center bg-blue-50 p-4 rounded-b-md mt-2">
-          {/* Page Size Selector */}
-          <div className="flex items-center gap-2">
-            <label className="text-gray-700 font-semibold">Page Size:</label>
-            <select
-              value={pageSize}
-              onChange={(e) => {
-                setPageSize(Number(e.target.value));
-                setPage(1);
-              }}
-              className="border rounded-md px-3 py-1"
-            >
-              <option value={5}>5</option>
-              <option value={10}>10</option>
-              <option value={20}>20</option>
-            </select>
-          </div>
-
-          {/* Pagination Buttons */}
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => setPage((prev) => Math.max(prev - 1, 1))}
-              disabled={page === 1}
-              className={`px-3 py-1 rounded-md font-semibold ${page === 1
-                ? "bg-gray-200 text-gray-500 cursor-not-allowed"
-                : "bg-white hover:bg-gray-100"
-                }`}
-            >
-              Prev
-            </button>
-
-            <span className="px-3 py-1 bg-blue-600 text-white font-bold rounded-md">{page}</span>
-
-            <button
-              onClick={() => setPage((prev) => Math.min(prev + 1, totalPages))}
-              disabled={page === totalPages}
-              className={`px-3 py-1 rounded-md font-semibold ${page === totalPages
-                ? "bg-gray-200 text-gray-500 cursor-not-allowed"
-                : "bg-white hover:bg-gray-100"
-                }`}
-            >
-              Next
-            </button>
-          </div>
+            </thead>
+            <tbody>
+              {tasks.map((task, index) => (
+                <tr key={task.id}>
+                  <td className="border border-gray-300 p-0.5 text-center text-xs">{task.id}</td>
+                  <td className="border border-gray-300 p-0.5 text-xs">
+                    <span className="block max-w-[150px] truncate" title={task.title}>
+                      {task.title}
+                    </span>
+                  </td>
+                  <td className="border border-gray-300 p-0.5 text-xs">{getTeacherNames(task.teachers)}</td>
+                  <td className="border border-gray-300 p-0.5 text-center text-xs">
+                    {task.start_date?.split("T")[0] || "N/A"}
+                  </td>
+                  <td className="border border-gray-300 p-0.5 text-center text-xs">
+                    {task.due_date?.split("T")[0] || "N/A"}
+                  </td>
+                  <td className="border border-gray-300 p-0.5 text-xs">
+                    {task.file ? (
+                      <a
+                        href={task.file}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-blue-500 hover:underline text-xs"
+                      >
+                        Download
+                      </a>
+                    ) : "No File"}
+                  </td>
+                  {(canEdit || canDelete) && (
+                    <td className="border border-gray-300 p-0.5 flex justify-center gap-1 text-xs">
+                      <MdVisibility
+                        onClick={() => handleViewTask(task)}
+                        className="text-blue-500 cursor-pointer hover:text-blue-700"
+                        size={18}
+                      />
+                      {canEdit && (
+                        <MdEdit
+                          onClick={() => handleEditTask(task)}
+                          className="text-yellow-500 cursor-pointer hover:text-yellow-700"
+                          size={18}
+                        />
+                      )}
+                      {canDelete && (
+                        <MdDelete
+                          onClick={() => handleDeleteTask(task.id)}
+                          className="text-red-500 cursor-pointer hover:text-red-700"
+                          size={18}
+                        />
+                      )}
+                    </td>
+                  )}
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
+        <Pagination
+          currentPage={page}
+          totalPages={totalPages}
+          pageSize={pageSize}
+          onPageChange={(newPage) => setPage(newPage)}
+          onPageSizeChange={(size) => {
+            setPageSize(size);
+            setPage(1);
+          }}
+          totalItems={tasks.length}
+          showPageSizeSelector={true}
+          showPageInfo={true}
+        />
       </div>
 
-      {/* // ✅ View Task Modal */}
       {selectedTask && (
-        <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 px-4">
-          <div className="bg-white w-full max-w-xl rounded-2xl shadow-2xl border border-gray-300 overflow-hidden">
-
-            {/* Modal Header */}
-            <div className="flex items-center justify-between px-6 py-4 border-b bg-blue-50">
-              <h2 className="text-xl font-bold text-blue-700">
+        <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 px-2">
+          <div className="bg-white w-full max-w-sm rounded-xl shadow-2xl border border-gray-300 overflow-hidden">
+            <div className="flex items-center justify-between px-3 py-2 border-b bg-blue-50">
+              <h2 className="text-sm font-bold text-blue-700">
                 📋 {selectedTask.title || "Task Details"}
               </h2>
               <button
                 onClick={() => setSelectedTask(null)}
-                className="text-gray-600 hover:text-red-600 text-2xl font-bold leading-none"
+                className="text-gray-600 hover:text-red-600 text-xl font-bold leading-none"
               >
                 &times;
               </button>
             </div>
-
-            {/* Modal Content */}
-            <div className="px-6 py-5 overflow-y-auto max-h-[60vh] space-y-5 text-sm text-gray-700">
-              {/* Description */}
+            <div className="px-3 py-2 overflow-y-auto max-h-[50vh] space-y-2 text-xs text-gray-700">
               <div>
                 <div className="text-gray-500 font-medium">📝 Description</div>
-                <div className="mt-1 text-gray-800">{selectedTask.description || "—"}</div>
+                <div className="mt-0.5 text-gray-800">{selectedTask.description || "—"}</div>
               </div>
-
-              {/* Start Date */}
               <div>
                 <div className="text-gray-500 font-medium">📅 Start Date</div>
-                <div className="mt-1 text-gray-800">{selectedTask.start_date || "—"}</div>
+                <div className="mt-0.5 text-gray-800">{selectedTask.start_date?.split("T")[0] || "—"}</div>
               </div>
-
-              {/* Due Date */}
               <div>
                 <div className="text-gray-500 font-medium">⏳ Due Date</div>
-                <div className="mt-1 text-gray-800">{selectedTask.due_date || "—"}</div>
+                <div className="mt-0.5 text-gray-800">{selectedTask.due_date?.split("T")[0] || "—"}</div>
               </div>
-
-              {/* File Download */}
               {selectedTask.file && (
                 <div>
                   <div className="text-gray-500 font-medium">📎 Attachment</div>
@@ -642,19 +541,17 @@ const WeeklyTaskManager = () => {
                     href={selectedTask.file}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="inline-block mt-1 text-blue-600 hover:underline font-medium"
+                    className="mt-0.5 text-blue-600 hover:underline font-medium text-xs"
                   >
                     Download File
                   </a>
                 </div>
               )}
             </div>
-
-            {/* Modal Footer */}
-            <div className="flex justify-end px-6 py-4 border-t bg-gray-50">
+            <div className="flex justify-end px-3 py-2 border-t bg-gray-50">
               <button
                 onClick={() => setSelectedTask(null)}
-                className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2 rounded-lg shadow transition"
+                className="bg-blue-600 hover:bg-blue-700 text-white px-2 py-1 rounded-md shadow text-xs"
               >
                 Close
               </button>
@@ -662,8 +559,6 @@ const WeeklyTaskManager = () => {
           </div>
         </div>
       )}
-
-
     </div>
   );
 };

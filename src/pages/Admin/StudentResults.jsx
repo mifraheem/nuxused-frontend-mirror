@@ -5,6 +5,7 @@ import toast, { Toaster } from "react-hot-toast";
 import { MdEdit, MdDelete, MdVisibility } from "react-icons/md";
 import { Buttons } from '../../components';
 import Select from 'react-select';
+import Pagination from "../../components/Pagination";
 
 const StudentResults = () => {
   const [results, setResults] = useState([]);
@@ -168,9 +169,8 @@ const StudentResults = () => {
         headers: { Authorization: `Bearer ${token}` },
       });
 
-      console.log("Exam API raw response:", response.data); // 👈 this helps debug in future
+      console.log("Exam API raw response:", response.data);
 
-      // Most reliable way: try accessing data.results or fallback to object in array form
       let examData = [];
 
       if (Array.isArray(response.data)) {
@@ -194,8 +194,6 @@ const StudentResults = () => {
       toast.error("Failed to fetch exams. Please try again.");
     }
   };
-
-
 
   const handleSaveResult = async () => {
     console.log("New Result State:", newResult);
@@ -261,12 +259,12 @@ const StudentResults = () => {
   const handleDeleteResult = async (id) => {
     if (!canDelete) {
       toast((t) => (
-        <div className="text-center font-semibold p-4 bg-red-100 border border-red-400 rounded shadow-md">
+        <div className="text-center font-semibold p-2 bg-red-100 border border-red-400 rounded shadow-md">
           🚫 You do not have permission to delete results.
-          <div className="mt-3">
+          <div className="mt-2">
             <button
               onClick={() => toast.dismiss(t.id)}
-              className="mt-2 px-4 py-1 bg-red-500 text-white rounded hover:bg-red-600"
+              className="mt-1 px-2 py-1 bg-red-500 text-white rounded text-xs hover:bg-red-600"
             >
               Close
             </button>
@@ -278,8 +276,8 @@ const StudentResults = () => {
 
     toast((t) => (
       <div>
-        <p className="text-gray-600">Are you sure you want to delete?</p>
-        <div className="flex justify-end mt-2">
+        <p className="text-gray-600 text-xs">Are you sure you want to delete?</p>
+        <div className="flex justify-end mt-1">
           <button
             onClick={async () => {
               try {
@@ -301,13 +299,13 @@ const StudentResults = () => {
                 toast.error("Failed to delete result. Please try again.");
               }
             }}
-            className="bg-red-500 text-white px-3 py-1 rounded shadow hover:bg-red-700 mr-2"
+            className="bg-red-500 text-white px-2 py-1 rounded shadow text-xs hover:bg-red-700 mr-1"
           >
             Yes
           </button>
           <button
             onClick={() => toast.dismiss(t.id)}
-            className="bg-gray-500 text-white px-3 py-1 rounded shadow hover:bg-gray-700"
+            className="bg-gray-500 text-white px-2 py-1 rounded shadow text-xs hover:bg-gray-700"
           >
             No
           </button>
@@ -378,11 +376,11 @@ const StudentResults = () => {
   ];
 
   return (
-    <div>
+    <div className="p-2">
       <Toaster position="top-center" reverseOrder={false} />
-      <div className="bg-blue-900 text-white py-2 px-6 rounded-md flex justify-between items-center mt-5">
-        <h1 className="text-xl font-bold">Manage Student Results</h1>
-        <div className="flex gap-4">
+      <div className="bg-blue-900 text-white py-1 px-2 rounded-md flex justify-between items-center mt-2">
+        <h1 className="text-lg font-bold">Manage Student Results</h1>
+        <div className="flex gap-2">
           {canAdd && (
             <button
               onClick={() => {
@@ -394,10 +392,10 @@ const StudentResults = () => {
                 setFilterType(null);
                 setFilter({ subject: "", class_schedule: "", exam: "" });
               }}
-              className="flex items-center px-3 py-2 bg-cyan-400 text-white font-semibold rounded-lg shadow-md hover:bg-cyan-500 transition"
+              className="flex items-center px-2 py-1 bg-cyan-400 text-white font-semibold rounded-md shadow-md hover:bg-cyan-500 text-sm"
             >
-              <div className="flex items-center justify-center w-8 h-8 bg-black rounded-full mr-3">
-                <span className="text-cyan-500 text-xl font-bold">{showForm ? "-" : "+"}</span>
+              <div className="flex items-center justify-center w-6 h-6 bg-black rounded-full mr-1">
+                <span className="text-cyan-500 text-base font-bold">{showForm ? "-" : "+"}</span>
               </div>
               {showForm ? "Close Form" : "Add New Result"}
             </button>
@@ -413,17 +411,17 @@ const StudentResults = () => {
                   setFilterType("menu");
                 }
               }}
-              className="bg-cyan-500 hover:bg-cyan-600 text-white font-semibold px-4 py-2 rounded"
+              className="bg-cyan-400 hover:bg-cyan-600 text-white font-semibold px-2 py-1 mt-1 rounded shadow-md text-sm"
             >
               {filterType ? "Close Form" : "Filter Data"}
             </button>
             {filterType === "menu" && (
-              <div className="absolute right-0 mt-2 w-56 bg-white border rounded shadow-md z-10 text-gray-700">
-                <button className="block w-full text-left px-4 py-2 hover:bg-gray-100" onClick={() => { setFilterType(null); fetchResults(); }}>Show All</button>
-                <button className="block w-full text-left px-4 py-2 hover:bg-gray-100" onClick={() => setFilterType("subject")}>By Subject</button>
-                <button className="block w-full text-left px-4 py-2 hover:bg-gray-100" onClick={() => setFilterType("class")}>By Class</button>
-                <button className="block w-full text-left px-4 py-2 hover:bg-gray-100" onClick={() => setFilterType("exam")}>By Exam</button>
-                <button className="block w-full text-left px-4 py-2 hover:bg-gray-100" onClick={() => setFilterType("subject_class")}>By Subject & Class</button>
+              <div className="absolute right-0 mt-1 w-40 bg-white border rounded shadow-md z-10 text-gray-700">
+                <button className="block w-full text-left px-2 py-1 text-xs hover:bg-gray-100" onClick={() => { setFilterType(null); fetchResults(); }}>Show All</button>
+                <button className="block w-full text-left px-2 py-1 text-xs hover:bg-gray-100" onClick={() => setFilterType("subject")}>By Subject</button>
+                <button className="block w-full text-left px-2 py-1 text-xs hover:bg-gray-100" onClick={() => setFilterType("class")}>By Class</button>
+                <button className="block w-full text-left px-2 py-1 text-xs hover:bg-gray-100" onClick={() => setFilterType("exam")}>By Exam</button>
+                <button className="block w-full text-left px-2 py-1 text-xs hover:bg-gray-100" onClick={() => setFilterType("subject_class")}>By Subject & Class</button>
               </div>
             )}
           </div>
@@ -431,24 +429,23 @@ const StudentResults = () => {
       </div>
 
       <div className="flex justify-center">
-        <div className="p-6 w-full max-w-xl">
-          {/* Filter by Subject */}
+        <div className="w-full max-w-md">
           {filterType === "subject" && (
-            <div className="mt-6 p-4 border rounded-lg bg-white shadow-md max-w-xl">
-              <h3 className="text-lg font-semibold text-blue-800 mb-4">🎓 Filter by Subject</h3>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Select Subject</label>
+            <div className="mt-2 p-2 border rounded-md bg-white shadow-md max-w-md">
+              <h3 className="text-base font-semibold text-blue-800 mb-2">🎓 Filter by Subject</h3>
+              <label className="block text-xs font-medium text-gray-700 mb-0.5">Select Subject</label>
               <Select
                 options={subjects}
                 value={subjects.find(s => s.value === filter.subject) || null}
                 onChange={(selected) => handleFilterChange("subject", selected ? selected.value : "")}
                 placeholder="Select Subject"
                 isClearable
-                className="w-full"
+                className="w-full text-xs"
               />
-              <div className="mt-4 text-right">
+              <div className="mt-2 text-right">
                 <button
                   onClick={() => { handleFilterChange("subject", ""); setFilterType(null); }}
-                  className="bg-blue-600 hover:bg-blue-800 text-white px-6 py-2 rounded-md shadow-sm"
+                  className="bg-blue-600 hover:bg-blue-800 text-white px-3 py-1 rounded-md shadow-sm text-xs"
                 >
                   Clear Filter
                 </button>
@@ -456,23 +453,22 @@ const StudentResults = () => {
             </div>
           )}
 
-          {/* Filter by Class */}
           {filterType === "class" && (
-            <div className="mt-6 p-4 border rounded-lg bg-white shadow-sm max-w-xl">
-              <h3 className="text-lg font-semibold text-blue-800 mb-4">🏫 Filter by Class</h3>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Select Class</label>
+            <div className="mt-2 p-2 border rounded-md bg-white shadow-md max-w-md">
+              <h3 className="text-base font-semibold text-blue-800 mb-2">🏫 Filter by Class</h3>
+              <label className="block text-xs font-medium text-gray-700 mb-0.5">Select Class</label>
               <Select
                 options={classes}
                 value={classes.find(c => c.value === filter.class_schedule) || null}
                 onChange={(selected) => handleFilterChange("class_schedule", selected ? selected.value : "")}
                 placeholder="Select Class"
                 isClearable
-                className="w-full"
+                className="w-full text-xs"
               />
-              <div className="mt-4 text-right">
+              <div className="mt-2 text-right">
                 <button
                   onClick={() => { handleFilterChange("class_schedule", ""); setFilterType(null); }}
-                  className="bg-blue-600 hover:bg-blue-800 text-white px-6 py-2 rounded-md shadow-sm"
+                  className="bg-blue-600 hover:bg-blue-800 text-white px-3 py-1 rounded-md shadow-sm text-xs"
                 >
                   Clear Filter
                 </button>
@@ -480,23 +476,22 @@ const StudentResults = () => {
             </div>
           )}
 
-          {/* Filter by Exam */}
           {filterType === "exam" && (
-            <div className="mt-6 p-4 border rounded-lg bg-white shadow-sm max-w-xl">
-              <h3 className="text-lg font-semibold text-blue-800 mb-4">📅 Filter by Exam</h3>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Select Exam</label>
+            <div className="mt-2 p-2 border rounded-md bg-white shadow-md max-w-md">
+              <h3 className="text-base font-semibold text-blue-800 mb-2">📅 Filter by Exam</h3>
+              <label className="block text-xs font-medium text-gray-700 mb-0.5">Select Exam</label>
               <Select
                 options={exams}
                 value={exams.find(e => e.value === filter.exam) || null}
                 onChange={(selected) => handleFilterChange("exam", selected ? selected.value : "")}
                 placeholder="Select Exam"
                 isClearable
-                className="w-full"
+                className="w-full text-xs"
               />
-              <div className="mt-4 text-right">
+              <div className="mt-2 text-right">
                 <button
                   onClick={() => { handleFilterChange("exam", ""); setFilterType(null); }}
-                  className="bg-blue-600 hover:bg-blue-800 text-white px-6 py-2 rounded-md shadow-sm"
+                  className="bg-blue-600 hover:bg-blue-800 text-white px-3 py-1 rounded-md shadow-sm text-xs"
                 >
                   Clear Filter
                 </button>
@@ -504,37 +499,36 @@ const StudentResults = () => {
             </div>
           )}
 
-          {/* Filter by Subject & Class */}
           {filterType === "subject_class" && (
-            <div className="mt-6 p-4 border rounded-lg bg-white shadow-sm max-w-3xl">
-              <h3 className="text-lg font-semibold text-blue-800 mb-4">📊 Filter by Subject & Class</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-end">
+            <div className="mt-2 p-2 border rounded-md bg-white shadow-md max-w-lg">
+              <h3 className="text-base font-semibold text-blue-800 mb-2">📊 Filter by Subject & Class</h3>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 items-end">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Select Subject</label>
+                  <label className="block text-xs font-medium text-gray-700 mb-0.5">Select Subject</label>
                   <Select
                     options={subjects}
                     value={subjects.find(s => s.value === filter.subject) || null}
                     onChange={(selected) => handleFilterChange("subject", selected ? selected.value : "")}
                     placeholder="Select Subject"
                     isClearable
-                    className="w-full"
+                    className="w-full text-xs"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Select Class</label>
+                  <label className="block text-xs font-medium text-gray-700 mb-0.5">Select Class</label>
                   <Select
                     options={classes}
                     value={classes.find(c => c.value === filter.class_schedule) || null}
                     onChange={(selected) => handleFilterChange("class_schedule", selected ? selected.value : "")}
                     placeholder="Select Class"
                     isClearable
-                    className="w-full"
+                    className="w-full text-xs"
                   />
                 </div>
-                <div className="md:col-span-2 text-right mt-4">
+                <div className="sm:col-span-2 text-right mt-2">
                   <button
                     onClick={() => { handleCombinedFilter("", ""); setFilterType(null); }}
-                    className="bg-blue-600 hover:bg-blue-800 text-white px-6 py-2 rounded-md shadow-sm"
+                    className="bg-blue-600 hover:bg-blue-800 text-white px-3 py-1 rounded-md shadow-sm text-xs"
                   >
                     Clear Filter
                   </button>
@@ -545,16 +539,15 @@ const StudentResults = () => {
         </div>
       </div>
 
-      <div className="p-6">
+      <div className="p-2">
         {canAdd && showForm && (
-          <div className="p-6 bg-white rounded-lg shadow-md border border-gray-200 max-w-xl mx-auto mb-6">
-            <h2 className="text-xl font-semibold text-blue-800 mb-4">
+          <div className="p-2 bg-white rounded-md shadow-md border border-gray-200 max-w-md mx-auto mb-2">
+            <h2 className="text-base font-semibold text-blue-800 mb-2">
               {editingResult ? "Edit Result" : "Create New Result"}
             </h2>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Class</label>
+                <label className="block text-xs font-medium text-gray-700 mb-0.5">Class</label>
                 <Select
                   options={classes}
                   value={selectedClass}
@@ -566,13 +559,12 @@ const StudentResults = () => {
                   }}
                   placeholder="Select Class"
                   isClearable
-                  className="w-full"
+                  className="w-full text-xs"
                   isDisabled={isLoading}
                 />
               </div>
-
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Student</label>
+                <label className="block text-xs font-medium text-gray-700 mb-0.5">Student</label>
                 <Select
                   options={students}
                   value={students.find(s => s.value === newResult.student) || null}
@@ -580,12 +572,11 @@ const StudentResults = () => {
                   placeholder="Select Student"
                   isClearable
                   isDisabled={!selectedClass || isLoading || students.length === 0}
-                  className="w-full"
+                  className="w-full text-xs"
                 />
               </div>
-
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Exam</label>
+                <label className="block text-xs font-medium text-gray-700 mb-0.5">Exam</label>
                 <Select
                   options={exams}
                   value={exams.find(e => e.value === newResult.exam) || null}
@@ -593,12 +584,11 @@ const StudentResults = () => {
                   placeholder="Select Exam"
                   isClearable
                   isDisabled={isLoading}
-                  className="w-full"
+                  className="w-full text-xs"
                 />
               </div>
-
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Subject</label>
+                <label className="block text-xs font-medium text-gray-700 mb-0.5">Subject</label>
                 <Select
                   options={subjects}
                   value={subjects.find(s => s.value === newResult.subject) || null}
@@ -606,53 +596,49 @@ const StudentResults = () => {
                   placeholder="Select Subject"
                   isClearable
                   isDisabled={isLoading}
-                  className="w-full"
+                  className="w-full text-xs"
                 />
               </div>
-
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Marks Obtained</label>
+                <label className="block text-xs font-medium text-gray-700 mb-0.5">Marks Obtained</label>
                 <input
                   type="number"
                   placeholder="e.g. 106.00"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-400"
+                  className="w-full px-2 py-1 border border-gray-300 rounded-md text-xs focus:outline-none focus:ring-2 focus:ring-blue-400"
                   value={newResult.marks_obtained}
                   onChange={(e) => setNewResult({ ...newResult, marks_obtained: e.target.value })}
                   min="0"
                   disabled={isLoading}
                 />
               </div>
-
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Total Marks</label>
+                <label className="block text-xs font-medium text-gray-700 mb-0.5">Total Marks</label>
                 <input
                   type="number"
                   placeholder="e.g. 150.00"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-400"
+                  className="w-full px-2 py-1 border border-gray-300 rounded-md text-xs focus:outline-none focus:ring-2 focus:ring-blue-400"
                   value={newResult.total_marks}
                   onChange={(e) => setNewResult({ ...newResult, total_marks: e.target.value })}
                   min="0"
                   disabled={isLoading}
                 />
               </div>
-
               <div className="col-span-2">
-                <label className="block text-sm font-medium text-gray-700 mb-1">Remarks</label>
+                <label className="block text-xs font-medium text-gray-700 mb-0.5">Remarks</label>
                 <input
                   type="text"
                   placeholder="e.g. DFGHJK"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-400"
+                  className="w-full px-2 py-1 border border-gray-300 rounded-md text-xs focus:outline-none focus:ring-2 focus:ring-blue-400"
                   value={newResult.remarks}
                   onChange={(e) => setNewResult({ ...newResult, remarks: e.target.value })}
                   disabled={isLoading}
                 />
               </div>
             </div>
-
-            <div className="mt-6 text-right">
+            <div className="mt-2 text-right">
               <button
                 onClick={handleSaveResult}
-                className="bg-blue-600 hover:bg-blue-800 text-white font-medium px-6 py-2 rounded-md shadow-sm transition duration-150"
+                className="bg-blue-600 hover:bg-blue-800 text-white font-medium px-3 py-1 rounded-md shadow-sm text-xs transition duration-150"
                 disabled={isLoading}
               >
                 {editingResult ? "Update Result" : "Save Result"}
@@ -662,138 +648,109 @@ const StudentResults = () => {
         )}
 
         {results.length > 0 ? (
-          <div className="mt-6">
+          <div>
             <Buttons data={results} columns={columns} filename="StudentResults" />
-            <h2 className="text-lg font-semibold text-white bg-blue-900 px-4 py-2 rounded-t-md">Student Results</h2>
-            <table className="w-full border-collapse border border-gray-300 bg-white">
-              <thead className="bg-gray-200">
-                <tr>
-                  <th className="border border-gray-300 p-2">ID</th>
-                  <th className="border border-gray-300 p-2">Student Name</th>
-                  {/* <th className="border border-gray-300 p-2">Class</th>
-                  <th className="border border-gray-300 p-2">Exam</th> */}
-                  <th className="border border-gray-300 p-2">Subject</th>
-                  <th className="border border-gray-300 p-2">Marks Obtained</th>
-                  <th className="border border-gray-300 p-2">Total Marks</th>
-                  <th className="border border-gray-300 p-2">Grade</th>
-                  <th className="border border-gray-300 p-2">Remarks</th>
-                  {(canEdit || canDelete || canView) && (
-                    <th className="border border-gray-300 p-2">Actions</th>
-                  )}
-                </tr>
-              </thead>
-              <tbody>
-                {results.map((result) => (
-                  <tr key={result.id}>
-                    <td className="border border-gray-300 p-2 text-center">{result.id}</td>
-                    <td className="border border-gray-300 p-2">{result.student_name}</td>
-                    {/* <td className="border border-gray-300 p-2">{result.class_name}</td>
-                    <td className="border border-gray-300 p-2">{result.exam_term}</td> */}
-                    <td className="border border-gray-300 p-2">{result.subject_name}</td>
-                    <td className="border border-gray-300 p-2 text-center">{result.marks_obtained}</td>
-                    <td className="border border-gray-300 p-2 text-center">{result.total_marks}</td>
-                    <td className="border border-gray-300 p-2 text-center">{result.grade}</td>
-                    <td className="border border-gray-300 p-2">{result.remarks}</td>
+            <h2 className="text-base font-semibold text-white bg-blue-900 px-2 py-0.5 rounded-t-md">Student Results</h2>
+            <div className="overflow-x-auto">
+              <table className="w-full border-collapse border border-gray-300 bg-white min-w-[400px]">
+                <thead className="bg-gray-200">
+                  <tr>
+                    <th className="border border-gray-300 p-0.5 text-center text-xs">ID</th>
+                    <th className="border border-gray-300 p-0.5 text-center text-xs">Student Name</th>
+                    <th className="border border-gray-300 p-0.5 text-center text-xs">Subject</th>
+                    <th className="border border-gray-300 p-0.5 text-center text-xs">Marks Obtained</th>
+                    <th className="border border-gray-300 p-0.5 text-center text-xs">Total Marks</th>
+                    <th className="border border-gray-300 p-0.5 text-center text-xs">Grade</th>
+                    <th className="border border-gray-300 p-0.5 text-center text-xs">Remarks</th>
                     {(canEdit || canDelete || canView) && (
-                      <td className="border border-gray-300 p-2 flex justify-center gap-2">
-                        {canView && (
-                          <button onClick={() => setViewModalData(result)} className="text-blue-600">
-                            <MdVisibility />
-                          </button>
-                        )}
-                        {canEdit && (
-                          <MdEdit
-                            onClick={() => handleEditResult(result)}
-                            className="text-yellow-500 text-2xl cursor-pointer mx-2 hover:text-yellow-700"
-                          />
-                        )}
-                        {canDelete && (
-                          <MdDelete
-                            onClick={() => handleDeleteResult(result.id)}
-                            className="text-red-500 text-2xl cursor-pointer mx-2 hover:text-red-700"
-                          />
-                        )}
-                      </td>
+                      <th className="border border-gray-300 p-0.5 text-center text-xs">Actions</th>
                     )}
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {results.map((result) => (
+                    <tr key={result.id}>
+                      <td className="border border-gray-300 p-0.5 text-center text-xs">{result.id}</td>
+                      <td className="border border-gray-300 p-0.5 text-xs">{result.student_name}</td>
+                      <td className="border border-gray-300 p-0.5 text-xs">{result.subject_name}</td>
+                      <td className="border border-gray-300 p-0.5 text-center text-xs">{result.marks_obtained}</td>
+                      <td className="border border-gray-300 p-0.5 text-center text-xs">{result.total_marks}</td>
+                      <td className="border border-gray-300 p-0.5 text-center text-xs">{result.grade}</td>
+                      <td className="border border-gray-300 p-0.5 text-xs">{result.remarks}</td>
+                      {(canEdit || canDelete || canView) && (
+                        <td className="border border-gray-300 p-0.5 flex justify-center gap-1 text-xs">
+                          {canView && (
+                            <button onClick={() => setViewModalData(result)} className="text-blue-600">
+                              <MdVisibility size={18} />
+                            </button>
+                          )}
+                          {canEdit && (
+                            <MdEdit
+                              onClick={() => handleEditResult(result)}
+                              className="text-yellow-500 cursor-pointer hover:text-yellow-700"
+                              size={18}
+                            />
+                          )}
+                          {canDelete && (
+                            <MdDelete
+                              onClick={() => handleDeleteResult(result.id)}
+                              className="text-red-500 cursor-pointer hover:text-red-700"
+                              size={18}
+                            />
+                          )}
+                        </td>
+                      )}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         ) : (
-          <p className="text-center text-gray-500">No results available.</p>
+          <p className="text-center text-gray-500 text-xs">No results available.</p>
         )}
 
-        <div className="flex justify-between items-center mt-4">
-          <div className="flex items-center gap-2">
-            <label className="text-sm font-medium text-gray-700">Page Size:</label>
-            <select
-              value={pageSize}
-              onChange={(e) => setPageSize(Number(e.target.value))}
-              className="border rounded px-2 py-1"
-              disabled={isLoading}
-            >
-              {[5, 10, 25, 50].map((size) => (
-                <option key={size} value={size}>{size}</option>
-              ))}
-            </select>
-          </div>
-          <div className="flex gap-2">
-            <button
-              onClick={() => goToPage(currentPage - 1)}
-              disabled={currentPage === 1 || isLoading}
-              className="px-3 py-1 bg-gray-300 rounded disabled:opacity-50"
-            >
-              Prev
-            </button>
-            {[...Array(totalPages)].map((_, index) => (
-              <button
-                key={index}
-                onClick={() => goToPage(index + 1)}
-                className={`px-3 py-1 rounded ${currentPage === index + 1 ? "bg-blue-600 text-white" : "bg-gray-200"}`}
-                disabled={isLoading}
-              >
-                {index + 1}
-              </button>
-            ))}
-            <button
-              onClick={() => goToPage(currentPage + 1)}
-              disabled={currentPage === totalPages || isLoading}
-              className="px-3 py-1 bg-gray-300 rounded disabled:opacity-50"
-            >
-              Next
-            </button>
-          </div>
-        </div>
+        <Pagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          pageSize={pageSize}
+          onPageChange={(page) => {
+            setCurrentPage(page);
+            fetchResults(page, pageSize);
+          }}
+          onPageSizeChange={(size) => {
+            setPageSize(size);
+            setCurrentPage(1);
+            fetchResults(1, size);
+          }}
+          totalItems={results.length}
+          showPageSizeSelector={true}
+          showPageInfo={true}
+        />
       </div>
 
       {viewModalData && canView && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 backdrop-blur-sm flex items-center justify-center z-50 px-4">
-          <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] border border-gray-200 p-6 overflow-hidden">
-            <div className="overflow-y-auto max-h-[70vh] pr-2">
-              <div className="mb-6 border-b pb-3">
-                <h3 className="text-2xl font-bold text-blue-800 text-center">📄 Student Result Details</h3>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4 text-sm text-gray-700">
-                <div className="col-span-2 font-semibold text-blue-900 border-b pb-1">👤 Student Information</div>
-                <div><span className="font-semibold">Student Name:</span> {viewModalData.student_name}</div>
-                <div><span className="font-semibold">Class:</span> {viewModalData.class_name}</div>
-                <div><span className="font-semibold">Exam:</span> {viewModalData.exam_term}</div>
-                <div><span className="font-semibold">Subject:</span> {viewModalData.subject_name}</div>
-
-                <div className="col-span-2 font-semibold text-blue-900 border-b pt-4 pb-1">📋 Result Details</div>
-                <div><span className="font-semibold">Marks Obtained:</span> {viewModalData.marks_obtained}</div>
-                <div><span className="font-semibold">Total Marks:</span> {viewModalData.total_marks}</div>
-                <div><span className="font-semibold">Grade:</span> {viewModalData.grade}</div>
-                <div><span className="font-semibold">Remarks:</span> {viewModalData.remarks || "—"}</div>
-              </div>
+        <div className="fixed inset-0 bg-black bg-opacity-50 backdrop-blur-sm flex items-center justify-center z-50 px-2">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-sm max-h-[70vh] border border-gray-200 p-3 overflow-y-auto">
+            <div className="mb-3 border-b pb-1">
+              <h3 className="text-lg font-bold text-blue-800 text-center">📄 Student Result Details</h3>
             </div>
-
-            <div className="mt-6 text-center">
+            <div className="grid grid-cols-1 gap-y-1 text-xs text-gray-700">
+              <div className="font-semibold text-blue-900 border-b pb-0.5">👤 Student Information</div>
+              <div><span className="font-semibold">Student Name:</span> {viewModalData.student_name}</div>
+              <div><span className="font-semibold">Class:</span> {viewModalData.class_name}</div>
+              <div><span className="font-semibold">Exam:</span> {viewModalData.exam_term}</div>
+              <div><span className="font-semibold">Subject:</span> {viewModalData.subject_name}</div>
+              <div className="font-semibold text-blue-900 border-b pt-1 pb-0.5">📋 Result Details</div>
+              <div><span className="font-semibold">Marks Obtained:</span> {viewModalData.marks_obtained}</div>
+              <div><span className="font-semibold">Total Marks:</span> {viewModalData.total_marks}</div>
+              <div><span className="font-semibold">Grade:</span> {viewModalData.grade}</div>
+              <div><span className="font-semibold">Remarks:</span> {viewModalData.remarks || "—"}</div>
+            </div>
+            <div className="mt-2 text-center">
               <button
                 onClick={() => setViewModalData(null)}
-                className="px-6 py-2 bg-blue-700 text-white rounded-full shadow hover:bg-blue-800 transition"
+                className="px-3 py-1 bg-blue-700 text-white rounded-full shadow text-xs hover:bg-blue-800 transition"
               >
                 Close
               </button>

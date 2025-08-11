@@ -193,7 +193,7 @@ const AttendanceStaff = () => {
         <div>
             <Toaster position="top-center" />
             <div className="bg-blue-900 text-white py-2 px-8 rounded-lg shadow-md flex justify-between items-center mt-5">
-                <h1 className="text-2xl font-bold">Staff Attendance Management</h1>
+                <h1 className="text-2xl font-bold">Staff Attendance </h1>
                 <div className="flex gap-4">
                     {canAdd && (
                         <button onClick={handleMarkAttendance} className="bg-cyan-500 hover:bg-cyan-700 text-white px-4 py-2 rounded shadow">
@@ -255,14 +255,39 @@ const AttendanceStaff = () => {
                         <div className="grid grid-cols-2 gap-4">
                             <div>
                                 <label className="block text-gray-700 font-medium">Type:</label>
-                                <select name="type" value={filters.type} onChange={handleFilterChange} className="border p-2 rounded-md w-full">
-                                    <option value="Daily">Daily</option>
-                                    <option value="Weekly">Weekly</option>
-                                    <option value="Monthly">Monthly</option>
-                                    <option value="Yearly">Yearly</option>
-                                    <option value="Specific">Specific Staff</option>
-                                </select>
+                                <Select
+                                    name="type"
+                                    value={
+                                        filters.type
+                                            ? { value: filters.type, label: filters.type }
+                                            : null
+                                    }
+                                    onChange={(selected) =>
+                                        handleFilterChange({
+                                            target: { name: "type", value: selected?.value || "" },
+                                        })
+                                    }
+                                    options={[
+                                        { value: "Daily", label: "Daily" },
+                                        { value: "Weekly", label: "Weekly" },
+                                        { value: "Monthly", label: "Monthly" },
+                                        { value: "Yearly", label: "Yearly" },
+                                        { value: "Specific", label: "Specific Staff" },
+                                    ]}
+                                    placeholder="Select Type"
+                                    isClearable
+                                    className="text-sm"
+                                    styles={{
+                                        control: (base) => ({
+                                            ...base,
+                                            height: 42,
+                                            borderColor: "#D1D5DB",
+                                            fontSize: "0.875rem", // text-sm
+                                        }),
+                                    }}
+                                />
                             </div>
+
                             {filters.type === "Daily" && (
                                 <input
                                     type="date"
@@ -458,12 +483,13 @@ const AttendanceStaff = () => {
                                 ))}
                             </tbody>
                         </table>
-                        </>
+                        
+                    </>
                 )}
 
-                    </div>
             </div>
-            );
+        </div>
+    );
 };
 
-            export default AttendanceStaff;
+export default AttendanceStaff;

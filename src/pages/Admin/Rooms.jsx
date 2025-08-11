@@ -3,7 +3,9 @@ import axios from "axios";
 import Cookies from "js-cookie";
 import toast, { Toaster } from "react-hot-toast";
 import { MdEdit, MdDelete } from "react-icons/md";
+import Select from "react-select";
 import { Buttons } from '../../components';
+import Pagination from "../../components/Pagination";
 
 const Rooms = () => {
   const [rooms, setRooms] = useState([]);
@@ -149,7 +151,6 @@ const Rooms = () => {
     ), { duration: 5000 });
   };
 
-
   const handleEditRoom = (room) => {
     setEditingRoom(room);
     setNewRoom(room);
@@ -175,6 +176,78 @@ const Rooms = () => {
   const canEdit = permissions.includes("users.change_room");
   const canDelete = permissions.includes("users.delete_room");
 
+  // Room type options for react-select
+  const roomTypeOptions = [
+    { value: 'room', label: 'Room' },
+    { value: 'lab', label: 'Lab' },
+    { value: 'hall', label: 'Hall' },
+  ];
+
+  // Page size options for react-select
+  const pageSizeOptions = [
+    { value: 5, label: '5' },
+    { value: 10, label: '10' },
+    { value: 25, label: '25' },
+    { value: 50, label: '50' },
+  ];
+
+  // Custom styles for react-select
+  const selectStyles = {
+    control: (provided) => ({
+      ...provided,
+      minHeight: '2rem',
+      fontSize: '0.875rem',
+      '@media (min-width: 640px)': {
+        fontSize: '1rem',
+      },
+    }),
+    menu: (provided) => ({
+      ...provided,
+      fontSize: '0.875rem',
+      maxHeight: '200px',
+      overflowY: 'auto',
+      '@media (min-width: 640px)': {
+        fontSize: '1rem',
+      },
+    }),
+    option: (provided) => ({
+      ...provided,
+      fontSize: '0.875rem',
+      padding: '0.5rem',
+      '@media (min-width: 640px)': {
+        fontSize: '1rem',
+        padding: '0.75rem',
+      },
+    }),
+  };
+
+  // Compact styles for pagination dropdown
+  const paginationSelectStyles = {
+    control: (provided) => ({
+      ...provided,
+      minHeight: '1.75rem',
+      fontSize: '0.75rem',
+      width: '60px',
+    }),
+    menu: (provided) => ({
+      ...provided,
+      fontSize: '0.75rem',
+      maxHeight: '120px',
+      width: '60px',
+    }),
+    option: (provided) => ({
+      ...provided,
+      fontSize: '0.75rem',
+      padding: '0.25rem 0.5rem',
+    }),
+    dropdownIndicator: (provided) => ({
+      ...provided,
+      padding: '2px',
+    }),
+    indicatorSeparator: () => ({
+      display: 'none',
+    }),
+  };
 
   return (
     <div>
@@ -196,7 +269,6 @@ const Rooms = () => {
             {showForm ? "Close Form" : "Add New Room"}
           </button>
         )}
-
       </div>
 
       <div className="p-6">
@@ -220,15 +292,14 @@ const Rooms = () => {
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Room Type</label>
-                <select
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-400"
-                  value={newRoom.room_type}
-                  onChange={(e) => setNewRoom({ ...newRoom, room_type: e.target.value })}
-                >
-                  <option value="room">Room</option>
-                  <option value="lab">Lab</option>
-                  <option value="hall">Hall</option>
-                </select>
+                <Select
+                  value={roomTypeOptions.find(option => option.value === newRoom.room_type)}
+                  onChange={(selected) => setNewRoom({ ...newRoom, room_type: selected?.value || 'room' })}
+                  options={roomTypeOptions}
+                  styles={selectStyles}
+                  isSearchable={false}
+                  placeholder="Select Room Type"
+                />
               </div>
             </div>
 
@@ -243,7 +314,6 @@ const Rooms = () => {
           </div>
         )}
 
-
         {rooms.length > 0 ? (
           <div className="mt-6">
             <Buttons data={rooms} columns={columns} filename="Rooms" />
@@ -257,7 +327,6 @@ const Rooms = () => {
                   {(canEdit || canDelete) && (
                     <th className="border border-gray-300 p-2">Actions</th>
                   )}
-
                 </tr>
               </thead>
               <tbody>
@@ -282,7 +351,6 @@ const Rooms = () => {
                         )}
                       </td>
                     )}
-
                   </tr>
                 ))}
               </tbody>
@@ -291,46 +359,22 @@ const Rooms = () => {
         ) : (
           <p className="text-center text-gray-500">No rooms available.</p>
         )}
+        <Pagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          pageSize={pageSize}
+          onPageChange={goToPage}
+          onPageSizeChange={(size) => {
+            setPageSize(size);
+            setCurrentPage(1);
+            fetchSubjects(1, size);
+          }}
+          totalItems={rooms.length}
+          showPageSizeSelector={true}
+          showPageInfo={true}
+        />
 
-        <div className="flex justify-between items-center mt-4">
-          <div className="flex items-center gap-2">
-            <label className="text-sm font-medium text-gray-700">Page Size:</label>
-            <select
-              value={pageSize}
-              onChange={(e) => setPageSize(Number(e.target.value))}
-              className="border rounded px-2 py-1"
-            >
-              {[5, 10, 25, 50].map((size) => (
-                <option key={size} value={size}>{size}</option>
-              ))}
-            </select>
-          </div>
-          <div className="flex gap-2">
-            <button
-              onClick={() => goToPage(currentPage - 1)}
-              disabled={currentPage === 1}
-              className="px-3 py-1 bg-gray-300 rounded disabled:opacity-50"
-            >
-              Prev
-            </button>
-            {[...Array(totalPages)].map((_, index) => (
-              <button
-                key={index}
-                onClick={() => goToPage(index + 1)}
-                className={`px-3 py-1 rounded ${currentPage === index + 1 ? "bg-blue-600 text-white" : "bg-gray-200"}`}
-              >
-                {index + 1}
-              </button>
-            ))}
-            <button
-              onClick={() => goToPage(currentPage + 1)}
-              disabled={currentPage === totalPages}
-              className="px-3 py-1 bg-gray-300 rounded disabled:opacity-50"
-            >
-              Next
-            </button>
-          </div>
-        </div>
+
       </div>
     </div>
   );

@@ -214,7 +214,7 @@ const StudentInfo = () => {
   return (
     <div>
       <Toaster position="top-center" reverseOrder={false} />
-      <h1 className="bg-blue-900 text-white py-4 px-6 text-xl font-bold">Manage Student Information</h1>
+      <h1 className="bg-blue-900 text-white py-4 px-6 text-xl font-bold rounded-lg mt-6">Manage Student Information</h1>
       <div className="p-6">
         <Buttons
           data={students}
