@@ -236,10 +236,11 @@ const FeeTypes = () => {
                 </tr>
               </thead>
               <tbody>
-                {feeTypes.map((f) => (
+                {feeTypes.map((f, index) => (
                   <tr key={f.id}>
+                    {/* Sequence number */}
                     <td className="border border-gray-300 p-2 text-center">
-                      {f.id}
+                      {(page - 1) * pageSize + index + 1}
                     </td>
                     <td className="border border-gray-300 p-2">{f.name}</td>
                     <td className="border border-gray-300 p-2">{f.description}</td>
@@ -263,23 +264,23 @@ const FeeTypes = () => {
                 ))}
               </tbody>
             </table>
-           <Pagination
-                     currentPage={page}
-                     totalPages={totalPages}
-                     pageSize={pageSize}
-                     onPageChange={(newPage) => {
-                       setPage(newPage);
-                       fetchData(newPage, pageSize);
-                     }}
-                     onPageSizeChange={(size) => {
-                       setPageSize(size);
-                       setPage(1);
-                       fetchData(1, size);
-                     }}
-                     totalItems={feeTypes.length}
-                     showPageSizeSelector={true}
-                     showPageInfo={true}
-                   />
+            <Pagination
+              currentPage={page}
+              totalPages={totalPages}
+              pageSize={pageSize}
+              onPageChange={(newPage) => {
+                setPage(newPage);
+                fetchData(newPage, pageSize);
+              }}
+              onPageSizeChange={(size) => {
+                setPageSize(size);
+                setPage(1);
+                fetchData(1, size);
+              }}
+              totalItems={feeTypes.length}
+              showPageSizeSelector={true}
+              showPageInfo={true}
+            />
           </div>
         ) : (
           <p className="text-center text-gray-500">No fee types available.</p>

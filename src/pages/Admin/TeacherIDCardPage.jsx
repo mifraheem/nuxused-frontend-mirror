@@ -116,7 +116,7 @@ const TeacherIDCard = () => {
 
   /* =====================  CARDS  ===================== */
 
-  // FRONT — professional look (same fixed height as back)
+  // FRONT — professional look (same fixed height as back) with full school name display
   const CardFront = (teacher, forwardedRef) => {
     if (!teacher) return null;
 
@@ -131,22 +131,31 @@ const TeacherIDCard = () => {
     const issued = formatDate(getIssued(teacher));
     const expires = formatDate(getExpiry(teacher));
 
+    // Determine if school name is long to adjust layout
+    const schoolName = schoolData.name;
+    const isLongName = schoolName.length > 25;
+
     return (
       <div
         ref={forwardedRef}
         className="teacher-card-front bg-white border-4 border-teal-700 rounded-2xl shadow-lg overflow-hidden relative flex flex-col"
         style={{ width: `${CARD_WIDTH_REM}rem`, height: CARD_HEIGHT_PX }}
       >
-        {/* Header */}
-        <div className="relative h-28 bg-gradient-to-br from-teal-800 to-teal-600">
-          {/* School name (top-left) */}
-          <div className="absolute top-2 left-3 right-20 pr-2">
-            <h3 className="text-yellow-300 font-semibold text-sm sm:text-base leading-tight truncate">
-              {schoolData.name}
+        {/* Header - Dynamic height based on school name length */}
+        <div className={`relative bg-gradient-to-br from-teal-800 to-teal-600 ${isLongName ? 'h-36' : 'h-28'}`}>
+          {/* School name - Full display with wrapping */}
+          <div className="absolute top-2 left-3 right-20">
+            <h3 className={`text-yellow-300 font-semibold leading-tight ${isLongName ? 'text-xs' : 'text-sm sm:text-base'}`}
+                style={{ 
+                  wordWrap: 'break-word',
+                  hyphens: 'auto',
+                  overflowWrap: 'break-word'
+                }}>
+              {schoolName}
             </h3>
           </div>
 
-          {/* Logo right */}
+          {/* Logo - Positioned to accommodate text */}
           <div className="absolute top-2 right-2 w-14 h-14 rounded-full bg-white/10 backdrop-blur-sm ring-2 ring-white/30 flex items-center justify-center">
             {getSchoolLogoUrl() ? (
               <img
@@ -156,7 +165,7 @@ const TeacherIDCard = () => {
                 crossOrigin="anonymous"
               />
             ) : (
-              <span className="text-yellow-200 font-bold">{initials}</span>
+              <span className="text-yellow-200 font-bold text-sm">{initials}</span>
             )}
           </div>
 
@@ -164,8 +173,8 @@ const TeacherIDCard = () => {
           <div className="absolute -bottom-8 -right-10 w-28 h-28 bg-white/10 rounded-full" />
           <div className="absolute -top-8 -left-8 w-24 h-24 bg-black/10 rounded-full" />
 
-          {/* Role chip */}
-          <div className="absolute -bottom-4 left-1/2 -translate-x-1/2">
+          {/* Role chip - Positioned dynamically */}
+          <div className={`absolute left-1/2 -translate-x-1/2 ${isLongName ? '-bottom-4' : '-bottom-4'}`}>
             <span className="inline-flex items-center gap-2 bg-white text-teal-800 border border-teal-200 px-3 py-1 rounded-full shadow-sm text-xs font-bold tracking-wide">
               <IdCard className="w-4 h-4" />
               TEACHER
@@ -195,11 +204,15 @@ const TeacherIDCard = () => {
 
         {/* Name */}
         <div className="mt-0 text-center px-4">
-          <h2 className="text-lg font-extrabold text-teal-900 leading-tight truncate">
+          <h2 className="text-lg font-extrabold text-teal-900 leading-tight"
+              style={{ 
+                wordWrap: 'break-word',
+                overflowWrap: 'break-word'
+              }}>
             {teacher.first_name} {teacher.last_name}
           </h2>
           {/* small ID under name */}
-          <p className="text-xs text-teal-700/80 mt-0.5 truncate">ID: {teacher.profile_id}</p>
+          <p className="text-xs text-teal-700/80 mt-0.5 break-all">ID: {teacher.profile_id}</p>
         </div>
 
         {/* Info section */}
@@ -458,7 +471,7 @@ const TeacherIDCard = () => {
         <div className="bg-blue-900 text-white rounded-lg shadow mb-4 sm:mb-6">
           <div className="p-3 sm:p-4">
             <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
-              <h1 className="text-base sm:text-lg font-bold">Print ID-Cards</h1>
+              <h1 className="text-base sm:text-lg font-bold">Print Teacher ID-Cards</h1>
               <div className="flex flex-wrap gap-2 items-center">
                 <button
                   onClick={fetchTeachers}

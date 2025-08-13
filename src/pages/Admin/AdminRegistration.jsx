@@ -172,7 +172,8 @@ export function AdminRegistration() {
       try {
         const token = Cookies.get("access_token");
         if (!token) {
-          toast.error("User is not authenticated.");
+          // Only show authentication error if user tries to register
+          console.warn("User is not authenticated.");
           return;
         }
 
@@ -184,7 +185,16 @@ export function AdminRegistration() {
 
       } catch (error) {
         console.error("Failed to fetch classes:", error);
-        toast.error("Failed to load classes.");
+        // Only show error if it's not a 404 or empty result
+        if (error.response?.status !== 404 && error.response?.status !== 204) {
+          // Check if the error is due to no classes existing
+          const errorMessage = error.response?.data?.detail || error.message;
+          if (!errorMessage.toLowerCase().includes('not found') && 
+              !errorMessage.toLowerCase().includes('no classes') &&
+              !errorMessage.toLowerCase().includes('empty')) {
+            toast.error("Failed to load classes.");
+          }
+        }
       }
     };
 
@@ -192,7 +202,8 @@ export function AdminRegistration() {
       try {
         const token = Cookies.get("access_token");
         if (!token) {
-          toast.error("User is not authenticated.");
+          // Only show authentication error if user tries to register
+          console.warn("User is not authenticated.");
           return;
         }
 
@@ -202,7 +213,16 @@ export function AdminRegistration() {
         setParentOptions(response.data?.data?.results || []);
       } catch (error) {
         console.error("Failed to fetch parents:", error);
-        toast.error("Failed to load parents.");
+        // Only show error if it's not a 404 or empty result
+        if (error.response?.status !== 404 && error.response?.status !== 204) {
+          // Check if the error is due to no parents existing
+          const errorMessage = error.response?.data?.detail || error.message;
+          if (!errorMessage.toLowerCase().includes('not found') && 
+              !errorMessage.toLowerCase().includes('no parents') &&
+              !errorMessage.toLowerCase().includes('empty')) {
+            toast.error("Failed to load parents.");
+          }
+        }
       }
     };
 
@@ -354,12 +374,16 @@ export function AdminRegistration() {
                       setFormData({ ...formData, class_id: selectedOption?.value || "" });
                     }}
                     isClearable
-                    placeholder="-- Select Class --"
+                    placeholder={classOptionsFormatted.length === 0 ? "No classes available" : "-- Select Class --"}
                     styles={customSelectStyles}
                     className="basic-single"
                     classNamePrefix="select"
                     menuPortalTarget={document.body}
+                    isDisabled={classOptionsFormatted.length === 0}
                   />
+                  {classOptionsFormatted.length === 0 && (
+                    <p className="text-sm text-gray-500 mt-1">No classes have been created yet.</p>
+                  )}
                 </div>
               )}
 
@@ -373,7 +397,7 @@ export function AdminRegistration() {
                     onChange={(selectedOption) =>
                       setFormData({ ...formData, parent_email: selectedOption ? selectedOption.value : "" })
                     }
-                    placeholder="Select parent email (optional)"
+                    placeholder={parentOptionsMapped.length === 0 ? "No parents available" : "Select parent email (optional)"}
                     styles={customSelectStyles}
                     className="basic-single"
                     classNamePrefix="select"
@@ -381,6 +405,9 @@ export function AdminRegistration() {
                     isClearable
                     menuPortalTarget={document.body}
                   />
+                  {parentOptionsMapped.length === 0 && (
+                    <p className="text-sm text-gray-500 mt-1">No parents have been registered yet. This field is optional.</p>
+                  )}
                 </div>
               )}
             </div>

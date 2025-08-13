@@ -365,11 +365,11 @@ const Noticeboard = () => {
                 </tr>
               </thead>
               <tbody>
-                {notices.map((notice) => (
+                {notices.map((notice, index) => (
                   <tr key={notice.id}>
-                    {/* ✅ Title */}
-                    <td className="border border-gray-300 p-2">
-                      {notice.id}
+                    {/* Sequence Number */}
+                    <td className="border border-gray-300 p-2 text-center">
+                      {(page - 1) * pageSize + index + 1}
                     </td>
                     <td className="border border-gray-300 p-2">
                       {notice.title}

@@ -322,9 +322,12 @@ const FeeStructures = () => {
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {feeStructures.map((f) => (
+                                    {feeStructures.map((f, index) => (
                                         <tr key={f.id}>
-                                            <td className="border border-gray-300 p-0.5 text-center text-xs">{f.id}</td>
+                                            {/* Sequence number */}
+                                            <td className="border border-gray-300 p-0.5 text-center text-xs">
+                                                {(page - 1) * pageSize + index + 1}
+                                            </td>
                                             <td className="border border-gray-300 p-0.5 text-xs">{f.fee_type}</td>
                                             <td className="border border-gray-300 p-0.5 text-xs">{f.class_name}</td>
                                             <td className="border border-gray-300 p-0.5 text-xs">{f.class_section}</td>

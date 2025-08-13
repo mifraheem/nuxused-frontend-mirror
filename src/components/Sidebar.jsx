@@ -60,11 +60,11 @@ const Sidebar = ({ isSidebarOpen, toggleSidebar, activeTab, setActiveTab }) => {
                             items={[
                                 { to: "/admin/manage-student-information", label: "Student Information" },
                                 { to: "/admin/generate-student-id-cards", label: "Student ID Cards" },
-                                { to: "/admin/promotion-records", label: "Student Promotion" },
-                                { to: "/admin/track-students-attendance", label: "Student Attendance" },
-                                { to: "/admin/student-results", label: "Student Results" },
-                                { to: "/admin/final-results", label: "Final Results" },
-                                { to: "/admin/student-fee", label: "Student Fees" }
+                                // { to: "/admin/promotion-records", label: "Student Promotion" },
+                                // { to: "/admin/track-students-attendance", label: "Student Attendance" },
+                                // { to: "/admin/student-results", label: "Student Results" },
+                                // { to: "/admin/final-results", label: "Final Results" },
+                                // { to: "/admin/student-fee", label: "Student Fees" }
                             ]}
                             currentPath={location.pathname}
                             isSidebarOpen={isSidebarOpen}
@@ -90,7 +90,7 @@ const Sidebar = ({ isSidebarOpen, toggleSidebar, activeTab, setActiveTab }) => {
                             activeTab={activeTab}
                             toggleTab={toggleTab}
                             items={[
-                                { to: "/admin/manage-teacher-details", label: "Manage Teacher Details" },
+                                { to: "/admin/manage-teacher-details", label: "Teacher Information" },
                                 { to: "/admin/generate-teacher-id-cards", label: "Teacher ID Cards" }
                             ]}
                             currentPath={location.pathname}
@@ -186,7 +186,7 @@ const Sidebar = ({ isSidebarOpen, toggleSidebar, activeTab, setActiveTab }) => {
                             isSidebarOpen={isSidebarOpen}
                         />
                     )}
-                    {permissions.includes("users.change_staffprofile") && (
+                    {/* {permissions.includes("users.change_staffprofile") && (
                         <SidebarDropdown
                             label="Manage Salary"
                             icon="pi pi-user"
@@ -197,7 +197,7 @@ const Sidebar = ({ isSidebarOpen, toggleSidebar, activeTab, setActiveTab }) => {
                             currentPath={location.pathname}
                             isSidebarOpen={isSidebarOpen}
                         />
-                    )}
+                    )} */}
                     {permissions.includes("users.view_announcement") && (
                         <SidebarLink to="/admin/noticeboard" icon="pi pi-bell" label="School Noticeboard" currentPath={location.pathname} isSidebarOpen={isSidebarOpen} />
                     )}

@@ -277,9 +277,12 @@ const ClassManagement = () => {
                 </tr>
               </thead>
               <tbody>
-                {classes.map((cls) => (
+                {classes.map((cls, index) => (
                   <tr className="text-center" key={cls.id}>
-                    <td className="border border-gray-300 p-2">{cls.id}</td>
+                    {/* Sequence Number */}
+                    <td className="border border-gray-300 p-2">
+                      {(currentPage - 1) * pageSize + index + 1}
+                    </td>
                     <td className="border border-gray-300 p-2">{cls.class_name}</td>
                     <td className="border border-gray-300 p-2">{cls.section}</td>
                     <td className="border border-gray-300 p-2">{cls.session}</td>

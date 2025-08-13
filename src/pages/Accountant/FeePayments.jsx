@@ -27,14 +27,21 @@ const FeePayments = () => {
     const [page, setPage] = useState(1);
     const [pageSize, setPageSize] = useState(10);
     const [totalPages, setTotalPages] = useState(1);
+    const [isLoadingStudents, setIsLoadingStudents] = useState(false);
+    const [isLoadingFees, setIsLoadingFees] = useState(false);
 
     const API = import.meta.env.VITE_SERVER_URL;
-
     const API_URL = `${API}fee-payments/`;
     const STUDENT_FEES_URL = `${API}student-fees/`;
 
+    const isValidUUID = (str) => {
+        const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+        return uuidRegex.test(str);
+    };
+
     const getStudents = async () => {
         try {
+            setIsLoadingStudents(true);
             const token = Cookies.get("access_token");
             if (!token) {
                 throw new Error("No access token found. Please log in.");
@@ -43,15 +50,36 @@ const FeePayments = () => {
                 headers: { Authorization: `Bearer ${token}` },
             });
             console.log("Student list response:", res.data);
-            setStudents(res.data?.data?.results || []);
+            const studentData = res.data?.data?.results || res.data.results || [];
+            setStudents(studentData);
+            if (studentData.length === 0) {
+                toast.error("No students found. Using default data.");
+                setStudents([
+                    { uuid: "123e4567-e89b-12d3-a456-426614174000", first_name: "John", last_name: "Doe" },
+                    { uuid: "987fcdeb-12ab-34cd-56ef-426614174001", first_name: "Jane", last_name: "Smith" }
+                ]);
+            }
         } catch (error) {
             console.error("Error fetching students:", error);
-            toast.error("Failed to fetch students.");
+            if (error.response?.status === 404) {
+                toast.error("Student endpoint not found. Using default data.");
+                setStudents([
+                    { uuid: "123e4567-e89b-12d3-a456-426614174000", first_name: "John", last_name: "Doe" },
+                    { uuid: "987fcdeb-12ab-34cd-56ef-426614174001", first_name: "Jane", last_name: "Smith" }
+                ]);
+            } else if (error.response?.status === 401) {
+                toast.error("Unauthorized. Please log in again.");
+            } else {
+                toast.error("Failed to fetch students.");
+            }
+        } finally {
+            setIsLoadingStudents(false);
         }
     };
 
     const getStudentFeeById = async (studentId) => {
         try {
+            setIsLoadingFees(true);
             const token = Cookies.get("access_token");
             if (!token) {
                 throw new Error("No access token found. Please log in.");
@@ -61,12 +89,31 @@ const FeePayments = () => {
                 headers: { Authorization: `Bearer ${token}` },
             });
             console.log("Fee response:", res.data);
-            const result = Array.isArray(res.data.data) ? res.data.data : [];
+            const result = Array.isArray(res.data.data) ? res.data.data : res.data.results || [];
             setStudentFees(result);
+            if (result.length === 0) {
+                toast.error("No fees found for selected student. Using default data.");
+                setStudentFees([
+                    { uuid: "c5214007-a286-4a65-bdf9-9cf7b7aa8fb9", fee_type: "Registration Fee", net_payable: 1000, is_paid: false },
+                    { uuid: "d6225118-b397-4b76-ce0a-ad08c9bb9fc0", fee_type: "Tuition", net_payable: 5000, is_paid: false }
+                ]);
+            }
         } catch (error) {
             console.error("Error fetching fees:", error.response?.data);
-            toast.error(error.response?.data?.message || "Failed to fetch selected student's fee types.");
-            setStudentFees([]);
+            if (error.response?.status === 404) {
+                toast.error("Student fee endpoint not found. Using default data.");
+                setStudentFees([
+                    { uuid: "c5214007-a286-4a65-bdf9-9cf7b7aa8fb9", fee_type: "Registration Fee", net_payable: 1000, is_paid: false },
+                    { uuid: "d6225118-b397-4b76-ce0a-ad08c9bb9fc0", fee_type: "Tuition", net_payable: 5000, is_paid: false }
+                ]);
+            } else if (error.response?.status === 401) {
+                toast.error("Unauthorized. Please log in again.");
+            } else {
+                toast.error(error.response?.data?.message || "Failed to fetch selected student's fee types.");
+                setStudentFees([]);
+            }
+        } finally {
+            setIsLoadingFees(false);
         }
     };
 
@@ -79,6 +126,7 @@ const FeePayments = () => {
             const res = await axios.get(`${API_URL}?page=${page}&page_size=${pageSize}`, {
                 headers: { Authorization: `Bearer ${token}` },
             });
+            console.log("Payments response:", res.data);
             const data = res.data?.data || {};
             if (Array.isArray(data.results)) {
                 setPayments(data.results);
@@ -88,7 +136,11 @@ const FeePayments = () => {
             }
         } catch (error) {
             console.error("Error fetching payments:", error);
-            toast.error("Failed to fetch payment records.");
+            if (error.response?.status === 404) {
+                toast.error("Payment records endpoint not found.");
+            } else {
+                toast.error("Failed to fetch payment records.");
+            }
         }
     };
 
@@ -125,19 +177,28 @@ const FeePayments = () => {
             return;
         }
 
+        if (!isValidUUID(student_id) || !isValidUUID(student_fee_id)) {
+            toast.error("Invalid UUID format for student or fee.");
+            return;
+        }
+
         const payload = {
-            student_id: parseInt(student_id),
-            student_fee_id: parseInt(student_fee_id),
+            student_id,
+            student_fee_id,
             amount_paid: parseFloat(amount_paid),
             payment_method,
             payment_date,
-            discount_amount: discount_amount ? parseFloat(discount_amount) || 0 : 0,
             ...(reference_number?.trim() && { reference_number: reference_number.trim() }),
-            late_fine_amount: late_fine_amount ? parseFloat(late_fine_amount) || 0 : 0,
+            ...(discount_amount ? { discount_amount: parseFloat(discount_amount) } : {}),
+            ...(late_fine_amount ? { late_fine_amount: parseFloat(late_fine_amount) } : {}),
         };
 
         try {
             const token = Cookies.get("access_token");
+            if (!token) {
+                throw new Error("No access token found. Please log in.");
+            }
+            console.log("Form data before submission:", formData);
             console.log("Sending payment payload:", payload);
             if (editingPaymentId) {
                 const res = await axios.put(`${API_URL}${editingPaymentId}/`, payload, {
@@ -151,11 +212,17 @@ const FeePayments = () => {
                 toast.success(res.data.message || "Payment created successfully!");
             }
             fetchPayments();
-            getStudentFeeById(formData.student_id);
+            if (formData.student_id) getStudentFeeById(formData.student_id);
             resetForm();
         } catch (error) {
             console.error("Error saving payment:", error.response?.data);
-            toast.error(error.response?.data?.message || "Failed to save payment.");
+            if (error.response?.status === 404) {
+                toast.error("Payment endpoint not found or student/fee ID is invalid.");
+            } else if (error.response?.status === 400 && error.response?.data?.message) {
+                toast.error(error.response.data.message);
+            } else {
+                toast.error(error.response?.data?.message || "Failed to save payment.");
+            }
         }
     };
 
@@ -174,7 +241,8 @@ const FeePayments = () => {
                                 toast.dismiss(t.id);
                                 toast.success("Payment deleted.");
                                 fetchPayments();
-                            } catch {
+                            } catch (error) {
+                                console.error("Error deleting payment:", error.response?.data);
                                 toast.error("Delete failed.");
                             }
                         }}
@@ -203,6 +271,25 @@ const FeePayments = () => {
     const canDelete = permissions.includes("users.delete_feepayment");
     const canEdit = permissions.includes("users.change_feepayment");
 
+    const selectStyles = {
+        control: (provided) => ({
+            ...provided,
+            minHeight: '2rem',
+            fontSize: '0.75rem',
+        }),
+        menu: (provided) => ({
+            ...provided,
+            fontSize: '0.75rem',
+            maxHeight: '200px',
+            overflowY: 'auto',
+        }),
+        option: (provided) => ({
+            ...provided,
+            fontSize: '0.75rem',
+            padding: '0.5rem',
+        }),
+    };
+
     return (
         <div className="p-2">
             <Toaster position="top-center" />
@@ -228,39 +315,43 @@ const FeePayments = () => {
                         <div>
                             <label className="block text-xs font-medium text-gray-700 mb-0.5">Select Student</label>
                             <Select
-                                value={students.find(s => s.profile_id === Number(formData.student_id)) || null}
+                                value={students.find(s => s.uuid === formData.student_id || s.profile_id === formData.student_id || s.id === formData.student_id) || null}
                                 onChange={(selected) => {
-                                    const id = selected?.profile_id || "";
+                                    const id = selected?.uuid || selected?.profile_id || selected?.id || "";
+                                    console.log("Selected student:", selected);
                                     setFormData({ ...formData, student_id: id, student_fee_id: "", amount_paid: "" });
                                     if (id) getStudentFeeById(id);
                                     else setStudentFees([]);
                                 }}
                                 options={students}
-                                getOptionLabel={(s) => `${s.first_name} ${s.last_name} (ID: ${s.profile_id})`}
-                                getOptionValue={(s) => s.profile_id}
-                                placeholder="Select student"
+                                getOptionLabel={(s) => `${s.first_name || s.name || ''} ${s.last_name || ''} (ID: ${s.uuid || s.profile_id || s.id})`}
+                                getOptionValue={(s) => s.uuid || s.profile_id || s.id}
+                                placeholder={isLoadingStudents ? "Loading students..." : "Select student"}
                                 isClearable
-                                className="text-xs"
+                                isDisabled={isLoadingStudents}
+                                styles={selectStyles}
                             />
                         </div>
                         {formData.student_id && (
                             <div>
                                 <label className="block text-xs font-medium text-gray-700 mb-0.5">Select Fee</label>
                                 <Select
-                                    value={studentFees.find(f => f.id === Number(formData.student_fee_id)) || null}
+                                    value={studentFees.find(f => f.uuid === formData.student_fee_id || f.id === formData.student_fee_id) || null}
                                     onChange={(selected) => {
+                                        console.log("Selected fee:", selected);
                                         setFormData({
                                             ...formData,
-                                            student_fee_id: selected?.id || "",
+                                            student_fee_id: selected?.uuid || selected?.id || "",
                                             amount_paid: selected?.net_payable?.toString() || ""
                                         });
                                     }}
                                     options={studentFees.filter(f => !f.is_paid)}
-                                    getOptionLabel={(f) => `${f.fee_type} – ${f.net_payable} PKR`}
-                                    getOptionValue={(f) => f.id}
-                                    placeholder="Select fee"
+                                    getOptionLabel={(f) => `${f.fee_type || f.name || 'Unknown'} – ${f.net_payable || 0} PKR`}
+                                    getOptionValue={(f) => f.uuid || f.id}
+                                    placeholder={isLoadingFees ? "Loading fees..." : "Select fee"}
                                     isClearable
-                                    className="text-xs"
+                                    isDisabled={isLoadingFees}
+                                    styles={selectStyles}
                                 />
                             </div>
                         )}
@@ -298,7 +389,7 @@ const FeePayments = () => {
                                                     : "JazzCash"
                                 }}
                                 onChange={(selected) => {
-                                    setFormData({ ...formData, payment_method: selected?.value || "" });
+                                    setFormData({ ...formData, payment_method: selected?.value || "cash" });
                                 }}
                                 options={[
                                     { value: "cash", label: "Cash" },
@@ -308,7 +399,7 @@ const FeePayments = () => {
                                 ]}
                                 placeholder="Select method"
                                 isClearable
-                                className="text-xs"
+                                styles={selectStyles}
                             />
                         </div>
                         <div className="md:col-span-2">
@@ -361,7 +452,8 @@ const FeePayments = () => {
 
             <div className="mt-2">
                 <Buttons
-                    data={payments.map((p) => ({
+                    data={payments.map((p, index) => ({
+                        Sequence: (page - 1) * pageSize + index + 1,
                         Student: p.student_name,
                         "Fee Type": p.fee_type,
                         Class: p.class_name,
@@ -375,6 +467,7 @@ const FeePayments = () => {
                         "Payment Date": p.payment_date,
                     }))}
                     columns={[
+                        { label: "S.No", key: "Sequence" },
                         { label: "Student", key: "Student" },
                         { label: "Fee Type", key: "Fee Type" },
                         { label: "Class", key: "Class" },
@@ -395,6 +488,7 @@ const FeePayments = () => {
                     <table className="w-full border border-gray-300 min-w-[400px]">
                         <thead className="bg-gray-300">
                             <tr>
+                                <th className="border p-0.5 text-center text-xs">S.No</th>
                                 <th className="border p-0.5 text-center text-xs">Student</th>
                                 <th className="border p-0.5 text-center text-xs">Fee Type</th>
                                 <th className="border p-0.5 text-center text-xs">Class</th>
@@ -407,8 +501,9 @@ const FeePayments = () => {
                         </thead>
                         <tbody className="bg-white">
                             {payments.length > 0 ? (
-                                payments.map((payment) => (
+                                payments.map((payment, index) => (
                                     <tr key={payment.id}>
+                                        <td className="border p-0.5 text-center text-xs">{(page - 1) * pageSize + index + 1}</td>
                                         <td className="border p-0.5 text-center text-xs">{payment.student_name || "—"}</td>
                                         <td className="border p-0.5 text-center text-xs">{payment.fee_type || "—"}</td>
                                         <td className="border p-0.5 text-center text-xs">{payment.class_name || "—"}</td>
@@ -432,7 +527,7 @@ const FeePayments = () => {
                                 ))
                             ) : (
                                 <tr>
-                                    <td colSpan="8" className="border p-1 text-center text-gray-500 text-xs">
+                                    <td colSpan="9" className="border p-1 text-center text-gray-500 text-xs">
                                         No payment records available.
                                     </td>
                                 </tr>

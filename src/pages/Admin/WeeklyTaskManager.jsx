@@ -23,11 +23,10 @@ const WeeklyTaskManager = () => {
     start_date: "",
     due_date: "",
     file: null,
-    teacher: "",
+    teacher: "", // Stores teacher UUID
   });
 
   const API = import.meta.env.VITE_SERVER_URL;
-
   const API_URL = `${API}faculty-tasks/`;
   const TEACHER_API_URL = `${API}api/auth/users/list_profiles/teacher/`;
 
@@ -50,6 +49,36 @@ const WeeklyTaskManager = () => {
     }
   };
 
+  const fetchTeachers = async () => {
+    try {
+      const token = Cookies.get("access_token");
+      if (!token) {
+        toast.error("User is not authenticated.");
+        return;
+      }
+
+      const response = await axios.get(TEACHER_API_URL, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          Accept: 'application/json'
+        },
+      });
+
+      const teacherList = response.data?.data?.results || [];
+      if (!Array.isArray(teacherList)) {
+        throw new Error("Invalid response format for teachers");
+      }
+
+      console.log("Teacher API response:", teacherList); // Debug teacher data
+      setTeachers(teacherList);
+    } catch (error) {
+      console.error("Failed to fetch teachers:", error.response || error.message);
+      toast.error(
+        error.response?.data?.message || "Failed to load teachers. Please try again."
+      );
+    }
+  };
+
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     setNewTask((prev) => ({ ...prev, [name]: value }));
@@ -60,7 +89,7 @@ const WeeklyTaskManager = () => {
   };
 
   const handleSaveTask = async () => {
-    if (!newTask.title || !newTask.description || !newTask.start_date || !newTask.due_date) {
+    if (!newTask.title || !newTask.description || !newTask.start_date || !newTask.due_date || !newTask.teacher) {
       toast.error("All fields are required!");
       return;
     }
@@ -80,12 +109,13 @@ const WeeklyTaskManager = () => {
         return `${yyyy}-${mm}-${dd}`;
       };
 
-      const selectedTeacher = teachers.find(t => t.user_id === parseInt(newTask.teacher));
-      if (!selectedTeacher?.profile_id) {
+      const selectedTeacher = teachers.find(t => t.uuid === newTask.teacher);
+      if (!selectedTeacher?.uuid) {
         toast.error("Please select a valid teacher.");
         return;
       }
-      const teacherProfileId = parseInt(selectedTeacher.profile_id);
+      const teacherUUID = selectedTeacher.uuid;
+      console.log("Saving task with teacher UUID:", teacherUUID); // Debug selected teacher
 
       let response;
 
@@ -95,7 +125,7 @@ const WeeklyTaskManager = () => {
         formData.append("description", newTask.description);
         formData.append("start_date", formatDate(newTask.start_date));
         formData.append("due_date", formatDate(newTask.due_date));
-        formData.append("teachers", teacherProfileId);
+        formData.append("teachers", teacherUUID); // Send single UUID for FormData
         formData.append("file", newTask.file);
 
         response = await axios({
@@ -113,7 +143,7 @@ const WeeklyTaskManager = () => {
           description: newTask.description,
           start_date: formatDate(newTask.start_date),
           due_date: formatDate(newTask.due_date),
-          teachers: [teacherProfileId],
+          teachers: [teacherUUID], // Send UUID in array for JSON
         };
 
         response = await axios({
@@ -211,7 +241,7 @@ const WeeklyTaskManager = () => {
       start_date: task.start_date?.split("T")[0] || "",
       due_date: task.due_date?.split("T")[0] || "",
       file: null,
-      teacher: task.teachers?.[0] || "",
+      teacher: task.teachers?.[0] || "", // Expecting UUID
     });
 
     setEditingTask({ id: task.id, ...task });
@@ -221,7 +251,7 @@ const WeeklyTaskManager = () => {
   const getTeacherNames = (teacherIds) => {
     if (!teacherIds?.length) return "N/A";
     return teacherIds
-      .map(id => teachers.find(teacher => teacher.profile_id === id)?.username || "Unknown")
+      .map(id => teachers.find(teacher => teacher.uuid === id)?.username || "Unknown")
       .join(", ");
   };
 
@@ -240,35 +270,6 @@ const WeeklyTaskManager = () => {
       file: null,
       teacher: "",
     });
-  };
-
-  const fetchTeachers = async () => {
-    try {
-      const token = Cookies.get("access_token");
-      if (!token) {
-        toast.error("User is not authenticated.");
-        return;
-      }
-
-      const response = await axios.get(TEACHER_API_URL, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-          Accept: 'application/json'
-        },
-      });
-
-      const teacherList = response.data?.data?.results || [];
-      if (!Array.isArray(teacherList)) {
-        throw new Error("Invalid response format for teachers");
-      }
-
-      setTeachers(teacherList);
-    } catch (error) {
-      console.error("Failed to fetch teachers:", error.response || error.message);
-      toast.error(
-        error.response?.data?.message || "Failed to load teachers. Please try again."
-      );
-    }
   };
 
   useEffect(() => {
@@ -337,13 +338,17 @@ const WeeklyTaskManager = () => {
               </label>
               <Select
                 name="teacher"
-                value={teachers.find(t => t.user_id == newTask.teacher) || null}
-                onChange={(selected) =>
-                  setNewTask({ ...newTask, teacher: selected?.user_id || "" })
-                }
+                value={teachers.find(t => t.uuid === newTask.teacher) || null}
+                onChange={(selected) => {
+                  console.log("Selected teacher:", selected); // Debug selection
+                  setNewTask((prev) => {
+                    console.log("Updated newTask:", { ...prev, teacher: selected?.uuid || "" }); // Debug state update
+                    return { ...prev, teacher: selected?.uuid || "" };
+                  });
+                }}
                 options={teachers}
-                getOptionLabel={(t) => t.username}
-                getOptionValue={(t) => t.user_id}
+                getOptionLabel={(t) => t.username || "Unknown"}
+                getOptionValue={(t) => t.uuid}
                 placeholder="Select teacher"
                 isClearable
                 className="react-select-container text-xs"
@@ -474,7 +479,7 @@ const WeeklyTaskManager = () => {
                       {canEdit && (
                         <MdEdit
                           onClick={() => handleEditTask(task)}
-                          className="text-yellow-500 cursor-pointer hover:text-yellow-700"
+                        className="text-yellow-500 cursor-pointer hover:text-yellow-700"
                           size={18}
                         />
                       )}

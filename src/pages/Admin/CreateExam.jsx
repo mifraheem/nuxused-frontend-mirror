@@ -54,28 +54,56 @@ const CreateExam = () => {
   }, []);
 
   const getClasses = async () => {
-    const res = await apiRequest('/classes');
-    setClasses(res.data.results || res.data);
+    try {
+      const res = await apiRequest('/classes');
+      const data = res.data?.results || res.data?.data?.results || res.data || [];
+      console.log('Classes data:', data);
+      setClasses(Array.isArray(data) ? data : []);
+    } catch (error) {
+      console.error('Error fetching classes:', error);
+      toast.error('Failed to fetch classes');
+    }
   };
 
   const getSubjects = async () => {
-    const res = await apiRequest('/subjects');
-    setSubjectsOptions(res.data.results || res.data);
+    try {
+      const res = await apiRequest('/subjects');
+      const data = res.data?.results || res.data?.data?.results || res.data || [];
+      console.log('Subjects data:', data);
+      setSubjectsOptions(Array.isArray(data) ? data : []);
+    } catch (error) {
+      console.error('Error fetching subjects:', error);
+      toast.error('Failed to fetch subjects');
+    }
   };
 
   const getRooms = async () => {
-    const res = await apiRequest('/rooms');
-    setRooms(res.data.results || res.data);
+    try {
+      const res = await apiRequest('/rooms');
+      const data = res.data?.results || res.data?.data?.results || res.data || [];
+      console.log('Rooms data:', data);
+      setRooms(Array.isArray(data) ? data : []);
+    } catch (error) {
+      console.error('Error fetching rooms:', error);
+      toast.error('Failed to fetch rooms');
+    }
   };
 
   const getInvigilators = async () => {
-    const res = await apiRequest('/api/auth/users/list_profiles/teacher/');
-    setInvigilators(res.data.results || res.data);
+    try {
+      const res = await apiRequest('/api/auth/users/list_profiles/teacher/');
+      const data = res.data?.results || res.data?.data?.results || res.data || [];
+      console.log('Invigilators data:', data);
+      setInvigilators(Array.isArray(data) ? data : []);
+    } catch (error) {
+      console.error('Error fetching invigilators:', error);
+      toast.error('Failed to fetch invigilators');
+    }
   };
 
   const getExams = async (currentPage = page, currentSize = pageSize) => {
     try {
-      const res = await apiRequest(`/exams`);
+      const res = await apiRequest(`/exams?page=${currentPage}&page_size=${currentSize}`);
       const data = res.data || res;
 
       if (Array.isArray(data)) {
@@ -98,7 +126,7 @@ const CreateExam = () => {
     const updatedSubjects = [...form.subjects];
 
     if (['subject_id', 'room_id', 'invigilator_id'].includes(field)) {
-      updatedSubjects[index][field] = value === '' || value === null ? null : Number(value);
+      updatedSubjects[index][field] = value === '' || value === null ? null : value;
     } else {
       updatedSubjects[index][field] = value;
     }
@@ -129,16 +157,16 @@ const CreateExam = () => {
   const handleSubmit = async () => {
     const payload = {
       ...form,
-      class_id: Number(form.class_id),
+      class_id: form.class_id,
       exam_type: form.exam_type,
       title: form.title,
       subjects: form.subjects.map(s => ({
-        subject_id: Number(s.subject_id),
+        subject_id: s.subject_id,
         exam_date: s.exam_date,
         start_time: s.start_time,
         end_time: s.end_time,
-        room_id: Number(s.room_id),
-        invigilator_id: s.invigilator_id ? Number(s.invigilator_id) : null
+        room_id: s.room_id,
+        invigilator_id: s.invigilator_id || null
       }))
     };
 
@@ -236,11 +264,17 @@ const CreateExam = () => {
     getExams();
   }, [page, pageSize]);
 
+  // Calculate sequence number based on pagination
+  const getSequenceNumber = (index) => {
+    return (page - 1) * pageSize + index + 1;
+  };
+
   // Get permissions from localStorage
   const permissions = JSON.parse(localStorage.getItem("user_permissions") || "[]");
   const canAdd = permissions.includes("users.add_exam");
   const canEdit = permissions.includes("users.change_exam");
   const canDelete = permissions.includes("users.delete_exam");
+  const canView = permissions.includes("users.view_exam");
 
   return (
     <div>
@@ -288,15 +322,12 @@ const CreateExam = () => {
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
               />
             </div>
+            
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Exam Type</label>
               <Select
                 name="exam_type"
-                value={
-                  form.exam_type
-                    ? { value: form.exam_type, label: form.exam_type }
-                    : null
-                }
+                value={form.exam_type ? { value: form.exam_type, label: form.exam_type } : null}
                 onChange={(selected) => setForm({ ...form, exam_type: selected?.value || "" })}
                 options={[
                   { value: "Term", label: "Term" },
@@ -304,9 +335,9 @@ const CreateExam = () => {
                 ]}
                 placeholder="Select Exam Type"
                 isClearable
+                isSearchable={false}
               />
             </div>
-
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Title</label>
@@ -332,13 +363,17 @@ const CreateExam = () => {
               <label className="block text-sm font-medium text-gray-700 mb-1">Class</label>
               <Select
                 name="class_id"
-                value={classes.find(c => c.id === Number(form.class_id)) || null}
-                onChange={(selected) => setForm({ ...form, class_id: selected?.id || "" })}
+                value={classes.find(c => c.id === form.class_id) || null}
+                onChange={(selected) => {
+                  console.log('Selected class:', selected);
+                  setForm({ ...form, class_id: selected?.id || "" });
+                }}
                 options={classes}
-                getOptionLabel={(cls) => `${cls.class_name}-${cls.section} (${cls.session})`}
+                getOptionLabel={(cls) => `${cls.class_name || 'N/A'}-${cls.section || 'N/A'} (${cls.session || 'N/A'})`}
                 getOptionValue={(cls) => cls.id}
                 placeholder="Select Class"
                 isClearable
+                isSearchable
               />
             </div>
 
@@ -372,13 +407,17 @@ const CreateExam = () => {
                 <Select
                   name="subject"
                   className="w-full"
-                  value={subjectsOptions.find(s => s.id === Number(sub.subject_id)) || null}
-                  onChange={(selected) => handleSubjectChange(idx, "subject_id", selected?.id || "")}
+                  value={subjectsOptions.find(s => s.id === sub.subject_id) || null}
+                  onChange={(selected) => {
+                    console.log('Selected subject:', selected);
+                    handleSubjectChange(idx, "subject_id", selected?.id || "");
+                  }}
                   options={subjectsOptions}
-                  getOptionLabel={(s) => s.subject_name}
+                  getOptionLabel={(s) => s.subject_name || 'N/A'}
                   getOptionValue={(s) => s.id}
                   placeholder="Select Subject"
                   isClearable
+                  isSearchable
                 />
               </div>
 
@@ -417,13 +456,17 @@ const CreateExam = () => {
                 <Select
                   name="room"
                   className="w-full"
-                  value={rooms.find(r => r.id === Number(sub.room_id)) || null}
-                  onChange={(selected) => handleSubjectChange(idx, "room_id", selected?.id || "")}
+                  value={rooms.find(r => r.id === sub.room_id) || null}
+                  onChange={(selected) => {
+                    console.log('Selected room:', selected);
+                    handleSubjectChange(idx, "room_id", selected?.id || "");
+                  }}
                   options={rooms}
-                  getOptionLabel={(r) => r.room_name}
+                  getOptionLabel={(r) => r.room_name || 'N/A'}
                   getOptionValue={(r) => r.id}
                   placeholder="Room"
                   isClearable
+                  isSearchable
                 />
               </div>
 
@@ -432,17 +475,33 @@ const CreateExam = () => {
                 <Select
                   name="invigilator"
                   className="w-full"
-                  value={invigilators.find(t => t.profile_id === Number(sub.invigilator_id)) || null}
-                  onChange={(selected) =>
-                    handleSubjectChange(idx, "invigilator_id", selected?.profile_id || null)
-                  }
+                  value={invigilators.find(t => (t.profile_id || t.id) === sub.invigilator_id) || null}
+                  onChange={(selected) => {
+                    console.log('Selected invigilator:', selected);
+                    handleSubjectChange(idx, "invigilator_id", selected ? (selected.profile_id || selected.id) : null);
+                  }}
                   options={invigilators}
-                  getOptionLabel={(t) => `${t.first_name || ""} ${t.last_name || ""}`.trim()}
-                  getOptionValue={(t) => t.profile_id}
+                  getOptionLabel={(t) => `${t.first_name || t.username || ""} ${t.last_name || ""}`.trim() || t.email || 'N/A'}
+                  getOptionValue={(t) => t.profile_id || t.id}
                   placeholder="Invigilator"
                   isClearable
+                  isSearchable
                 />
               </div>
+
+              {form.subjects.length > 1 && (
+                <div className="flex items-end">
+                  <button
+                    onClick={() => {
+                      const updatedSubjects = form.subjects.filter((_, i) => i !== idx);
+                      setForm({ ...form, subjects: updatedSubjects });
+                    }}
+                    className="bg-red-500 hover:bg-red-600 text-white px-3 py-2 rounded-md text-sm"
+                  >
+                    Remove
+                  </button>
+                </div>
+              )}
             </div>
           ))}
 
@@ -472,33 +531,37 @@ const CreateExam = () => {
         <table className="w-full border-collapse border border-gray-300 bg-white">
           <thead className="bg-gray-200">
             <tr>
-              <th className="border p-2">#ID</th>
+              <th className="border p-2">Sr. No.</th>
               <th className="border p-2">Term</th>
               <th className="border p-2">Session</th>
               <th className="border p-2">Class Name</th>
               <th className="border p-2">Start</th>
               <th className="border p-2">End</th>
-              {(canEdit || canDelete) && (
+              {(canEdit || canDelete || canView) && (
                 <th className="border p-2">Action</th>
               )}
             </tr>
           </thead>
           <tbody>
-            {exams.map(exam => (
+            {exams.map((exam, index) => (
               <tr key={exam.id}>
-                <td className="border p-2 text-center">{exam.id}</td>
+                <td className="border p-2 text-center font-medium">
+                  {getSequenceNumber(index)}
+                </td>
                 <td className="border p-2">{exam.term_name}</td>
                 <td className="border p-2">{exam.session}</td>
                 <td className="border p-2 text-center">{exam.class_name}-({exam.section})</td>
                 <td className="border p-2 text-center">{exam.start_date}</td>
                 <td className="border p-2 text-center">{exam.end_date}</td>
-                {(canEdit || canDelete) && (
+                {(canEdit || canDelete || canView) && (
                   <td className="border p-2 text-center">
                     <div className="flex justify-center items-center gap-2">
+                      {canView && (
                       <MdVisibility
                         className="text-blue-500 text-xl cursor-pointer hover:text-blue-700"
                         onClick={() => setViewExam(exam)}
                       />
+                      )}
                       {canEdit && (
                         <MdEdit
                           onClick={() => {
@@ -545,14 +608,14 @@ const CreateExam = () => {
           pageSize={pageSize}
           onPageChange={(newPage) => {
             setPage(newPage);
-            fetchData(newPage, pageSize);
+            getExams(newPage, pageSize);
           }}
           onPageSizeChange={(size) => {
             setPageSize(size);
             setPage(1);
-            fetchData(1, size);
+            getExams(1, size);
           }}
-          totalItems={CreateExam.length}
+          totalItems={exams.length}
           showPageSizeSelector={true}
           showPageInfo={true}
         />

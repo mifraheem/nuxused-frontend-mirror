@@ -330,9 +330,12 @@ const Rooms = () => {
                 </tr>
               </thead>
               <tbody>
-                {rooms.map((room) => (
+                {rooms.map((room, index) => (
                   <tr key={room.id}>
-                    <td className="border border-gray-300 p-2 text-center">{room.id}</td>
+                    {/* Sequence Number */}
+                    <td className="border border-gray-300 p-2 text-center">
+                      {(currentPage - 1) * pageSize + index + 1}
+                    </td>
                     <td className="border border-gray-300 p-2">{room.room_name}</td>
                     <td className="border border-gray-300 p-2 text-center">{room.room_type}</td>
                     {(canEdit || canDelete) && (

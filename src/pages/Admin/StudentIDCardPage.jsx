@@ -14,15 +14,15 @@ const StudentIDCardPage = () => {
   const [schoolName, setSchoolName] = useState("");
   const [schoolLogoUrl, setSchoolLogoUrl] = useState("");
   const [schoolLogoDataUrl, setSchoolLogoDataUrl] = useState("");
-  const [schoolPhone, setSchoolPhone] = useState(""); // NEW: school number for back footer
+  const [schoolPhone, setSchoolPhone] = useState("");
   const [loadingClasses, setLoadingClasses] = useState(true);
   const [loadingStudents, setLoadingStudents] = useState(false);
   const [error, setError] = useState("");
 
   // ======== True-size / layout constants ========
-  const CARD_W_MM = 85.6;     // CR80
+  const CARD_W_MM = 85.6; // CR80
   const CARD_H_MM = 54.0;
-  const HEADER_H_MM = 12.0;   // vector header overlay height
+  const HEADER_H_MM = 12.0;
 
   const PAGE_W_MM = 297; // A4 landscape
   const PAGE_H_MM = 210;
@@ -30,7 +30,6 @@ const StudentIDCardPage = () => {
   const PAGE_MARGIN_MM = 10;
   const CARD_GAP_MM = 5;
 
-  // Duplex / crop
   const BLEED_MM = 0;
   const CROP_MARK_LEN_MM = 3.5;
   const CROP_MARK_STROKE_MM = 0.2;
@@ -42,13 +41,10 @@ const StudentIDCardPage = () => {
   const RENDER_H_MM = CARD_H_MM + BLEED_MM * 2;
 
   // ========= Auth / data loading =========
-  const getAuthToken = () => {
-    return (
-      document.cookie.split("; ").find((row) => row.startsWith("access_token="))?.split("=")[1] ||
-      localStorage.getItem("access_token") ||
-      sessionStorage.getItem("access_token")
-    );
-  };
+  const getAuthToken = () =>
+    document.cookie.split("; ").find((row) => row.startsWith("access_token="))?.split("=")[1] ||
+    localStorage.getItem("access_token") ||
+    sessionStorage.getItem("access_token");
 
   const fetchClasses = async () => {
     setLoadingClasses(true);
@@ -83,13 +79,8 @@ const StudentIDCardPage = () => {
         const logo = c0.school_logo || c0.logo || c0.school_logo_url || c0.logo_url || "";
         if (logo) setSchoolLogoUrl(logo.startsWith("http") ? logo : `${API}${logo}`);
 
-        // Try to pull a school phone from common keys; fallback if missing
         setSchoolPhone(
-          c0.school_phone ||
-            c0.phone ||
-            c0.contact_number ||
-            c0.contact ||
-            "+92-XXX-XXXXXXX"
+          c0.school_phone || c0.phone || c0.contact_number || c0.contact || "+92-XXX-XXXXXXX"
         );
       }
     } catch (error) {
@@ -119,9 +110,10 @@ const StudentIDCardPage = () => {
 
       const data = await response.json();
       const allStudents = data.data?.results || [];
-      const selectedClassObj = classes.find((c) => c.id === classId);
+      const selectedClassObj = classes.find((c) => String(c.id) === String(classId));
       if (!selectedClassObj) throw new Error("Selected class not found");
 
+      // Current logic: match by class_name text (kept as-is)
       const filteredStudents = allStudents.filter((student) =>
         student.class_name?.includes(selectedClassObj?.class_name)
       );
@@ -168,23 +160,20 @@ const StudentIDCardPage = () => {
     )}`;
   };
 
-  // Make text/images sharper in capture
-  const captureElement = async (el) => {
-    return await html2canvas(el, {
+  const captureElement = async (el) =>
+    await html2canvas(el, {
       scale: 4,
       useCORS: true,
       backgroundColor: "#ffffff",
       logging: false,
       imageTimeout: 0,
     });
-  };
 
   const addCanvasToPdfAt = (pdf, canvas, xMM, yMM, wMM, hMM) => {
     const imgData = canvas.toDataURL("image/png");
     pdf.addImage(imgData, "PNG", xMM, yMM, wMM, hMM, undefined, "FAST");
   };
 
-  // Load logo as DataURL once so jsPDF can embed it sharply
   useEffect(() => {
     const loadLogo = async () => {
       if (!schoolLogoUrl) {
@@ -204,14 +193,11 @@ const StudentIDCardPage = () => {
     loadLogo();
   }, [schoolLogoUrl]);
 
-  // IMPROVED: Draw crisp vector header with better scaling
   const overlayVectorHeader = (pdf, x, y, w) => {
     const h = HEADER_H_MM;
-    // dark blue bar
     pdf.setFillColor(30, 58, 138);
     pdf.rect(x, y, w, h, "F");
 
-    // logo badge on left
     const pad = 2.2;
     const circleR = h * 0.35;
     const cx = x + pad + circleR;
@@ -230,29 +216,22 @@ const StudentIDCardPage = () => {
       pdf.text("S", cx, cy + 0.8, { align: "center" });
     }
 
-    // FIXED: Better school name scaling based on card width
     pdf.setTextColor(255, 255, 255);
     pdf.setFont("helvetica", "bold");
-    
-    // Calculate font size based on card width for better scaling
+
     const schoolNameText = schoolName || "SCHOOL NAME";
-    let fontSize = Math.min(h * 0.46, w * 0.08); // Scale with both height and width
-    
-    // Adjust font size based on text length for better fit
+    let fontSize = Math.min(h * 0.46, w * 0.08);
     if (schoolNameText.length > 20) {
       fontSize *= 0.8;
     } else if (schoolNameText.length > 15) {
       fontSize *= 0.9;
     }
-    
+
     pdf.setFontSize(fontSize);
     pdf.text(schoolNameText, x + w / 2, y + h / 2 + 1, { align: "center" });
   };
 
-  // ========= Card DOM builders (true-size DOM) =========
-  const headerHTML = () => {
-    // (kept for on-screen preview; the printed PDF will overlay vector header)
-    return `
+  const headerHTML = () => `
       <div style="
         background:linear-gradient(90deg,#1e3a8a,#1e40af);
         color:#fff; display:flex; align-items:center; justify-content:space-between;
@@ -263,11 +242,8 @@ const StudentIDCardPage = () => {
         </div>
       </div>
     `;
-  };
 
-  // NEW: back footer (school phone + lost note)
-  const backFooterHTML = () => {
-    return `
+  const backFooterHTML = () => `
       <div style="
         border-top:0.3mm solid #e5e7eb;
         padding:1.6mm 3mm 2mm 3mm;
@@ -284,7 +260,6 @@ const StudentIDCardPage = () => {
         </div>
       </div>
     `;
-  };
 
   const buildPrintCardNode = (student, side) => {
     const container = document.createElement("div");
@@ -327,7 +302,6 @@ const StudentIDCardPage = () => {
         </div>
       `;
     } else {
-      // Smaller text on back side as requested
       container.innerHTML = `
         ${header}
         <div style="padding:3mm; display:flex; gap:3mm; flex:1; box-sizing:border-box;">
@@ -393,12 +367,9 @@ const StudentIDCardPage = () => {
     pdf.line(x + w, y + h, x + w, y + h + CROP_MARK_LEN_MM);
   };
 
-  // IMPROVED: Helper function to simulate async delay for progress
-  const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+  const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
   // ========= Generators =========
-
-  // Bulk TRUE-SIZE (fronts then backs)
   const generatePDF = async () => {
     if (students.length === 0) {
       alert("No cards to generate!");
@@ -438,7 +409,6 @@ const StudentIDCardPage = () => {
             const y = PAGE_MARGIN_MM + r * (CARD_H_MM + CARD_GAP_MM);
             addCanvasToPdfAt(pdf, canvas, x, y, CARD_W_MM, CARD_H_MM);
 
-            // overlay sharp header
             overlayVectorHeader(pdf, x, y, CARD_W_MM);
 
             i++;
@@ -462,7 +432,6 @@ const StudentIDCardPage = () => {
             const y = PAGE_MARGIN_MM + r * (CARD_H_MM + CARD_GAP_MM);
             addCanvasToPdfAt(pdf, canvas, x, y, CARD_W_MM, CARD_H_MM);
 
-            // overlay sharp header
             overlayVectorHeader(pdf, x, y, CARD_W_MM);
 
             i++;
@@ -487,7 +456,6 @@ const StudentIDCardPage = () => {
     }
   };
 
-  // Duplex imposition (front & back on same sheets), optional crop marks
   const generatePDFDuplex = async ({ includeCropMarks = true } = {}) => {
     if (students.length === 0) {
       alert("No cards to generate!");
@@ -587,11 +555,10 @@ const StudentIDCardPage = () => {
     }
   };
 
-  // IMPROVED: Single card with slower, more visible progress
   const printSingleCard = async (student) => {
     setLoadingPDF(true);
     setProgress(0);
-    
+
     try {
       const host = document.createElement("div");
       host.style.position = "fixed";
@@ -600,51 +567,43 @@ const StudentIDCardPage = () => {
       host.id = "single-print-host";
       document.body.appendChild(host);
 
-      // Step 1: Initialize
       setProgress(5);
       await delay(200);
 
-      // Step 2: Create front side
       setProgress(15);
       const frontNode = buildPrintCardNode(student, "front");
       host.appendChild(frontNode);
-      
+
       setProgress(25);
       await delay(300);
-      
-      // Step 3: Capture front canvas
+
       setProgress(35);
       const frontCanvas = await captureElement(frontNode);
-      
+
       setProgress(45);
       await delay(200);
 
-      // Step 4: Create back side  
       setProgress(55);
       const backNode = buildPrintCardNode(student, "back");
       host.appendChild(backNode);
-      
+
       setProgress(65);
       await delay(300);
-      
-      // Step 5: Capture back canvas
+
       setProgress(75);
       const backCanvas = await captureElement(backNode);
-      
+
       setProgress(85);
       await delay(200);
 
-      // Step 6: Create PDF
       const pdf = new jsPDF({ unit: "mm", format: [CARD_W_MM, CARD_H_MM], orientation: "landscape" });
 
-      // Front
       addCanvasToPdfAt(pdf, frontCanvas, 0, 0, CARD_W_MM, CARD_H_MM);
       overlayVectorHeader(pdf, 0, 0, CARD_W_MM);
 
       setProgress(90);
       await delay(200);
 
-      // Back
       pdf.addPage([CARD_W_MM, CARD_H_MM], "landscape");
       addCanvasToPdfAt(pdf, backCanvas, 0, 0, CARD_W_MM, CARD_H_MM);
       overlayVectorHeader(pdf, 0, 0, CARD_W_MM);
@@ -652,13 +611,11 @@ const StudentIDCardPage = () => {
       setProgress(95);
       await delay(200);
 
-      // Step 7: Save PDF
       pdf.save(`IDCard_${student.first_name || "Student"}_${student.profile_id}_true-size.pdf`);
       setProgress(100);
       await delay(300);
-      
     } catch (error) {
-      console.error("Error printing card:", error);
+      console.error("Error generating card:", error);
       alert("Error generating card. Please try again.");
     } finally {
       const host = document.getElementById("single-print-host");
@@ -670,10 +627,11 @@ const StudentIDCardPage = () => {
     }
   };
 
-  // ========= Misc =========
   const getStudentImageUrl = (student) => {
     if (student.profile_picture) {
-      return student.profile_picture.startsWith("http") ? student.profile_picture : `${API}${student.profile_picture}`;
+      return student.profile_picture.startsWith("http")
+        ? student.profile_picture
+        : `${API}${student.profile_picture}`;
     }
     return null;
   };
@@ -682,24 +640,25 @@ const StudentIDCardPage = () => {
     fetchClasses();
   }, []);
 
-  // Handlers for compact buttons
   const handleFrontBack = () => generatePDF();
   const handleDuplexMarks = () => generatePDFDuplex({ includeCropMarks: true });
 
-  // ========= UI =========
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-cyan-50 p-2 sm:p-4 lg:p-6">
-      {/* IMPROVED: Global loader with better progress text */}
       {loadingPDF && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white p-6 rounded-lg shadow-xl flex flex-col items-center max-w-sm w-full">
             <div className="animate-spin rounded-full h-12 w-12 border-t-4 border-blue-500 mb-4"></div>
             <p className="mt-2 text-gray-700 font-semibold text-lg">
-              {progress < 20 ? "Initializing..." :
-               progress < 40 ? "Creating Cards..." :
-               progress < 70 ? "Processing Images..." :
-               progress < 90 ? "Generating PDF..." :
-               "Finalizing Download..."}
+              {progress < 20
+                ? "Initializing..."
+                : progress < 40
+                ? "Creating Cards..."
+                : progress < 70
+                ? "Processing Images..."
+                : progress < 90
+                ? "Generating PDF..."
+                : "Finalizing Download..."}
             </p>
             <div className="w-full bg-gray-200 rounded-full h-3 mt-4">
               <div
@@ -715,13 +674,12 @@ const StudentIDCardPage = () => {
         </div>
       )}
 
-      {/* Preview modal */}
       {selectedStudentCard && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-lg shadow-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto">
             <div className="p-4 sm:p-6">
               <div className="flex flex-col lg:flex-row gap-6 items-center justify-center">
-                {/* Front Side */}
+                {/* Front */}
                 <div className="w-full max-w-[400px]">
                   <h3 className="text-base font-bold mb-2 text-center text-blue-900">Front</h3>
                   <div className="w-full aspect-[5/3] bg-white rounded-lg overflow-hidden shadow border-2 border-blue-900">
@@ -760,17 +718,29 @@ const StudentIDCardPage = () => {
                       </div>
                       <div className="flex-1 text-sm space-y-1.5">
                         <h2 className="text-base font-extrabold text-blue-900">STUDENT ID CARD</h2>
-                        <p><strong>Name:</strong> {selectedStudentCard.first_name} {selectedStudentCard.last_name}</p>
-                        <p><strong>ID:</strong> {selectedStudentCard.profile_id}</p>
-                        <p><strong>Class:</strong> {selectedStudentCard.class_name}</p>
-                        <p><strong>Father:</strong> {selectedStudentCard.father_name || "Not provided"}</p>
-                        <p><strong>Issued:</strong> {issuedDate}</p>
+                        <p>
+                          <strong>Name:</strong> {selectedStudentCard.first_name}{" "}
+                          {selectedStudentCard.last_name}
+                        </p>
+                        <p>
+                          <strong>ID:</strong> {selectedStudentCard.profile_id}
+                        </p>
+                        <p>
+                          <strong>Class:</strong> {selectedStudentCard.class_name}
+                        </p>
+                        <p>
+                          <strong>Father:</strong>{" "}
+                          {selectedStudentCard.father_name || "Not provided"}
+                        </p>
+                        <p>
+                          <strong>Issued:</strong> {issuedDate}
+                        </p>
                       </div>
                     </div>
                   </div>
                 </div>
 
-                {/* Back Side */}
+                {/* Back */}
                 <div className="w-full max-w-[400px]">
                   <h3 className="text-base font-bold mb-2 text-center text-blue-900">Back</h3>
                   <div className="w-full aspect-[5/3] bg-white rounded-lg overflow-hidden shadow border-2 border-blue-900">
@@ -792,27 +762,47 @@ const StudentIDCardPage = () => {
                       </span>
                     </div>
 
-                    {/* Smaller info on back */}
                     <div className="p-4 flex gap-4">
                       <div className="flex-1 space-y-2 text-[12px] leading-snug">
                         <div className="space-y-1.5">
                           <div className="flex items-start gap-2">
                             <CreditCard className="w-4 h-4 text-blue-600 mt-0.5 flex-shrink-0" />
-                            <span><strong>CNIC:</strong> {selectedStudentCard.cnic || selectedStudentCard.b_form || "Not provided"}</span>
+                            <span>
+                              <strong>CNIC:</strong>{" "}
+                              {selectedStudentCard.cnic ||
+                                selectedStudentCard.b_form ||
+                                "Not provided"}
+                            </span>
                           </div>
                           <div className="flex items-start gap-2">
                             <Calendar className="w-4 h-4 text-blue-600 mt-0.5 flex-shrink-0" />
-                            <span><strong>DOB:</strong> {selectedStudentCard.date_of_birth ? new Date(selectedStudentCard.date_of_birth).toLocaleDateString() : (selectedStudentCard.dob ? new Date(selectedStudentCard.dob).toLocaleDateString() : "Not provided")}</span>
+                            <span>
+                              <strong>DOB:</strong>{" "}
+                              {selectedStudentCard.date_of_birth
+                                ? new Date(
+                                    selectedStudentCard.date_of_birth
+                                  ).toLocaleDateString()
+                                : selectedStudentCard.dob
+                                ? new Date(selectedStudentCard.dob).toLocaleDateString()
+                                : "Not provided"}
+                            </span>
                           </div>
                           <div className="flex items-start gap-2">
                             <span className="w-4 h-4 text-red-600 mt-0.5 flex-shrink-0">🩸</span>
-                            <span><strong>Blood:</strong> {selectedStudentCard.blood_group || "Not provided"}</span>
+                            <span>
+                              <strong>Blood:</strong>{" "}
+                              {selectedStudentCard.blood_group || "Not provided"}
+                            </span>
                           </div>
                         </div>
                         <div className="space-y-1.5 text-[11px]">
                           <div className="flex items-start gap-2">
                             <Phone className="w-4 h-4 text-green-600 mt-0.5 flex-shrink-0" />
-                            <span>{selectedStudentCard.phone || selectedStudentCard.mobile || "+92-000-0000000"}</span>
+                            <span>
+                              {selectedStudentCard.phone ||
+                                selectedStudentCard.mobile ||
+                                "+92-000-0000000"}
+                            </span>
                           </div>
                           <div className="flex items-start gap-2 break-all">
                             <Mail className="w-4 h-4 text-blue-600 mt-0.5 flex-shrink-0" />
@@ -835,10 +825,13 @@ const StudentIDCardPage = () => {
                       </div>
                     </div>
 
-                    {/* Footer with school phone + lost note */}
                     <div className="border-t border-gray-200 px-4 py-2 flex items-center justify-between">
-                      <div className="text-[11px] text-gray-800"><b>School:</b> {schoolPhone || "+92-XXX-XXXXXXX"}</div>
-                      <div className="text-[10px] text-gray-600 text-right">If this card is lost, please contact the school immediately.</div>
+                      <div className="text-[11px] text-gray-800">
+                        <b>School:</b> {schoolPhone || "+92-XXX-XXXXXXX"}
+                      </div>
+                      <div className="text-[10px] text-gray-600 text-right">
+                        If this card is lost, please contact the school immediately.
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -872,12 +865,18 @@ const StudentIDCardPage = () => {
           <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
             <h1 className="text-lg sm:text-xl font-bold">Print ID-Cards</h1>
             <div className="flex flex-wrap gap-2 items-center">
-              {/* Dropdown */}
+              {/* Dropdown (FIX: treat ids as strings) */}
               <select
                 value={selectedClass?.id ?? ""}
                 onChange={(e) => {
-                  const id = Number(e.target.value);
-                  setSelectedClass(Number.isFinite(id) ? (classes.find(c => Number(c.id) === id) || null) : null);
+                  const id = e.target.value; // keep as string
+                  if (!id) {
+                    setSelectedClass(null);
+                    setStudents([]);
+                    return;
+                  }
+                  const cls = classes.find((c) => String(c.id) === id) || null;
+                  setSelectedClass(cls);
                 }}
                 className="text-black px-2 py-1 rounded-md min-w-[140px] text-xs focus:outline-none focus:ring-1 focus:ring-cyan-300"
                 disabled={loadingClasses}
@@ -895,7 +894,9 @@ const StudentIDCardPage = () => {
                 className="bg-cyan-500 hover:bg-cyan-600 text-white text-xs px-3 py-1 rounded-md disabled:opacity-50"
                 onClick={handleFilter}
                 disabled={!selectedClass || loadingStudents}
+                title="Filter students by selected class"
               >
+                <Filter className="inline w-3.5 h-3.5 mr-1" />
                 Filter
               </button>
 
@@ -946,7 +947,12 @@ const StudentIDCardPage = () => {
               <div className="bg-gradient-to-r from-blue-900 to-blue-800 px-3 py-2 text-white flex items-center justify-between">
                 <div className="w-5 h-5 bg-white rounded-full flex items-center justify-center overflow-hidden">
                   {schoolLogoUrl ? (
-                    <img src={schoolLogoUrl} crossOrigin="anonymous" className="w-full h-full object-contain p-0.5" alt="logo" />
+                    <img
+                      src={schoolLogoUrl}
+                      crossOrigin="anonymous"
+                      className="w-full h-full object-contain p-0.5"
+                      alt="logo"
+                    />
                   ) : (
                     <span className="text-blue-900 font-extrabold text-xs">S</span>
                   )}
@@ -979,7 +985,9 @@ const StudentIDCardPage = () => {
                     </p>
                     <p className="text-xs text-gray-600">ID: {student.profile_id}</p>
                     <p className="text-xs text-gray-600">Class: {student.class_name}</p>
-                    <p className="text-xs text-gray-600 truncate">Father: {student.father_name || "N/A"}</p>
+                    <p className="text-xs text-gray-600 truncate">
+                      Father: {student.father_name || "N/A"}
+                    </p>
                   </div>
                 </div>
                 <div className="flex items-center justify-between text-xs text-gray-500">
@@ -997,7 +1005,9 @@ const StudentIDCardPage = () => {
             <User className="w-16 h-16 text-gray-400 mx-auto mb-4" />
             <h3 className="text-lg font-semibold text-gray-600 mb-2">No Students Found</h3>
             <p className="text-gray-500">
-              {!selectedClass ? "Select a class and click 'Filter' to view students" : "No students found for the selected class"}
+              {!selectedClass
+                ? "Select a class and click 'Filter' to view students"
+                : "No students found for the selected class"}
             </p>
           </div>
         </div>

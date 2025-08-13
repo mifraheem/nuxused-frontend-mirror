@@ -42,27 +42,37 @@ const StaffIDCardPage = () => {
     );
   };
 
+  // replace your fetchSchoolData with this
   const fetchSchoolData = async () => {
     try {
       const token = getToken();
       if (!token) return;
-      const res = await fetch(`${API}/classes/`, {
+
+      const res = await fetch(`${API}classes/`, {
         headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
       });
-      if (!res.ok) throw new Error();
+      if (!res.ok) return;
+
       const data = await res.json();
       const list = data?.data?.results || [];
-      if (list.length) {
-        const s = list[0];
-        setSchoolData({
-          name: s.school_name || s.school || "Institute Name",
-          logo: s.school_logo || s.logo || s.school_logo_url || s.logo_url || null,
-          slogan: s.slogan || "Slogan text line goes here",
-          phone: s.phone || "+92-123-4567890",
-        });
-      }
-    } catch { /* defaults ok */ }
+      if (!list.length) return;
+
+      const s = list[0];
+
+      // name is a plain string in `school`
+      const name = s?.school || "Institute Name";
+
+      // there is no logo in this payload; keep null so initials render
+      setSchoolData(prev => ({
+        ...prev,
+        name,
+        logo: null, // until backend provides one
+      }));
+    } catch {
+      /* keep defaults */
+    }
   };
+
 
   const fetchStaff = async () => {
     try {
@@ -116,7 +126,7 @@ const StaffIDCardPage = () => {
 
   /* ===================== CARDS ===================== */
 
-  // FRONT — sea‑green theme, fixed size, + validity row
+  // FRONT — sea‑green theme, fixed size, + validity row with full school name display
   const CardFront = (staffMember, forwardedRef) => {
     if (!staffMember) return null;
 
@@ -131,21 +141,31 @@ const StaffIDCardPage = () => {
     const issued = formatDate(getIssued(staffMember));
     const expiry = formatDate(getExpiry(staffMember));
 
+    // Determine if school name is long to adjust layout
+    const schoolName = schoolData.name;
+    const isLongName = schoolName.length > 25;
+
     return (
       <div
         ref={forwardedRef}
         className="staff-card-front bg-white border-4 border-[#3a6b6b] rounded-2xl shadow-lg overflow-hidden relative flex flex-col"
         style={{ width: `${CARD_WIDTH_REM}rem`, height: CARD_HEIGHT_PX }}
       >
-        {/* Header */}
-        <div className="relative h-28 bg-gradient-to-br from-[#2e4f4f] via-[#3a6b6b] to-[#4f8a8a]">
+        {/* Header - Dynamic height based on school name length */}
+        <div className={`relative bg-gradient-to-br from-[#2e4f4f] via-[#3a6b6b] to-[#4f8a8a] ${isLongName ? 'h-36' : 'h-28'}`}>
+          {/* School name - Full display with wrapping */}
           <div className="absolute top-2 left-3 right-20">
-            <h3 className="text-white font-semibold text-sm sm:text-base leading-tight truncate drop-shadow">
-              {schoolData.name}
+            <h3 className={`text-white font-semibold leading-tight drop-shadow ${isLongName ? 'text-xs' : 'text-sm sm:text-base'}`}
+                style={{ 
+                  wordWrap: 'break-word',
+                  hyphens: 'auto',
+                  overflowWrap: 'break-word'
+                }}>
+              {schoolName}
             </h3>
           </div>
 
-          {/* Logo */}
+          {/* Logo - Positioned to accommodate text */}
           <div className="absolute top-2 right-2 w-14 h-14 rounded-full bg-[#2e4f4f]/50 backdrop-blur-sm ring-2 ring-[#4f8a8a]/50 flex items-center justify-center shadow-sm">
             {getSchoolLogoUrl() ? (
               <img
@@ -155,16 +175,16 @@ const StaffIDCardPage = () => {
                 crossOrigin="anonymous"
               />
             ) : (
-              <span className="text-white font-bold">{initials}</span>
+              <span className="text-white font-bold text-sm">{initials}</span>
             )}
           </div>
 
-          {/* Shapes */}
+          {/* Decorative shapes */}
           <div className="absolute -bottom-8 -right-10 w-28 h-28 bg-[#2e4f4f]/20 rounded-full" />
           <div className="absolute -top-8 -left-8 w-24 h-24 bg-black/20 rounded-full" />
 
-          {/* Role chip */}
-          <div className="absolute -bottom-4 left-1/2 -translate-x-1/2">
+          {/* Role chip - Positioned dynamically */}
+          <div className={`absolute left-1/2 -translate-x-1/2 ${isLongName ? '-bottom-4' : '-bottom-4'}`}>
             <span className="inline-flex items-center gap-2 bg-[#2e4f4f] text-white border border-[#3a6b6b] px-3 py-1 rounded-full shadow-sm text-xs font-bold tracking-wide">
               <IdCard className="w-4 h-4" />
               STAFF
@@ -193,10 +213,14 @@ const StaffIDCardPage = () => {
 
         {/* Name + ID */}
         <div className="mt-3 text-center px-4">
-          <h2 className="text-lg font-extrabold text-[#2e4f4f] leading-tight truncate">
+          <h2 className="text-lg font-extrabold text-[#2e4f4f] leading-tight"
+              style={{ 
+                wordWrap: 'break-word',
+                overflowWrap: 'break-word'
+              }}>
             {staffMember.first_name} {staffMember.last_name}
           </h2>
-          <p className="text-xs text-[#3a6b6b] mt-0.5 truncate">ID: {staffMember.profile_id}</p>
+          <p className="text-xs text-[#3a6b6b] mt-0.5 break-all">ID: {staffMember.profile_id}</p>
         </div>
 
         {/* Info rows */}
@@ -413,9 +437,9 @@ const StaffIDCardPage = () => {
             <div className="animate-spin rounded-full h-12 w-12 border-t-4 border-[#4f8a8a] mb-4"></div>
             <p className="mt-1 text-[#2e4f4f] font-semibold text-lg">
               {progress < 25 ? "Initializing..." :
-               progress < 55 ? "Rendering cards..." :
-               progress < 85 ? "Generating PDF..." :
-               "Finalizing..."}
+                progress < 55 ? "Rendering cards..." :
+                  progress < 85 ? "Generating PDF..." :
+                    "Finalizing..."}
             </p>
             <div className="w-full bg-gray-200 rounded-full h-3 mt-4">
               <div

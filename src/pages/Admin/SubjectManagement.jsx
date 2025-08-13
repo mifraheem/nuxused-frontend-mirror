@@ -217,9 +217,12 @@ const SubjectManagement = () => {
                 </tr>
               </thead>
               <tbody>
-                {subjects.map((subject) => (
+                {subjects.map((subject, index) => (
                   <tr className="text-center" key={subject.id}>
-                    <td className="border border-gray-300 p-2">{subject.id}</td>
+                    {/* Sequence Number */}
+                    <td className="border border-gray-300 p-2">
+                      {(currentPage - 1) * pageSize + index + 1}
+                    </td>
                     <td className="border border-gray-300 p-2">{subject.subject_name}</td>
                     <td className="border border-gray-300 p-2">{subject.course_code}</td>
                     {(canEdit || canDelete) &&

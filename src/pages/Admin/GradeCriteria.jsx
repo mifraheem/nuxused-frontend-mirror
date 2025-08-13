@@ -408,9 +408,12 @@ const GradeCriteria = () => {
                 </tr>
               </thead>
               <tbody>
-                {gradeCriteria.map((criteria) => (
+                {gradeCriteria.map((criteria, index) => (
                   <tr key={criteria.id}>
-                    <td className="border border-gray-300 p-2 text-center">{criteria.id}</td>
+                    {/* Sequence Number */}
+                    <td className="border border-gray-300 p-2 text-center">
+                      {(currentPage - 1) * pageSize + index + 1}
+                    </td>
                     <td className="border border-gray-300 p-2">{criteria.school_name}</td>
                     <td className="border border-gray-300 p-2 text-center">{criteria.grade}</td>
                     <td className="border border-gray-300 p-2 text-center">{criteria.min_percentage}%</td>
