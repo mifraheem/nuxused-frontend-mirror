@@ -31,6 +31,14 @@ const AttendanceStd = () => {
   const [showClassSelection, setShowClassSelection] = useState(false);
   const [bulkAttendanceData, setBulkAttendanceData] = useState([]);
 
+  // responsive helpers
+  const [isMobile, setIsMobile] = useState(typeof window !== 'undefined' ? window.innerWidth < 768 : true);
+  useEffect(() => {
+    const onResize = () => setIsMobile(window.innerWidth < 768);
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, []);
+
   const totalPages = Math.ceil(attendanceData.length / pageSize);
   const paginatedData = attendanceData.slice(
     (currentPage - 1) * pageSize,
@@ -57,6 +65,11 @@ const AttendanceStd = () => {
   });
 
   const [filteredStudents, setFilteredStudents] = useState([]);
+  const [rowSubmitting, setRowSubmitting] = useState({});
+  const [rowSubmitted, setRowSubmitted] = useState({});
+
+  const getStudentUUID = (s = {}) =>
+    s.profile_uuid || s.uuid || s.user_uuid || s.profile_id || s.id;
 
   useEffect(() => {
     fetchDropdowns();
@@ -77,20 +90,17 @@ const AttendanceStd = () => {
         axios.get(SUBJECTS_API, { headers: { Authorization: `Bearer ${token}` } })
       ]);
 
-      const studentData = studentsRes.data.data.results || [];
-      const classData = classesRes.data.data.results || [];
-      const subjectData = subjectsRes.data.data.results || [];
+      const studentData = studentsRes.data?.data?.results || [];
+      const classData = classesRes.data?.data?.results || [];
+      const subjectData = subjectsRes.data?.data?.results || [];
 
       setStudentOptions(studentData);
       setStudents(studentData);
       setClassOptions(classData);
       setSubjectOptions(subjectData);
-      console.log('Fetched students:', studentData);
-      console.log('Fetched classes:', classData);
-      console.log('Fetched subjects:', subjectData);
     } catch (err) {
       console.error('Error fetching dropdowns:', err);
-      if (err.response?.status === 404 && err.config.url.includes(SUBJECTS_API)) {
+      if (err.response?.status === 404 && err.config?.url?.includes(SUBJECTS_API)) {
         toast.error('Subjects endpoint not found. Using default subjects.');
         setSubjectOptions([
           { id: 1, subject_name: 'Mathematics' },
@@ -124,7 +134,6 @@ const AttendanceStd = () => {
         });
         const data = res.data?.data?.results || res.data.results || [];
         setFilteredStudents(data);
-        console.log('Filtered students for class:', data);
       } catch (err) {
         console.error('Error fetching filtered students:', err);
         if (err.response?.status === 404) {
@@ -152,12 +161,16 @@ const AttendanceStd = () => {
       setShowAttendanceTable(false);
       setSelectedClass(null);
       setBulkAttendanceData([]);
+      setRowSubmitting({});
+      setRowSubmitted({});
     } else {
       setShowClassSelection(false);
       setShowAttendanceForm(false);
       setShowAttendanceTable(false);
       setSelectedClass(null);
       setBulkAttendanceData([]);
+      setRowSubmitting({});
+      setRowSubmitted({});
     }
   };
 
@@ -167,6 +180,8 @@ const AttendanceStd = () => {
       setStudents([]);
       setBulkAttendanceData([]);
       setSelectedClass(null);
+      setRowSubmitting({});
+      setRowSubmitted({});
       return;
     }
 
@@ -181,30 +196,37 @@ const AttendanceStd = () => {
       const data = res.data?.data?.results || res.data.results || [];
       setStudents(data);
       
-      // Initialize bulk attendance data for all students
-      const initialAttendanceData = data.map(student => ({
-        student: student.profile_id || student.id,
-        subject: '',
-        class_schedule: selectedClass.id,
-        status: 'Present',
-        remarks: ''
-      }));
+      const initialAttendanceData = data.map(student => {
+        const uuidOrId = getStudentUUID(student);
+        return {
+          student: uuidOrId,
+          student_uuid: uuidOrId,
+          subject: '',
+          class_schedule: selectedClass.id,
+          status: 'Present',
+          remarks: ''
+        };
+      });
       setBulkAttendanceData(initialAttendanceData);
       setShowAttendanceTable(true);
-      
-      console.log('Students for selected class:', data);
+      setRowSubmitting({});
+      setRowSubmitted({});
     } catch (err) {
       console.error('Error fetching students for class:', err);
       if (err.response?.status === 404) {
         toast.error('Class student endpoint not found. Showing all students.');
         setStudents(studentOptions);
-        const initialAttendanceData = studentOptions.map(student => ({
-          student: student.profile_id || student.id,
-          subject: '',
-          class_schedule: selectedClass.id,
-          status: 'Present',
-          remarks: ''
-        }));
+        const initialAttendanceData = studentOptions.map(student => {
+          const uuidOrId = getStudentUUID(student);
+          return {
+            student: uuidOrId,
+            student_uuid: uuidOrId,
+            subject: '',
+            class_schedule: selectedClass.id,
+            status: 'Present',
+            remarks: ''
+          };
+        });
         setBulkAttendanceData(initialAttendanceData);
         setShowAttendanceTable(true);
       } else {
@@ -223,6 +245,45 @@ const AttendanceStd = () => {
         i === index ? { ...item, [field]: value } : item
       )
     );
+  };
+
+  const handleSubmitSingle = async (index) => {
+    const token = Cookies.get('access_token');
+    if (!token) return toast.error('Not authenticated');
+
+    const record = bulkAttendanceData[index];
+    const sourceStudent = students[index] || {};
+    const uuidOrId = record?.student_uuid || getStudentUUID(sourceStudent);
+    const displayName =
+      `${sourceStudent.first_name || ''} ${sourceStudent.last_name || ''}`.trim() ||
+      sourceStudent.username || sourceStudent.name || 'Student';
+
+    if (!record?.subject) {
+      toast.error(`Select subject for ${displayName}`);
+      return;
+    }
+
+    const payload = {
+      ...record,
+      student: uuidOrId,
+      student_uuid: uuidOrId,
+      date: new Date().toISOString().split('T')[0],
+    };
+
+    try {
+      setRowSubmitting(prev => ({ ...prev, [index]: true }));
+      await axios.post(API_BASE_URL, payload, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      setRowSubmitted(prev => ({ ...prev, [index]: true }));
+      toast.success(`Attendance saved for ${displayName}`);
+    } catch (err) {
+      console.error('Single submit error:', err);
+      toast.error(`Failed to submit for ${displayName}`);
+    } finally {
+      setRowSubmitting(prev => ({ ...prev, [index]: false }));
+    }
   };
 
   const handleFetchAttendance = async () => {
@@ -271,7 +332,6 @@ const AttendanceStd = () => {
     const token = Cookies.get('access_token');
     if (!token) return toast.error('Not authenticated');
 
-    // Validate that all required fields are filled
     const invalidRecords = bulkAttendanceData.filter(record => !record.subject);
     if (invalidRecords.length > 0) {
       toast.error('Please select subject for all students');
@@ -280,27 +340,34 @@ const AttendanceStd = () => {
 
     try {
       setLoading(true);
-      const currentDate = new Date().toISOString().split('T')[0]; // Current date in YYYY-MM-DD format
+      const currentDate = new Date().toISOString().split('T')[0];
       
-      const promises = bulkAttendanceData.map(record => 
-        axios.post(API_BASE_URL, {
-          ...record,
-          date: currentDate
-        }, {
-          headers: { Authorization: `Bearer ${token}` },
-        })
-      );
+      const promises = bulkAttendanceData.map((record, idx) => {
+        const sourceStudent = students[idx] || {};
+        const uuidOrId = record.student_uuid || getStudentUUID(sourceStudent);
+
+        return axios.post(
+          API_BASE_URL,
+          {
+            ...record,
+            student: uuidOrId,
+            student_uuid: uuidOrId,
+            date: currentDate
+          },
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+      });
 
       await Promise.all(promises);
       toast.success('Bulk attendance submitted successfully');
       
-      // Reset form
       setShowAttendanceForm(false);
       setShowAttendanceTable(false);
       setShowClassSelection(false);
       setSelectedClass(null);
       setBulkAttendanceData([]);
-      
+      setRowSubmitting({});
+      setRowSubmitted({});
     } catch (err) {
       console.error('Error submitting bulk attendance:', err);
       toast.error('Failed to submit attendance');
@@ -313,48 +380,43 @@ const AttendanceStd = () => {
   const canAdd = permissions.includes("users.add_studentattendance");
   const canView = permissions.includes("users.view_studentattendance");
 
+  // react-select responsive styles
+  const baseFont = isMobile ? '0.85rem' : '0.95rem';
+  const compactFont = isMobile ? '0.75rem' : '0.85rem';
   const selectStyles = {
     control: (provided) => ({
       ...provided,
-      minHeight: '2rem',
-      fontSize: '0.875rem',
-      '@media (min-width: 640px)': {
-        fontSize: '1rem',
-      },
+      minHeight: isMobile ? '2.25rem' : '2.5rem',
+      fontSize: baseFont,
     }),
     menu: (provided) => ({
       ...provided,
-      fontSize: '0.875rem',
-      maxHeight: '200px',
+      fontSize: baseFont,
+      maxHeight: '220px',
       overflowY: 'auto',
-      '@media (min-width: 640px)': {
-        fontSize: '1rem',
-      },
     }),
-    option: (provided) => ({
+    option: (provided, state) => ({
       ...provided,
-      fontSize: '0.875rem',
-      padding: '0.5rem',
-      '@media (min-width: 640px)': {
-        fontSize: '1rem',
-        padding: '0.75rem',
-      },
+      fontSize: baseFont,
+      padding: isMobile ? '0.5rem' : '0.6rem 0.75rem',
     }),
   };
-
-  const statusOptions = [
-    { value: 'Present', label: 'Present' },
-    { value: 'Late', label: 'Late' },
-    { value: 'Absent', label: 'Absent' },
-    { value: 'Leave', label: 'Leave' },
-    { value: 'Half-day', label: 'Half-day' },
-  ];
-
-  const reportTypeOptions = [
-    { value: 'Daily', label: 'Daily' },
-    { value: 'Monthly', label: 'Monthly' },
-    { value: 'Yearly', label: 'Yearly' },
-  ];
+  const tinySelectStyles = {
+    ...selectStyles,
+    control: (p) => ({
+      ...selectStyles.control(p),
+      minHeight: isMobile ? '2rem' : '2.25rem',
+      fontSize: compactFont,
+    }),
+    option: (p) => ({
+      ...selectStyles.option(p),
+      fontSize: compactFont,
+    }),
+    menu: (p) => ({
+      ...selectStyles.menu(p),
+      fontSize: compactFont,
+    }),
+  };
 
   const pageSizeOptions = [
     { value: 5, label: '5' },
@@ -364,15 +426,15 @@ const AttendanceStd = () => {
   ];
 
   return (
-    <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-6">
+    <div className="container mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-6">
       <Toaster position="top-center" />
-      <div className="bg-blue-900 text-white py-3 px-4 sm:px-6 rounded-lg shadow-md flex flex-col sm:flex-row justify-between items-center mb-6">
-        <h2 className="text-lg sm:text-xl font-bold">Student Attendance</h2>
-        <div className="flex flex-col sm:flex-row gap-3 mt-4 sm:mt-0">
+      <div className="bg-blue-900 text-white py-3 px-4 sm:px-6 rounded-lg shadow-md flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-6">
+        <h2 className="text-lg sm:text-xl font-bold text-center md:text-left">Student Attendance</h2>
+        <div className="flex flex-col sm:flex-row gap-3">
           {canAdd && (
             <button
               onClick={handleMarkAttendance}
-              className="bg-cyan-500 text-white px-3 sm:px-4 py-1.5 sm:py-2 rounded-md shadow hover:bg-cyan-700 w-full sm:w-auto text-sm sm:text-base"
+              className="bg-cyan-500 text-white px-4 py-2 rounded-md shadow hover:bg-cyan-700 text-sm sm:text-base"
             >
               {showAttendanceForm ? 'Close Attendance' : 'Mark Attendance'}
             </button>
@@ -380,7 +442,7 @@ const AttendanceStd = () => {
           {canView && (
             <button
               onClick={() => setShowFilterForm((prev) => !prev)}
-              className="bg-green-500 text-white px-3 sm:px-4 py-1.5 sm:py-2 rounded-md shadow hover:bg-green-700 w-full sm:w-auto text-sm sm:text-base"
+              className="bg-green-500 text-white px-4 py-2 rounded-md shadow hover:bg-green-700 text-sm sm:text-base"
             >
               {showFilterForm ? 'Close Report' : 'Fetch Attendance'}
             </button>
@@ -388,9 +450,9 @@ const AttendanceStd = () => {
         </div>
       </div>
 
-      {/* Class Selection Form */}
+      {/* Class Selection */}
       {canAdd && showAttendanceForm && showClassSelection && (
-        <div className="mt-6 bg-white p-4 sm:p-6 rounded-lg shadow-md max-w-full sm:max-w-2xl mx-auto">
+        <div className="mt-6 bg-white p-4 sm:p-6 rounded-lg shadow-md max-w-full md:max-w-2xl mx-auto">
           <h2 className="text-lg sm:text-xl font-semibold mb-4">Select Class for Attendance</h2>
           <div className="grid grid-cols-1 gap-4">
             <div>
@@ -412,14 +474,104 @@ const AttendanceStd = () => {
         </div>
       )}
 
-      {/* Bulk Attendance Table */}
+      {/* Attendance: Responsive (cards on mobile, table on md+) */}
       {canAdd && showAttendanceForm && showAttendanceTable && selectedClass && (
         <div className="mt-6 bg-white p-4 sm:p-6 rounded-lg shadow-md">
           <h2 className="text-lg sm:text-xl font-semibold mb-4">
             Mark Attendance for {selectedClass.class_name} - {selectedClass.section} ({selectedClass.session})
           </h2>
-          
-          <div className="overflow-x-auto">
+
+          {/* Cards (mobile) */}
+          <div className="md:hidden space-y-3">
+            {students.map((student, index) => {
+              const row = bulkAttendanceData[index] || {};
+              const rowBusy = !!rowSubmitting[index];
+              const done = !!rowSubmitted[index];
+              return (
+                <div
+                  key={student.profile_id || student.id}
+                  className="border rounded-lg p-3 shadow-sm"
+                >
+                  <div className="font-semibold text-gray-800 mb-2">
+                    {`${student.first_name || ''} ${student.last_name || ''}`.trim() || student.username || student.name}
+                  </div>
+                  <div className="grid grid-cols-1 gap-3">
+                    <div>
+                      <label className="block text-xs text-gray-600 mb-1">Subject</label>
+                      <Select
+                        value={
+                          subjectOptions.find(sub => {
+                            const val = sub.uuid || sub.id || sub.subject_id;
+                            return val === row.subject;
+                          }) || null
+                        }
+                        onChange={(selected) => {
+                          const val = selected?.uuid || selected?.id || selected?.subject_id || '';
+                          handleBulkAttendanceChange(index, 'subject', val);
+                        }}
+                        options={subjectOptions}
+                        getOptionLabel={(sub) => sub.subject_name || sub.name}
+                        getOptionValue={(sub) => sub.uuid || sub.id || sub.subject_id}
+                        placeholder="Select Subject"
+                        isClearable
+                        styles={tinySelectStyles}
+                        isLoading={isLoadingSubjects}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs text-gray-600 mb-1">Status</label>
+                      <Select
+                        value={{ value: row.status || 'Present', label: row.status || 'Present' }}
+                        onChange={(selected) => {
+                          handleBulkAttendanceChange(index, 'status', selected?.value || 'Present');
+                        }}
+                        options={[
+                          { value: 'Present', label: 'Present' },
+                          { value: 'Late', label: 'Late' },
+                          { value: 'Absent', label: 'Absent' },
+                          { value: 'Leave', label: 'Leave' },
+                          { value: 'Half-day', label: 'Half-day' },
+                        ]}
+                        isSearchable={false}
+                        styles={tinySelectStyles}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs text-gray-600 mb-1">Remarks</label>
+                      <input
+                        type="text"
+                        placeholder="Remarks"
+                        value={row.remarks || ''}
+                        onChange={(e) => {
+                          handleBulkAttendanceChange(index, 'remarks', e.target.value);
+                        }}
+                        className="w-full border border-gray-300 p-2 rounded text-sm"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="mt-3 flex justify-end">
+                    <button
+                      onClick={() => handleSubmitSingle(index)}
+                      disabled={rowBusy || done}
+                      className={`px-4 py-2 rounded text-sm text-white ${
+                        done
+                          ? 'bg-green-600 cursor-default'
+                          : rowBusy
+                          ? 'bg-blue-400 cursor-wait'
+                          : 'bg-blue-600 hover:bg-blue-700'
+                      } disabled:opacity-60 disabled:cursor-not-allowed`}
+                    >
+                      {done ? 'Submitted ✓' : rowBusy ? 'Submitting…' : 'Submit'}
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Table (desktop) */}
+          <div className="hidden md:block overflow-x-auto">
             <table className="w-full border border-gray-200">
               <thead className="bg-gray-100">
                 <tr>
@@ -427,92 +579,108 @@ const AttendanceStd = () => {
                   <th className="border border-gray-200 p-3 text-left text-sm font-medium">Subject</th>
                   <th className="border border-gray-200 p-3 text-left text-sm font-medium">Status</th>
                   <th className="border border-gray-200 p-3 text-left text-sm font-medium">Remarks</th>
+                  <th className="border border-gray-200 p-3 text-left text-sm font-medium">Action</th>
                 </tr>
               </thead>
               <tbody>
-                {students.map((student, index) => (
-                  <tr key={student.profile_id || student.id} className="hover:bg-gray-50">
-                    <td className="border border-gray-200 p-3 text-sm">
-                      {`${student.first_name || ''} ${student.last_name || ''}`.trim() || student.username || student.name}
-                    </td>
-                    <td className="border border-gray-200 p-3">
-                      <Select
-                        value={subjectOptions.find(sub => 
-                          (sub.id || sub.subject_id) === bulkAttendanceData[index]?.subject
-                        ) || null}
-                        onChange={(selected) => {
-                          handleBulkAttendanceChange(index, 'subject', selected?.id || selected?.subject_id || '');
-                        }}
-                        options={subjectOptions}
-                        getOptionLabel={(sub) => sub.subject_name || sub.name}
-                        getOptionValue={(sub) => sub.id || sub.subject_id}
-                        placeholder="Select Subject"
-                        isClearable
-                        styles={{
-                          ...selectStyles,
-                          control: (provided) => ({
-                            ...provided,
-                            minHeight: '2rem',
-                            fontSize: '0.75rem',
-                          }),
-                        }}
-                        isLoading={isLoadingSubjects}
-                      />
-                    </td>
-                    <td className="border border-gray-200 p-3">
-                      <Select
-                        value={statusOptions.find(opt => 
-                          opt.value === (bulkAttendanceData[index]?.status || 'Present')
-                        )}
-                        onChange={(selected) => {
-                          handleBulkAttendanceChange(index, 'status', selected?.value || 'Present');
-                        }}
-                        options={statusOptions}
-                        placeholder="Select Status"
-                        styles={{
-                          ...selectStyles,
-                          control: (provided) => ({
-                            ...provided,
-                            minHeight: '2rem',
-                            fontSize: '0.75rem',
-                          }),
-                        }}
-                        isSearchable={false}
-                      />
-                    </td>
-                    <td className="border border-gray-200 p-3">
-                      <input
-                        type="text"
-                        placeholder="Remarks"
-                        value={bulkAttendanceData[index]?.remarks || ''}
-                        onChange={(e) => {
-                          handleBulkAttendanceChange(index, 'remarks', e.target.value);
-                        }}
-                        className="w-full border border-gray-300 p-2 rounded text-sm"
-                      />
-                    </td>
-                  </tr>
-                ))}
+                {students.map((student, index) => {
+                  const rowBusy = !!rowSubmitting[index];
+                  const done = !!rowSubmitted[index];
+                  const row = bulkAttendanceData[index] || {};
+                  return (
+                    <tr key={student.profile_id || student.id} className="hover:bg-gray-50">
+                      <td className="border border-gray-200 p-3 text-sm">
+                        {`${student.first_name || ''} ${student.last_name || ''}`.trim() || student.username || student.name}
+                      </td>
+                      <td className="border border-gray-200 p-3">
+                        <Select
+                          value={
+                            subjectOptions.find(sub => {
+                              const val = sub.uuid || sub.id || sub.subject_id;
+                              return val === row.subject;
+                            }) || null
+                          }
+                          onChange={(selected) => {
+                            const val = selected?.uuid || selected?.id || selected?.subject_id || '';
+                            handleBulkAttendanceChange(index, 'subject', val);
+                          }}
+                          options={subjectOptions}
+                          getOptionLabel={(sub) => sub.subject_name || sub.name}
+                          getOptionValue={(sub) => sub.uuid || sub.id || sub.subject_id}
+                          placeholder="Select Subject"
+                          isClearable
+                          styles={tinySelectStyles}
+                          isLoading={isLoadingSubjects}
+                        />
+                      </td>
+                      <td className="border border-gray-200 p-3">
+                        <Select
+                          value={{ value: row.status || 'Present', label: row.status || 'Present' }}
+                          onChange={(selected) => {
+                            handleBulkAttendanceChange(index, 'status', selected?.value || 'Present');
+                          }}
+                          options={[
+                            { value: 'Present', label: 'Present' },
+                            { value: 'Late', label: 'Late' },
+                            { value: 'Absent', label: 'Absent' },
+                            { value: 'Leave', label: 'Leave' },
+                            { value: 'Half-day', label: 'Half-day' },
+                          ]}
+                          styles={tinySelectStyles}
+                          isSearchable={false}
+                        />
+                      </td>
+                      <td className="border border-gray-200 p-3">
+                        <input
+                          type="text"
+                          placeholder="Remarks"
+                          value={row.remarks || ''}
+                          onChange={(e) => {
+                            handleBulkAttendanceChange(index, 'remarks', e.target.value);
+                          }}
+                          className="w-full border border-gray-300 p-2 rounded text-sm"
+                        />
+                      </td>
+                      <td className="border border-gray-200 p-3">
+                        <button
+                          onClick={() => handleSubmitSingle(index)}
+                          disabled={rowBusy || done}
+                          className={`px-3 py-1.5 rounded text-sm text-white ${
+                            done
+                              ? 'bg-green-600 cursor-default'
+                              : rowBusy
+                              ? 'bg-blue-400 cursor-wait'
+                              : 'bg-blue-600 hover:bg-blue-700'
+                          } disabled:opacity-60 disabled:cursor-not-allowed`}
+                          title={done ? 'Submitted' : 'Submit this row'}
+                        >
+                          {done ? 'Submitted ✓' : rowBusy ? 'Submitting…' : 'Submit'}
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
 
-          <div className="mt-6 text-right">
+          <div className="mt-6 flex flex-col sm:flex-row gap-3 sm:gap-4 justify-end">
             <button
               onClick={handleSubmitBulkAttendance}
               disabled={loading}
               className="bg-blue-600 text-white px-4 sm:px-6 py-2 sm:py-3 rounded hover:bg-blue-800 text-sm sm:text-base disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {loading ? 'Submitting...' : 'Submit Attendance'}
+              {loading ? 'Submitting...' : 'Submit All'}
             </button>
           </div>
         </div>
       )}
 
+      {/* Report Filters */}
       {canView && showFilterForm && (
-        <div className="bg-white mt-6 p-4 sm:p-6 rounded-lg shadow-md max-w-full sm:max-w-4xl mx-auto border border-gray-200 filter-form">
+        <div className="bg-white mt-6 p-4 sm:p-6 rounded-lg shadow-md max-w-full md:max-w-4xl mx-auto border border-gray-200">
           <h2 className="text-lg sm:text-xl font-semibold text-gray-800 mb-4">Generate Attendance Report</h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Select Student</label>
               <Select
@@ -533,16 +701,21 @@ const AttendanceStd = () => {
               <label className="block text-sm font-medium text-gray-700 mb-1">Report Type</label>
               <Select
                 name="type"
-                value={reportTypeOptions.find(opt => opt.value === filters.type) || reportTypeOptions[0]}
+                value={['Daily','Monthly','Yearly'].map(v=>({value:v,label:v})).find(opt => opt.value === filters.type)}
                 onChange={(selected) => {
                   setFilters(prev => ({ ...prev, type: selected?.value || 'Daily' }));
                 }}
-                options={reportTypeOptions}
+                options={[
+                  { value: 'Daily', label: 'Daily' },
+                  { value: 'Monthly', label: 'Monthly' },
+                  { value: 'Yearly', label: 'Yearly' },
+                ]}
                 placeholder="Select Report Type"
                 styles={selectStyles}
                 isSearchable={false}
               />
             </div>
+
             {filters.type === 'Daily' && (
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Select Date</label>
@@ -584,10 +757,11 @@ const AttendanceStd = () => {
               </div>
             )}
           </div>
+
           <div className="mt-6 text-right">
             <button
               onClick={handleFetchAttendance}
-              className="bg-green-600 text-white px-3 sm:px-4 py-1.5 sm:py-2 rounded-md hover:bg-green-700 shadow text-sm sm:text-base"
+              className="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 shadow text-sm sm:text-base"
             >
               Generate Report
             </button>
@@ -595,6 +769,7 @@ const AttendanceStd = () => {
         </div>
       )}
 
+      {/* Report Table (kept scrollable; already responsive) */}
       {canView && showReport && attendanceData.length > 0 && (
         <div className="p-4 sm:p-6">
           <Buttons
@@ -610,37 +785,54 @@ const AttendanceStd = () => {
             ]}
             filename="Attendance_Report"
           />
-          <div className="overflow-x-auto">
-            <table className="w-full border mt-4 bg-white shadow text-sm attendance-table">
+
+          {/* desktop table */}
+          <div className="hidden md:block overflow-x-auto">
+            <table className="w-full border mt-4 bg-white shadow text-sm">
               <thead className="bg-gray-200">
                 <tr>
-                  <th className="border p-2 sm:p-3 text-left">S.No</th>
-                  <th className="border p-2 sm:p-3 text-left">Student</th>
-                  <th className="border p-2 sm:p-3 text-left">Date</th>
-                  <th className="border p-2 sm:p-3 text-left">Status</th>
+                  <th className="border p-3 text-left">S.No</th>
+                  <th className="border p-3 text-left">Student</th>
+                  <th className="border p-3 text-left">Date</th>
+                  <th className="border p-3 text-left">Status</th>
                 </tr>
               </thead>
               <tbody>
                 {paginatedData.map((rec, index) => (
                   <tr key={rec.id} className="hover:bg-gray-50">
-                    <td className="border p-2 sm:p-3" data-label="S.No">
-                      {(currentPage - 1) * pageSize + index + 1}
-                    </td>
-                    <td className="border p-2 sm:p-3" data-label="Student">{rec.student}</td>
-                    <td className="border p-2 sm:p-3" data-label="Date">{rec.date}</td>
-                    <td className="border p-2 sm:p-3" data-label="Status">{rec.status}</td>
+                    <td className="border p-3">{(currentPage - 1) * pageSize + index + 1}</td>
+                    <td className="border p-3">{rec.student}</td>
+                    <td className="border p-3">{rec.date}</td>
+                    <td className="border p-3">{rec.status}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
 
+          {/* mobile cards */}
+          <div className="md:hidden mt-4 space-y-3">
+            {paginatedData.map((rec, index) => (
+              <div key={rec.id || index} className="border rounded-lg p-3 shadow-sm">
+                <div className="flex items-center justify-between">
+                  <div className="font-semibold text-gray-800">{rec.student}</div>
+                  <div className="text-xs text-gray-500">#{(currentPage - 1) * pageSize + index + 1}</div>
+                </div>
+                <div className="mt-2 grid grid-cols-1 gap-1 text-sm">
+                  <div><span className="font-medium">Date:</span> {rec.date}</div>
+                  <div><span className="font-medium">Status:</span> {rec.status}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* pagination controls */}
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mt-4 gap-3 sm:gap-4">
             <div className="flex items-center gap-2 w-full sm:w-auto">
               <label className="text-xs sm:text-sm font-medium text-gray-700 whitespace-nowrap">
                 Page Size:
               </label>
-              <div className="w-24">
+              <div className="w-28">
                 <Select
                   value={pageSizeOptions.find(opt => opt.value === pageSize)}
                   onChange={(selected) => {
@@ -648,24 +840,7 @@ const AttendanceStd = () => {
                     setCurrentPage(1);
                   }}
                   options={pageSizeOptions}
-                  styles={{
-                    ...selectStyles,
-                    control: (provided) => ({
-                      ...provided,
-                      minHeight: '1.75rem',
-                      fontSize: '0.75rem',
-                    }),
-                    menu: (provided) => ({
-                      ...provided,
-                      fontSize: '0.75rem',
-                      maxHeight: '120px',
-                    }),
-                    option: (provided) => ({
-                      ...provided,
-                      fontSize: '0.75rem',
-                      padding: '0.25rem 0.5rem',
-                    }),
-                  }}
+                  styles={tinySelectStyles}
                   isSearchable={false}
                 />
               </div>
@@ -675,80 +850,28 @@ const AttendanceStd = () => {
               <button
                 onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
                 disabled={currentPage === 1}
-                className="px-2 sm:px-3 py-1 bg-gray-300 rounded disabled:opacity-50 disabled:cursor-not-allowed text-xs sm:text-sm hover:bg-gray-400 transition-colors min-w-[45px] sm:min-w-[50px]"
+                className="px-3 py-1.5 bg-gray-300 rounded disabled:opacity-50 disabled:cursor-not-allowed text-xs sm:text-sm hover:bg-gray-400 transition-colors"
               >
                 Prev
               </button>
-              {totalPages <= 5 ? (
-                [...Array(totalPages)].map((_, index) => (
-                  <button
-                    key={index}
-                    onClick={() => setCurrentPage(index + 1)}
-                    className={`px-2 sm:px-3 py-1 rounded text-xs sm:text-sm min-w-[32px] sm:min-w-[36px] transition-colors ${
-                      currentPage === index + 1 ? "bg-blue-600 text-white hover:bg-blue-700" : "bg-gray-200 hover:bg-gray-300"
-                    }`}
-                  >
-                    {index + 1}
-                  </button>
-                ))
-              ) : (
-                <>
-                  {currentPage > 3 && (
-                    <>
-                      <button
-                        onClick={() => setCurrentPage(1)}
-                        className="px-2 sm:px-3 py-1 rounded text-xs sm:text-sm min-w-[32px] sm:min-w-[36px] bg-gray-200 hover:bg-gray-300 transition-colors"
-                      >
-                        1
-                      </button>
-                      {currentPage > 4 && (
-                        <span className="px-1 py-1 text-xs sm:text-sm text-gray-500">...</span>
-                      )}
-                    </>
-                  )}
-                  {[...Array(Math.min(5, totalPages))].map((_, index) => {
-                    let pageNum;
-                    if (currentPage <= 3) {
-                      pageNum = index + 1;
-                    } else if (currentPage >= totalPages - 2) {
-                      pageNum = totalPages - 4 + index;
-                    } else {
-                      pageNum = currentPage - 2 + index;
-                    }
-                    if (pageNum > 0 && pageNum <= totalPages) {
-                      return (
-                        <button
-                          key={pageNum}
-                          onClick={() => setCurrentPage(pageNum)}
-                          className={`px-2 sm:px-3 py-1 rounded text-xs sm:text-sm min-w-[32px] sm:min-w-[36px] transition-colors ${
-                            currentPage === pageNum ? "bg-blue-600 text-white hover:bg-blue-700" : "bg-gray-200 hover:bg-gray-300"
-                          }`}
-                        >
-                          {pageNum}
-                        </button>
-                      );
-                    }
-                    return null;
-                  })}
-                  {currentPage < totalPages - 2 && (
-                    <>
-                      {currentPage < totalPages - 3 && (
-                        <span className="px-1 py-1 text-xs sm:text-sm text-gray-500">...</span>
-                      )}
-                      <button
-                        onClick={() => setCurrentPage(totalPages)}
-                        className="px-2 sm:px-3 py-1 rounded text-xs sm:text-sm min-w-[32px] sm:min-w-[36px] bg-gray-200 hover:bg-gray-300 transition-colors"
-                      >
-                        {totalPages}
-                      </button>
-                    </>
-                  )}
-                </>
-              )}
+              {Array.from({length: totalPages}, (_,i)=>i+1).slice(
+                Math.max(0, Math.min(currentPage-3, totalPages-5)),
+                Math.max(5, Math.min(totalPages, (currentPage-3)+5))
+              ).map(p => (
+                <button
+                  key={p}
+                  onClick={() => setCurrentPage(p)}
+                  className={`px-3 py-1.5 rounded text-xs sm:text-sm transition-colors ${
+                    currentPage === p ? "bg-blue-600 text-white hover:bg-blue-700" : "bg-gray-200 hover:bg-gray-300"
+                  }`}
+                >
+                  {p}
+                </button>
+              ))}
               <button
                 onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
                 disabled={currentPage === totalPages}
-                className="px-2 sm:px-3 py-1 bg-gray-300 rounded disabled:opacity-50 disabled:cursor-not-allowed text-xs sm:text-sm hover:bg-gray-400 transition-colors min-w-[45px] sm:min-w-[50px]"
+                className="px-3 py-1.5 bg-gray-300 rounded disabled:opacity-50 disabled:cursor-not-allowed text-xs sm:text-sm hover:bg-gray-400 transition-colors"
               >
                 Next
               </button>

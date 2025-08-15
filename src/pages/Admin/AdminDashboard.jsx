@@ -340,16 +340,7 @@ const AdminDashboard = () => {
 
   return (
     <div className="bg-blue-50 min-h-screen p-5">
-      {/* Debug Info - Remove this in production */}
-      {/* {process.env.NODE_ENV === 'development' && (
-        <div className="mb-4 p-3 bg-yellow-100 rounded-lg text-sm">
-          <strong>🔍 Debug Info (UUID):</strong><br/>
-          School UUID: {schoolId || 'Not found'}<br/>
-          Valid UUID Format: {schoolId ? (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(schoolId) ? '✅ Yes' : '❌ No') : 'N/A'}<br/>
-          User Profile Keys: {userProfile ? Object.keys(userProfile).join(', ') : 'Not loaded'}<br/>
-          Counts: Students={counts.students}, Teachers={counts.teachers}, Subjects={counts.subjects}, Classes={counts.classes}
-        </div>
-      )} */}
+     
 
       {/* Display school info if available */}
       {userProfile && userProfile.school_name && (
@@ -481,7 +472,7 @@ const AdminDashboard = () => {
           {/* Fee Collection */}
           <div className="bg-white shadow-md rounded-md mb-2">
             <div className="bg-blue-700 text-white flex justify-between items-center rounded-t-md py-1 px-2">
-              <h3 className="text-base sm:text-lg font-bold">Fee Collection Of The Day</h3>
+              <h3 className="text-base sm:text-lg font-bold">Fee Collection Of The Month</h3>
               <span className="text-xs sm:text-sm">{new Date().toLocaleDateString()}</span>
             </div>
             <div className="flex flex-col sm:flex-row justify-around items-center py-2 px-2">

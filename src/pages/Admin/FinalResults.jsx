@@ -197,9 +197,12 @@ const FinalResults = () => {
                 </thead>
                 <tbody>
                   {results.length > 0 ? (
-                    results.map((result) => (
+                    results.map((result, index) => (
                       <tr key={result.id}>
-                        <td className="border p-0.5 text-center whitespace-nowrap">{result.id}</td>
+                        {/* Sequence number */}
+                        <td className="border p-0.5 text-center whitespace-nowrap">
+                          {(currentPage - 1) * pageSize + index + 1}
+                        </td>
                         <td className="border p-0.5 whitespace-nowrap">{result.student_name}</td>
                         <td className="border p-0.5 whitespace-nowrap">{result.class_name}</td>
                         <td className="border p-0.5 whitespace-nowrap">{result.exam_term}</td>
@@ -210,8 +213,8 @@ const FinalResults = () => {
                         <td className="border p-0.5 text-center whitespace-nowrap">{result.pending_subjects}</td>
                         <td className="border p-0.5 text-center whitespace-nowrap">
                           <span className={`px-0.5 py-0 text-xs font-semibold ${result.is_complete
-                              ? "bg-green-100 text-green-800"
-                              : "bg-yellow-100 text-yellow-800"
+                            ? "bg-green-100 text-green-800"
+                            : "bg-yellow-100 text-yellow-800"
                             }`}>
                             {result.is_complete ? "Complete" : "Incomplete"}
                           </span>
@@ -296,8 +299,8 @@ const FinalResults = () => {
                 <div><span className="font-semibold">Pending:</span> {viewModalData.pending_subjects}</div>
                 <div><span className="font-semibold">Status:</span>
                   <span className={`ml-0.5 px-0.5 py-0 rounded-full text-xs font-semibold ${viewModalData.is_complete
-                      ? "bg-green-100 text-green-800"
-                      : "bg-yellow-100 text-yellow-800"
+                    ? "bg-green-100 text-green-800"
+                    : "bg-yellow-100 text-yellow-800"
                     }`}>
                     {viewModalData.is_complete ? "Complete" : "Incomplete"}
                   </span>

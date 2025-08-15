@@ -22,8 +22,9 @@ const ClassTasks = () => {
   const [classOptions, setClassOptions] = useState([]);
   const [showForm, setShowForm] = useState(false);
   const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(100); // Increased to fetch more tasks
+  const [pageSize, setPageSize] = useState(100);
   const [totalPages, setTotalPages] = useState(1);
+  const [totalItems, setTotalItems] = useState(0);
   const [loading, setLoading] = useState(false);
 
   const API = import.meta.env.VITE_SERVER_URL;
@@ -56,10 +57,14 @@ const ClassTasks = () => {
       const response = await axios.get(`${API_URL}?page=${page}&page_size=${pageSize}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
-      console.log("Tasks API response:", response.data); // Debug full response
-      const results = response.data?.data?.results || response.data?.results || [];
+      console.log("Tasks API response:", response.data);
+
+      // Handle the correct API response structure
+      const results = response.data?.data?.results || [];
       setTasks(Array.isArray(results) ? results : []);
-      setTotalPages(response.data?.data?.total_pages || response.data?.total_pages || 1);
+      setTotalPages(response.data?.data?.total_pages || 1);
+      setTotalItems(response.data?.data?.total_items || 0);
+
       if (results.length === 0) {
         console.warn("No tasks found in response.");
         toast.info("No tasks available.");
@@ -85,7 +90,7 @@ const ClassTasks = () => {
         headers: { Authorization: `Bearer ${token}` },
       });
       const classes = res.data?.data?.results || res.data?.results || [];
-      console.log("Class options response:", classes); // Debug class options
+      console.log("Class options response:", classes);
       setClassOptions(Array.isArray(classes) ? classes : []);
       if (classes.length === 0) {
         console.warn("No classes found in response.");
@@ -130,14 +135,17 @@ const ClassTasks = () => {
         },
       };
 
-      console.log("Saving task with payload:", Object.fromEntries(formData)); // Debug payload
+      console.log("Saving task with payload:", Object.fromEntries(formData));
 
-      const url = editingTask ? `${API_URL}${editingTask.id}/` : API_URL;
-      const method = editingTask ? "put" : "post";
+      if (editingTask) {
+        // Use PATCH for updates
+        const response = await axios.patch(`${API_URL}${editingTask.id}/`, formData, config);
+        toast.success(response.data?.message || "Task updated successfully");
+      } else {
+        const response = await axios.post(API_URL, formData, config);
+        toast.success(response.data?.message || "Task created successfully");
+      }
 
-      const response = await axios[method](url, formData, config);
-
-      toast.success(response.data?.message || `Task ${editingTask ? "updated" : "created"} successfully`);
       setShowForm(false);
       setNewTask({
         class_schedule: "",
@@ -148,12 +156,13 @@ const ClassTasks = () => {
         file: null,
       });
       setEditingTask(null);
+      // Reset file input
+      const fileInput = document.querySelector('input[type="file"]');
+      if (fileInput) fileInput.value = '';
       fetchTasks();
     } catch (err) {
       console.error("Create/Update error:", err.response?.data || err.message);
-      toast.error(
-        `${err.response?.data?.message || "Failed to save task"}${err.response?.data?.data?.error ? `: ${err.response.data.data.error}` : ""}`
-      );
+      toast.error(err.response?.data?.message || "Failed to save task");
     }
   };
 
@@ -164,55 +173,33 @@ const ClassTasks = () => {
       description: task.description,
       start_date: task.start_date?.split("T")[0] || "",
       due_date: task.due_date?.split("T")[0] || "",
-      file: null,
+      file: null, // Don't set existing file, let user choose new one if needed
     });
     setEditingTask(task);
     setShowForm(true);
   };
 
-  const handleDelete = (id) => {
+  const handleDelete = async (id) => {
     if (!canDelete) {
       toast.error("You do not have permission to delete class tasks.");
       return;
     }
 
-    toast(
-      (t) => (
-        <div>
-          <p className="text-gray-800">Are you sure you want to delete this task?</p>
-          <div className="flex justify-end gap-2 mt-2">
-            <button
-              onClick={async () => {
-                try {
-                  const token = Cookies.get("access_token");
-                  await axios.delete(`${API_URL}${id}/`, {
-                    headers: { Authorization: `Bearer ${token}` },
-                  });
-                  toast.success("Task deleted.");
-                  fetchTasks();
-                } catch (err) {
-                  console.error("Delete error:", err.response?.data || err.message);
-                  toast.error(
-                    `${err.response?.data?.message || "Failed to delete task"}${err.response?.data?.data?.error ? `: ${err.response.data.data.error}` : ""}`
-                  );
-                }
-                toast.dismiss(t.id);
-              }}
-              className="bg-red-500 text-white px-4 py-2 rounded-md"
-            >
-              Yes
-            </button>
-            <button
-              onClick={() => toast.dismiss(t.id)}
-              className="bg-gray-300 text-black px-4 py-2 rounded-md"
-            >
-              No
-            </button>
-          </div>
-        </div>
-      ),
-      { duration: 5000 }
-    );
+    if (!window.confirm("Are you sure you want to delete this task?")) {
+      return;
+    }
+
+    try {
+      const token = Cookies.get("access_token");
+      await axios.delete(`${API_URL}${id}/`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      toast.success("Task deleted successfully.");
+      fetchTasks();
+    } catch (err) {
+      console.error("Delete error:", err.response?.data || err.message);
+      toast.error(err.response?.data?.message || "Failed to delete task");
+    }
   };
 
   // Determine the class ID field based on classOptions structure
@@ -226,9 +213,21 @@ const ClassTasks = () => {
       : classSchedule || "N/A";
   };
 
+  // Format date for display
+  const formatDate = (dateString) => {
+    if (!dateString) return "N/A";
+    return new Date(dateString).toLocaleDateString();
+  };
+
+  // Format datetime for display
+  const formatDateTime = (dateString) => {
+    if (!dateString) return "N/A";
+    return new Date(dateString).toLocaleString();
+  };
+
   return (
     <div className="p-6">
-      <Toaster />
+      <Toaster position="top-center" />
       <div className="flex justify-between items-center bg-blue-900 text-white px-6 py-3 rounded-md">
         <h1 className="text-xl font-bold">Class Task Manager</h1>
         {canAdd && (
@@ -252,7 +251,7 @@ const ClassTasks = () => {
         )}
       </div>
 
-      {showForm && (
+      {showForm && (canAdd || canEdit) && (
         <div className="bg-white p-6 rounded-lg shadow-md mt-4">
           <h2 className="text-lg font-semibold mb-4">
             {editingTask ? "Edit Task" : "Create Task"}
@@ -272,10 +271,10 @@ const ClassTasks = () => {
                 getOptionValue={(cls) => cls[classIdField]}
                 value={classOptions.find((cls) => cls[classIdField] === newTask.class_schedule) || null}
                 onChange={(selected) => {
-                  console.log("Selected class:", selected); // Debug selection
+                  console.log("Selected class:", selected);
                   setNewTask((prev) => {
                     const updated = { ...prev, class_schedule: selected?.[classIdField] || "" };
-                    console.log("Updated newTask:", updated); // Debug state update
+                    console.log("Updated newTask:", updated);
                     return updated;
                   });
                 }}
@@ -336,11 +335,27 @@ const ClassTasks = () => {
                 onChange={handleFileChange}
                 className="p-2 border rounded w-full text-xs"
               />
+              {editingTask && editingTask.file && (
+                <p className="text-xs text-gray-500 mt-1">
+                  Current file: <a href={editingTask.file} target="_blank" rel="noopener noreferrer" className="text-blue-600 underline">Download</a>
+                </p>
+              )}
             </div>
           </div>
           <div className="flex justify-end mt-4 gap-2">
             <button
-              onClick={() => setShowForm(false)}
+              onClick={() => {
+                setShowForm(false);
+                setEditingTask(null);
+                setNewTask({
+                  class_schedule: "",
+                  title: "",
+                  description: "",
+                  start_date: "",
+                  due_date: "",
+                  file: null,
+                });
+              }}
               className="bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600 text-xs"
             >
               Cancel
@@ -362,45 +377,59 @@ const ClassTasks = () => {
       ) : (
         <>
           <Buttons
-            data={tasks.map((task) => ({
+            data={tasks.map((task, index) => ({
+              "S.No": (page - 1) * pageSize + index + 1,
               ID: task.id,
               Title: task.title,
               Description: task.description,
-              "Class Schedule": getClassName(task.class_schedule),
-              "Start Date": task.start_date?.split("T")[0] || "N/A",
-              "Due Date": task.due_date?.split("T")[0] || "N/A",
-              File: task.file ? task.file : "No File",
+              "Class Name": task.class_name || "N/A",
+              "Section": task.section_name || "N/A",
+              "Session": task.session_name || "N/A",
+              "Teacher": task.teacher_name || "N/A",
+              "Subject": task.subject || "N/A",
+              "Start Date": formatDate(task.start_date),
+              "Due Date": formatDate(task.due_date),
+              "File": task.file ? "Yes" : "No",
             }))}
             columns={[
+              { label: "S.No", key: "S.No" },
               { label: "ID", key: "ID" },
               { label: "Title", key: "Title" },
               { label: "Description", key: "Description" },
-              { label: "Class Schedule", key: "Class Schedule" },
+              { label: "Class Name", key: "Class Name" },
+              { label: "Section", key: "Section" },
+              { label: "Session", key: "Session" },
+              { label: "Teacher", key: "Teacher" },
+              { label: "Subject", key: "Subject" },
               { label: "Start Date", key: "Start Date" },
               { label: "Due Date", key: "Due Date" },
               { label: "File", key: "File" },
             ]}
             filename="Class_Tasks_Report"
           />
-          <div className="overflow-x-auto mt-6">
-            <table className="w-full border bg-white rounded-md shadow-sm">
-              <thead className="bg-blue-900 text-white">
+          <h2 className="text-lg font-semibold text-white bg-blue-900 px-4 py-2 rounded-t-md mt-4">
+            Tasks ({totalItems} total)
+          </h2>
+          <div className="overflow-x-auto">
+            <table className="w-full border bg-white rounded-b-md shadow-sm">
+              <thead className="bg-gray-200">
                 <tr>
-                  <th className="border p-2 text-xs font-semibold">#</th>
-                  <th className="border p-2 text-xs font-semibold">Title</th>
-                  <th className="border p-2 text-xs font-semibold">Class Schedule</th>
-                  <th className="border p-2 text-xs font-semibold">Start Date</th>
-                  <th className="border p-2 text-xs font-semibold">Due Date</th>
-                  <th className="border p-2 text-xs font-semibold">File</th>
+                  <th className="border p-2 text-xs font-semibold text-gray-700">S.No</th>
+                  <th className="border p-2 text-xs font-semibold text-gray-700">Title</th>
+                  <th className="border p-2 text-xs font-semibold text-gray-700">Class</th>
+                  <th className="border p-2 text-xs font-semibold text-gray-700">Teacher</th>
+                  <th className="border p-2 text-xs font-semibold text-gray-700">Subject</th>
+                  <th className="border p-2 text-xs font-semibold text-gray-700">Start Date</th>
+                  <th className="border p-2 text-xs font-semibold text-gray-700">Due Date</th>
+                  <th className="border p-2 text-xs font-semibold text-gray-700">File</th>
                   {(canEdit || canDelete) && (
-                    <th className="border p-2 text-xs font-semibold">Actions</th>
+                    <th className="border p-2 text-xs font-semibold text-gray-700">Actions</th>
                   )}
                 </tr>
               </thead>
               <tbody>
                 {tasks.map((task, index) => (
                   <tr key={task.id} className="hover:bg-gray-50">
-                    {/* Sequence number */}
                     <td className="border p-2 text-xs text-gray-800 text-center">
                       {(page - 1) * pageSize + index + 1}
                     </td>
@@ -410,15 +439,23 @@ const ClassTasks = () => {
                       </span>
                     </td>
                     <td className="border p-2 text-xs text-gray-800">
-                      <span className="block max-w-[150px] truncate" title={getClassName(task.class_schedule)}>
-                        {getClassName(task.class_schedule)}
+                      <span className="block max-w-[120px] truncate" title={`${task.class_name} - ${task.section_name}`}>
+                        {task.class_name} - {task.section_name}
                       </span>
                     </td>
                     <td className="border p-2 text-xs text-gray-800">
-                      {task.start_date?.split("T")[0] || "N/A"}
+                      <span className="block max-w-[100px] truncate" title={task.teacher_name}>
+                        {task.teacher_name || "N/A"}
+                      </span>
                     </td>
                     <td className="border p-2 text-xs text-gray-800">
-                      {task.due_date?.split("T")[0] || "N/A"}
+                      {task.subject || "N/A"}
+                    </td>
+                    <td className="border p-2 text-xs text-gray-800">
+                      {formatDate(task.start_date)}
+                    </td>
+                    <td className="border p-2 text-xs text-gray-800">
+                      {formatDate(task.due_date)}
                     </td>
                     <td className="border p-2 text-xs text-gray-800">
                       {task.file ? (
@@ -439,14 +476,14 @@ const ClassTasks = () => {
                         <MdVisibility
                           onClick={() => setSelectedTask(task)}
                           className="text-blue-500 cursor-pointer hover:text-blue-700"
-                          size={22}
+                          size={20}
                           title="View"
                         />
                         {canEdit && (
                           <MdEdit
                             onClick={() => handleEdit(task)}
                             className="text-yellow-500 cursor-pointer hover:text-yellow-700"
-                            size={22}
+                            size={20}
                             title="Edit"
                           />
                         )}
@@ -454,7 +491,7 @@ const ClassTasks = () => {
                           <MdDelete
                             onClick={() => handleDelete(task.id)}
                             className="text-red-500 cursor-pointer hover:text-red-700"
-                            size={22}
+                            size={20}
                             title="Delete"
                           />
                         )}
@@ -474,23 +511,23 @@ const ClassTasks = () => {
         pageSize={pageSize}
         onPageChange={(newPage) => {
           setPage(newPage);
-          fetchTasks();
         }}
         onPageSizeChange={(size) => {
           setPageSize(size);
           setPage(1);
-          fetchTasks();
         }}
-        totalItems={tasks.length}
+        totalItems={totalItems}
         showPageSizeSelector={true}
         showPageInfo={true}
       />
 
       {selectedTask && (
         <div className="fixed inset-0 bg-black bg-opacity-40 backdrop-blur-sm flex justify-center items-center z-50 px-4">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl border border-gray-200 p-6 overflow-hidden">
-            <div className="flex justify-between items-center border-b pb-4">
-              <h2 className="text-2xl font-bold text-blue-800">📝 Task Overview</h2>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl border border-gray-200 p-6 overflow-hidden max-h-[90vh] flex flex-col">
+
+            {/* Header */}
+            <div className="flex justify-between items-center border-b pb-4 flex-shrink-0">
+              <h2 className="text-2xl font-bold text-blue-800">📝 Task Details</h2>
               <button
                 onClick={() => setSelectedTask(null)}
                 className="text-gray-500 hover:text-red-600 text-xl font-bold"
@@ -500,25 +537,46 @@ const ClassTasks = () => {
               </button>
             </div>
 
-            <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-5 text-sm text-gray-700">
+            {/* Scrollable content */}
+            <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-5 text-sm text-gray-700 overflow-y-auto pr-2 flex-grow">
               <div>
                 <span className="font-semibold text-gray-600">📌 Title</span>
-                <p className="mt-1">{selectedTask.title}</p>
+                <p className="mt-1 text-gray-800">{selectedTask.title}</p>
               </div>
 
               <div>
-                <span className="font-semibold text-gray-600">🏫 Class Schedule</span>
-                <p className="mt-1">{getClassName(selectedTask.class_schedule)}</p>
+                <span className="font-semibold text-gray-600">🏫 Class</span>
+                <p className="mt-1 text-gray-800">{selectedTask.class_name} - {selectedTask.section_name}</p>
+              </div>
+
+              <div>
+                <span className="font-semibold text-gray-600">📚 Session</span>
+                <p className="mt-1 text-gray-800">{selectedTask.session_name || "N/A"}</p>
+              </div>
+
+              <div>
+                <span className="font-semibold text-gray-600">👨‍🏫 Teacher</span>
+                <p className="mt-1 text-gray-800">{selectedTask.teacher_name || "N/A"}</p>
+              </div>
+
+              <div>
+                <span className="font-semibold text-gray-600">📖 Subject</span>
+                <p className="mt-1 text-gray-800">{selectedTask.subject || "N/A"}</p>
+              </div>
+
+              <div>
+                <span className="font-semibold text-gray-600">🏢 School</span>
+                <p className="mt-1 text-gray-800">{selectedTask.school || "N/A"}</p>
               </div>
 
               <div>
                 <span className="font-semibold text-gray-600">📆 Start Date</span>
-                <p className="mt-1">{selectedTask.start_date?.split("T")[0] || "N/A"}</p>
+                <p className="mt-1 text-gray-800">{formatDateTime(selectedTask.start_date)}</p>
               </div>
 
               <div>
                 <span className="font-semibold text-gray-600">⏰ Due Date</span>
-                <p className="mt-1">{selectedTask.due_date?.split("T")[0] || "N/A"}</p>
+                <p className="mt-1 text-gray-800">{formatDateTime(selectedTask.due_date)}</p>
               </div>
 
               {selectedTask.file && (
@@ -538,17 +596,23 @@ const ClassTasks = () => {
               )}
 
               <div className="sm:col-span-2">
-                <span className="font-semibold text-gray-600">🧾 Description</span>
+                <span className="font-semibold text-gray-600">📝 Description</span>
                 <div className="bg-gray-50 p-4 mt-1 rounded-md border text-gray-800 leading-relaxed whitespace-pre-line">
                   {selectedTask.description}
                 </div>
               </div>
+
+              <div className="sm:col-span-2">
+                <span className="font-semibold text-gray-600">🆔 Task ID</span>
+                <p className="mt-1 font-mono text-xs bg-gray-100 px-2 py-1 rounded">{selectedTask.id}</p>
+              </div>
             </div>
 
-            <div className="mt-8 text-right">
+            {/* Footer */}
+            <div className="mt-6 text-right flex-shrink-0">
               <button
                 onClick={() => setSelectedTask(null)}
-                className="bg-blue-700 hover:bg-blue-800 text-white px-6 py-2 rounded-full font-semibold shadow-sm text-xs"
+                className="bg-blue-700 hover:bg-blue-800 text-white px-6 py-2 rounded-md font-semibold shadow-sm text-xs"
               >
                 Close
               </button>
@@ -556,6 +620,7 @@ const ClassTasks = () => {
           </div>
         </div>
       )}
+
     </div>
   );
 };

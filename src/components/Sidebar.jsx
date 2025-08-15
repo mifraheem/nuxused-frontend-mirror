@@ -60,7 +60,7 @@ const Sidebar = ({ isSidebarOpen, toggleSidebar, activeTab, setActiveTab }) => {
                             items={[
                                 { to: "/admin/manage-student-information", label: "Student Information" },
                                 { to: "/admin/generate-student-id-cards", label: "Student ID Cards" },
-                                // { to: "/admin/promotion-records", label: "Student Promotion" },
+                                { to: "/admin/promotion-records", label: "Student Promotion" },
                                 // { to: "/admin/track-students-attendance", label: "Student Attendance" },
                                 // { to: "/admin/student-results", label: "Student Results" },
                                 // { to: "/admin/final-results", label: "Final Results" },

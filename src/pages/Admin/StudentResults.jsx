@@ -668,9 +668,13 @@ const StudentResults = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {results.map((result) => (
+                  {results.map((result, index) => (
                     <tr key={result.id}>
-                      <td className="border border-gray-300 p-0.5 text-center text-xs">{result.id}</td>
+                      {/* Sequence number */}
+                      <td className="border border-gray-300 p-0.5 text-center text-xs">
+                        {(currentPage - 1) * pageSize + index + 1}
+                      </td>
+
                       <td className="border border-gray-300 p-0.5 text-xs">{result.student_name}</td>
                       <td className="border border-gray-300 p-0.5 text-xs">{result.subject_name}</td>
                       <td className="border border-gray-300 p-0.5 text-center text-xs">{result.marks_obtained}</td>

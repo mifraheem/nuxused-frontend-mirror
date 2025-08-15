@@ -14,9 +14,12 @@ const PromotionRecords = () => {
     const [selectedRecord, setSelectedRecord] = useState(null);
     const [editModalOpen, setEditModalOpen] = useState(false);
     const [classes, setClasses] = useState([]);
+    const [pageSize, setPageSize] = useState(10);
+
 
     const API = import.meta.env.VITE_SERVER_URL;
     const API_URL = `${API}/promotion-records/`;
+
 
     const fetchClasses = async () => {
         try {
@@ -35,11 +38,11 @@ const PromotionRecords = () => {
         }
     };
 
-    const fetchRecords = async (page = 1) => {
+    const fetchRecords = async (page = 1, size = pageSize) => {
         try {
             setIsLoading(true);
             const token = Cookies.get("access_token");
-            const res = await axios.get(`${API_URL}?page=${page}`, {
+            const res = await axios.get(`${API_URL}?page=${page}&page_size=${size}`, {
                 headers: { Authorization: `Bearer ${token}` },
             });
             const data = res.data.data;
@@ -53,6 +56,7 @@ const PromotionRecords = () => {
             setIsLoading(false);
         }
     };
+
 
     const handleEditSubmit = async () => {
         try {
@@ -88,7 +92,7 @@ const PromotionRecords = () => {
             {isLoading ? (
                 <p className="text-center text-gray-600 text-xs">Loading...</p>
             ) : (
-                <div className="overflow-x-auto rounded-md shadow-sm">
+                <div className="overflow-x-auto rounded-md ">
                     <Buttons
                         data={records}
                         columns={[
@@ -117,9 +121,11 @@ const PromotionRecords = () => {
                             </tr>
                         </thead>
                         <tbody>
-                            {records.map(rec => (
+                            {records.map((rec, index) => (
                                 <tr key={rec.id} className="hover:bg-gray-100">
-                                    <td className="border p-0.5 text-center text-xs">{rec.id}</td>
+                                    <td className="border p-0.5 text-center text-xs">
+                                        {(currentPage - 1) * pageSize + index + 1}
+                                    </td>
                                     <td className="border p-0.5 text-xs">{rec.student_name}</td>
                                     <td className="border p-0.5 text-xs">{rec.from_class_name}</td>
                                     <td className="border p-0.5 text-xs">

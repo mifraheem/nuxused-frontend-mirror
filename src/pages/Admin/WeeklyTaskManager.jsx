@@ -23,59 +23,84 @@ const WeeklyTaskManager = () => {
     start_date: "",
     due_date: "",
     file: null,
-    teacher: "", // Stores teacher UUID
+    teacher: "",
   });
+  const [isTeachersLoaded, setIsTeachersLoaded] = useState(false);
 
   const API = import.meta.env.VITE_SERVER_URL;
   const API_URL = `${API}faculty-tasks/`;
   const TEACHER_API_URL = `${API}api/auth/users/list_profiles/teacher/`;
 
+  const authHeaders = () => {
+    const token = Cookies.get("access_token");
+    return {
+      Authorization: `Bearer ${token}`,
+    };
+  };
+
+  const fetchTeachers = async () => {
+    try {
+      const res = await axios.get(TEACHER_API_URL, { headers: authHeaders() });
+      const list = res.data?.data?.results || [];
+      console.log("Raw teachers data:", list);
+
+      const normalized = list
+        .map(t => {
+          // Use profile_id as the UUID, as per the API response
+          const teacherUUID = t.profile_id;
+          const teacherLabel =
+            `${t.first_name || ''} ${t.last_name || ''}`.trim() ||
+            t.username ||
+            t.email ||
+            `Teacher ${teacherUUID?.substring(0, 8)}` ||
+            "Unknown";
+
+          console.log("Teacher mapping:", {
+            original: t,
+            uuid: teacherUUID,
+            label: teacherLabel,
+            isValidUUID: /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(teacherUUID),
+          });
+
+          return {
+            value: teacherUUID?.toString(),
+            label: teacherLabel,
+            originalData: t,
+          };
+        })
+        .filter(t => t.value && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(t.value)); // Only include valid UUIDs
+
+      console.log("Normalized teachers:", normalized);
+      setTeachers(normalized);
+      setIsTeachersLoaded(true);
+      if (normalized.length === 0) {
+        toast.error("No valid teachers found with UUIDs.");
+      }
+      return normalized;
+    } catch (e) {
+      console.error("Error fetching teachers:", e.response?.data || e.message);
+      toast.error(e.response?.data?.message || "Failed to load teachers.");
+      setIsTeachersLoaded(true);
+      return [];
+    }
+  };
+
   const fetchTasks = async () => {
     try {
-      const token = Cookies.get("access_token");
       const response = await axios.get(`${API_URL}?page=${page}&page_size=${pageSize}`, {
-        headers: { Authorization: `Bearer ${token}` },
+        headers: authHeaders(),
       });
-
       if (response.status === 200 && response.data.data) {
         const { results, total_pages } = response.data.data;
+        console.log("Fetched tasks:", results);
         setTasks(Array.isArray(results) ? results : []);
         setTotalPages(total_pages || 1);
       } else {
         toast.error("Unexpected API response format.");
       }
     } catch (error) {
+      console.error("Task fetch error:", error.response?.data || error.message);
       toast.error(error.response?.data?.message || "Failed to fetch tasks.");
-    }
-  };
-
-  const fetchTeachers = async () => {
-    try {
-      const token = Cookies.get("access_token");
-      if (!token) {
-        toast.error("User is not authenticated.");
-        return;
-      }
-
-      const response = await axios.get(TEACHER_API_URL, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-          Accept: 'application/json'
-        },
-      });
-
-      const teacherList = response.data?.data?.results || [];
-      if (!Array.isArray(teacherList)) {
-        throw new Error("Invalid response format for teachers");
-      }
-
-      console.log("Teacher API response:", teacherList); // Debug teacher data
-      setTeachers(teacherList);
-    } catch (error) {
-      console.error("Failed to fetch teachers:", error.response || error.message);
-      toast.error(
-        error.response?.data?.message || "Failed to load teachers. Please try again."
-      );
     }
   };
 
@@ -95,38 +120,46 @@ const WeeklyTaskManager = () => {
     }
 
     try {
-      const token = Cookies.get("access_token");
       const isEditing = !!editingTask;
-      const url = isEditing ? `${API_URL}${editingTask.id}/` : API_URL;
-
-      const headers = {
-        Authorization: `Bearer ${token}`,
-      };
+      const url = isEditing ? `${API_URL}${editingTask}/` : API_URL;
+      const headers = authHeaders();
 
       const formatDate = (dateString) => {
         if (!dateString) return "";
         const [yyyy, mm, dd] = dateString.split("-");
-        return `${yyyy}-${mm}-${dd}`;
+        return `${yyyy}-${mm}-${dd}T00:00:00+05:00`;
       };
 
-      const selectedTeacher = teachers.find(t => t.uuid === newTask.teacher);
-      if (!selectedTeacher?.uuid) {
+      const selectedTeacher = teachers.find(t => t.value === newTask.teacher);
+      if (!selectedTeacher?.value) {
         toast.error("Please select a valid teacher.");
         return;
       }
-      const teacherUUID = selectedTeacher.uuid;
-      console.log("Saving task with teacher UUID:", teacherUUID); // Debug selected teacher
+      const teacherUUID = selectedTeacher.value;
+
+      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      if (!uuidRegex.test(teacherUUID)) {
+        toast.error("Selected teacher ID is not a valid UUID.");
+        console.error("Invalid teacher UUID:", teacherUUID, selectedTeacher);
+        return;
+      }
+
+      console.log(`${isEditing ? 'Updating' : 'Creating'} task with teacher UUID:`, teacherUUID);
 
       let response;
-
-      if (newTask.file) {
+      if (newTask.file instanceof File) {
         const formData = new FormData();
         formData.append("title", newTask.title);
         formData.append("description", newTask.description);
         formData.append("start_date", formatDate(newTask.start_date));
         formData.append("due_date", formatDate(newTask.due_date));
-        formData.append("teachers", teacherUUID); // Send single UUID for FormData
+        formData.append("teachers", teacherUUID);
         formData.append("file", newTask.file);
+
+        console.log("FormData contents:");
+        for (let [key, value] of formData.entries()) {
+          console.log(`${key}:`, value);
+        }
 
         response = await axios({
           method: isEditing ? "patch" : "post",
@@ -143,8 +176,10 @@ const WeeklyTaskManager = () => {
           description: newTask.description,
           start_date: formatDate(newTask.start_date),
           due_date: formatDate(newTask.due_date),
-          teachers: [teacherUUID], // Send UUID in array for JSON
+          teachers: [teacherUUID],
         };
+
+        console.log("JSON payload:", json);
 
         response = await axios({
           method: isEditing ? "patch" : "post",
@@ -157,14 +192,20 @@ const WeeklyTaskManager = () => {
         });
       }
 
+      console.log("API Response:", response.data);
+
       if ([200, 201].includes(response.status)) {
         const updatedTask = response.data.data;
-        setTasks((prev) =>
-          isEditing
-            ? prev.map((task) => (task.id === updatedTask.id ? updatedTask : task))
-            : [...prev, updatedTask]
-        );
-        toast.success(isEditing ? "Task updated successfully!" : "Task created successfully!");
+        if (isEditing) {
+          setTasks((prev) =>
+            prev.map((task) => (task.id === updatedTask.id ? updatedTask : task))
+          );
+          toast.success("Task updated successfully!");
+        } else {
+          setTasks((prev) => [updatedTask, ...prev]);
+          toast.success("Task created successfully!");
+        }
+        await fetchTasks();
       }
 
       setShowForm(false);
@@ -179,11 +220,19 @@ const WeeklyTaskManager = () => {
       });
     } catch (error) {
       console.error("Task save error:", error.response?.data || error.message);
-      toast.error(
+      console.error("Response status:", error.response?.status);
+      if (error.response?.data?.data?.errors) {
+        console.error("Validation errors:", error.response.data.data.errors);
+        Object.keys(error.response.data.data.errors).forEach(field => {
+          console.error(`Field '${field}' error:`, error.response.data.data.errors[field]);
+        });
+      }
+      const errorMessage =
+        error.response?.data?.data?.errors?.teachers?.[0] ||
         error.response?.data?.message ||
         error.response?.data?.error ||
-        "Failed to save task."
-      );
+        "Failed to save task.";
+      toast.error(errorMessage);
     }
   };
 
@@ -201,20 +250,16 @@ const WeeklyTaskManager = () => {
             <button
               onClick={async () => {
                 try {
-                  const token = Cookies.get("access_token");
                   await axios.delete(`${API_URL}${id}/`, {
-                    headers: { Authorization: `Bearer ${token}` },
+                    headers: authHeaders(),
                   });
-
                   toast.success("Task deleted successfully!");
                   setTasks((prevTasks) =>
                     prevTasks.filter((task) => task.id !== id)
                   );
                 } catch (error) {
-                  console.error("Error deleting task:", error);
-                  toast.error("Failed to delete task.");
+                  toast.error(error.response?.data?.message || "Failed to delete task.");
                 }
-
                 toast.dismiss(t.id);
               }}
               className="bg-red-500 text-white px-4 py-2 rounded-md hover:bg-red-700"
@@ -235,24 +280,35 @@ const WeeklyTaskManager = () => {
   };
 
   const handleEditTask = (task) => {
+    console.log("Editing task:", task);
+    setEditingTask(task.id);
+    setShowForm(true);
+    const taskTeacherUUID = task.teachers?.[0] || "";
+    console.log("Task teacher UUID:", taskTeacherUUID);
     setNewTask({
       title: task.title || "",
       description: task.description || "",
       start_date: task.start_date?.split("T")[0] || "",
       due_date: task.due_date?.split("T")[0] || "",
       file: null,
-      teacher: task.teachers?.[0] || "", // Expecting UUID
+      teacher: taskTeacherUUID,
     });
-
-    setEditingTask({ id: task.id, ...task });
-    setShowForm(true);
   };
 
   const getTeacherNames = (teacherIds) => {
     if (!teacherIds?.length) return "N/A";
-    return teacherIds
-      .map(id => teachers.find(teacher => teacher.uuid === id)?.username || "Unknown")
-      .join(", ");
+    if (!isTeachersLoaded) return "Loading...";
+    const names = teacherIds
+      .map(id => {
+        const teacher = teachers.find(t => t.value === id);
+        if (!teacher) {
+          console.warn(`No teacher found for UUID: ${id}`);
+          return `Unknown (${id.substring(0, 8)}...)`;
+        }
+        return teacher.label;
+      })
+      .filter(name => !name.startsWith("Unknown"));
+    return names.length > 0 ? names.join(", ") : "Unknown";
   };
 
   const handleViewTask = (task) => {
@@ -273,8 +329,7 @@ const WeeklyTaskManager = () => {
   };
 
   useEffect(() => {
-    fetchTasks();
-    fetchTeachers();
+    fetchTeachers().then(() => fetchTasks());
   }, [page, pageSize]);
 
   const permissions = JSON.parse(localStorage.getItem("user_permissions") || "[]");
@@ -338,21 +393,28 @@ const WeeklyTaskManager = () => {
               </label>
               <Select
                 name="teacher"
-                value={teachers.find(t => t.uuid === newTask.teacher) || null}
-                onChange={(selected) => {
-                  console.log("Selected teacher:", selected); // Debug selection
-                  setNewTask((prev) => {
-                    console.log("Updated newTask:", { ...prev, teacher: selected?.uuid || "" }); // Debug state update
-                    return { ...prev, teacher: selected?.uuid || "" };
-                  });
-                }}
                 options={teachers}
-                getOptionLabel={(t) => t.username || "Unknown"}
-                getOptionValue={(t) => t.uuid}
-                placeholder="Select teacher"
+                value={teachers.find(o => o.value === newTask.teacher) || null}
+                onChange={(opt) => {
+                  const selectedUUID = opt?.value || "";
+                  console.log("Selected teacher:", opt);
+                  setNewTask(p => ({ ...p, teacher: selectedUUID }));
+                }}
+                placeholder={isTeachersLoaded ? "Select teacher" : "Loading teachers..."}
                 isClearable
+                isDisabled={!isTeachersLoaded}
                 className="react-select-container text-xs"
                 classNamePrefix="react-select"
+                isSearchable={true}
+                menuPortalTarget={document.body}
+                styles={{
+                  menuPortal: base => ({ ...base, zIndex: 9999 }),
+                  menu: base => ({ ...base, fontSize: '12px' }),
+                  option: base => ({ ...base, fontSize: '12px' }),
+                  singleValue: base => ({ ...base, fontSize: '12px' }),
+                  control: base => ({ ...base, minHeight: '28px', fontSize: '12px' }),
+                }}
+                noOptionsMessage={() => (isTeachersLoaded && teachers.length === 0 ? "No teachers found" : "Loading teachers...")}
               />
             </div>
             <div>
@@ -390,7 +452,7 @@ const WeeklyTaskManager = () => {
           </div>
           <div className="flex justify-end gap-2 mt-2">
             <button
-              onClick={() => setShowForm(false)}
+              onClick={handleToggleForm}
               className="bg-gray-500 text-white px-2 py-1 rounded-md hover:bg-gray-600 text-xs"
             >
               Cancel
@@ -398,6 +460,7 @@ const WeeklyTaskManager = () => {
             <button
               onClick={handleSaveTask}
               className="bg-green-600 text-white px-3 py-1 rounded-md font-semibold shadow hover:bg-green-700 text-xs"
+              disabled={!isTeachersLoaded}
             >
               {editingTask ? "Update Task" : "Save Task"}
             </button>
@@ -444,7 +507,9 @@ const WeeklyTaskManager = () => {
             <tbody>
               {tasks.map((task, index) => (
                 <tr key={task.id}>
-                  <td className="border border-gray-300 p-0.5 text-center text-xs">{task.id}</td>
+                  <td className="border border-gray-300 p-0.5 text-center text-xs">
+                    {(page - 1) * pageSize + index + 1}
+                  </td>
                   <td className="border border-gray-300 p-0.5 text-xs">
                     <span className="block max-w-[150px] truncate" title={task.title}>
                       {task.title}
@@ -479,7 +544,7 @@ const WeeklyTaskManager = () => {
                       {canEdit && (
                         <MdEdit
                           onClick={() => handleEditTask(task)}
-                        className="text-yellow-500 cursor-pointer hover:text-yellow-700"
+                          className="text-yellow-500 cursor-pointer hover:text-yellow-700"
                           size={18}
                         />
                       )}
@@ -530,6 +595,10 @@ const WeeklyTaskManager = () => {
               <div>
                 <div className="text-gray-500 font-medium">📝 Description</div>
                 <div className="mt-0.5 text-gray-800">{selectedTask.description || "—"}</div>
+              </div>
+              <div>
+                <div className="text-gray-500 font-medium">👨‍🏫 Teacher</div>
+                <div className="mt-0.5 text-gray-800">{getTeacherNames(selectedTask.teachers)}</div>
               </div>
               <div>
                 <div className="text-gray-500 font-medium">📅 Start Date</div>

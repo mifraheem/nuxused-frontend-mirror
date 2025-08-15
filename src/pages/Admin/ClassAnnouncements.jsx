@@ -19,8 +19,9 @@ const ClassAnnouncements = () => {
     });
     const [showForm, setShowForm] = useState(false);
     const [page, setPage] = useState(1);
-    const [pageSize, setPageSize] = useState(100); // Increased to fetch more announcements
+    const [pageSize, setPageSize] = useState(100);
     const [totalPages, setTotalPages] = useState(1);
+    const [totalItems, setTotalItems] = useState(0);
     const [loading, setLoading] = useState(false);
 
     const API = import.meta.env.VITE_SERVER_URL;
@@ -39,10 +40,14 @@ const ClassAnnouncements = () => {
             const res = await axios.get(`${API_URL}?page=${page}&page_size=${pageSize}`, {
                 headers: { Authorization: `Bearer ${token}` },
             });
-            console.log("Announcements API response:", res.data); // Debug full response
-            const results = res.data?.data?.results || res.data?.results || [];
+            console.log("Announcements API response:", res.data);
+            
+            // Handle the API response structure
+            const results = res.data?.results || [];
             setAnnouncements(Array.isArray(results) ? results : []);
-            setTotalPages(res.data?.data?.total_pages || res.data?.total_pages || 1);
+            setTotalPages(res.data?.total_pages || 1);
+            setTotalItems(res.data?.total_items || 0);
+            
             if (results.length === 0) {
                 console.warn("No announcements found in response.");
                 toast.info("No announcements available.");
@@ -68,7 +73,7 @@ const ClassAnnouncements = () => {
                 headers: { Authorization: `Bearer ${token}` },
             });
             const classes = res.data?.data?.results || res.data?.results || [];
-            console.log("Class options response:", classes); // Debug class options
+            console.log("Class options response:", classes);
             setClassOptions(Array.isArray(classes) ? classes : []);
             if (classes.length === 0) {
                 console.warn("No classes found in response.");
@@ -90,10 +95,11 @@ const ClassAnnouncements = () => {
             const token = Cookies.get("access_token");
             const config = { headers: { Authorization: `Bearer ${token}` } };
 
-            console.log("Saving announcement with payload:", newAnnouncement); // Debug payload
+            console.log("Saving announcement with payload:", newAnnouncement);
 
             if (editingItem) {
-                await axios.put(`${API_URL}${editingItem.id}/`, newAnnouncement, config);
+                // Use PATCH for updates and use uuid instead of id
+                await axios.patch(`${API_URL}${editingItem.uuid}/`, newAnnouncement, config);
                 toast.success("Announcement updated!");
             } else {
                 await axios.post(API_URL, newAnnouncement, config);
@@ -110,15 +116,20 @@ const ClassAnnouncements = () => {
         }
     };
 
-    const handleDelete = async (id) => {
+    const handleDelete = async (uuid) => {
         if (!canDelete) {
             toast.error("No permission to delete.");
             return;
         }
 
+        if (!window.confirm("Are you sure you want to delete this announcement?")) {
+            return;
+        }
+
         try {
             const token = Cookies.get("access_token");
-            await axios.delete(`${API_URL}${id}/`, {
+            // Use uuid instead of id
+            await axios.delete(`${API_URL}${uuid}/`, {
                 headers: { Authorization: `Bearer ${token}` },
             });
             toast.success("Announcement deleted.");
@@ -192,10 +203,10 @@ const ClassAnnouncements = () => {
                             <Select
                                 value={classOptions.find((cls) => cls[classIdField] === newAnnouncement.class_schedule) || null}
                                 onChange={(selected) => {
-                                    console.log("Selected class:", selected); // Debug selection
+                                    console.log("Selected class:", selected);
                                     setNewAnnouncement((prev) => {
                                         const updated = { ...prev, class_schedule: selected?.[classIdField] || "" };
-                                        console.log("Updated newAnnouncement:", updated); // Debug state update
+                                        console.log("Updated newAnnouncement:", updated);
                                         return updated;
                                     });
                                 }}
@@ -236,7 +247,11 @@ const ClassAnnouncements = () => {
 
                     <div className="mt-4 flex justify-end gap-2">
                         <button
-                            onClick={() => setShowForm(false)}
+                            onClick={() => {
+                                setShowForm(false);
+                                setEditingItem(null);
+                                setNewAnnouncement({ class_schedule: "", title: "", description: "" });
+                            }}
                             className="bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600 text-xs"
                         >
                             Cancel
@@ -258,31 +273,39 @@ const ClassAnnouncements = () => {
             ) : (
                 <>
                     <Buttons
-                        data={announcements.map((a) => ({
-                            ID: a.id,
+                        data={announcements.map((a, index) => ({
+                            "S.No": (page - 1) * pageSize + index + 1,
+                            UUID: a.uuid,
                             Title: a.title,
                             Description: a.description,
-                            "Class Schedule": getClassName(a.class_schedule),
+                            "Teacher Name": a.teacher_name || "N/A",
+                            School: a.school || "N/A",
+                            "Created Date": a.created ? new Date(a.created).toLocaleDateString() : "N/A",
                         }))}
                         columns={[
-                            { label: "ID", key: "ID" },
+                            { label: "S.No", key: "S.No" },
+                            { label: "UUID", key: "UUID" },
                             { label: "Title", key: "Title" },
                             { label: "Description", key: "Description" },
-                            { label: "Class Schedule", key: "Class Schedule" },
+                            { label: "Teacher Name", key: "Teacher Name" },
+                            { label: "School", key: "School" },
+                            { label: "Created Date", key: "Created Date" },
                         ]}
                         filename="Class_Announcements_Report"
                     />
                     <h2 className="text-lg font-semibold text-white bg-blue-900 px-4 py-2 rounded-t-md mt-4">
-                        Announcements
+                        Announcements ({totalItems} total)
                     </h2>
                     <div className="overflow-x-auto">
                         <table className="w-full border bg-white rounded-b-md">
                             <thead className="bg-gray-200">
                                 <tr>
-                                    <th className="p-2 border text-xs font-semibold text-gray-700">ID</th>
+                                    <th className="p-2 border text-xs font-semibold text-gray-700">S.No</th>
                                     <th className="p-2 border text-xs font-semibold text-gray-700">Title</th>
                                     <th className="p-2 border text-xs font-semibold text-gray-700">Description</th>
-                                    <th className="p-2 border text-xs font-semibold text-gray-700">Class Schedule</th>
+                                    <th className="p-2 border text-xs font-semibold text-gray-700">Teacher</th>
+                                    <th className="p-2 border text-xs font-semibold text-gray-700">School</th>
+                                    <th className="p-2 border text-xs font-semibold text-gray-700">Created</th>
                                     {(canEdit || canDelete) && (
                                         <th className="p-2 border text-xs font-semibold text-gray-700">Actions</th>
                                     )}
@@ -290,8 +313,7 @@ const ClassAnnouncements = () => {
                             </thead>
                             <tbody>
                                 {announcements.map((a, index) => (
-                                    <tr key={a.id} className="hover:bg-gray-50">
-                                        {/* Sequence number */}
+                                    <tr key={a.uuid} className="hover:bg-gray-50">
                                         <td className="p-2 border text-xs text-gray-800 text-center">
                                             {(page - 1) * pageSize + index + 1}
                                         </td>
@@ -306,9 +328,17 @@ const ClassAnnouncements = () => {
                                             </span>
                                         </td>
                                         <td className="p-2 border text-xs text-gray-800">
-                                            <span className="block max-w-[150px] truncate" title={getClassName(a.class_schedule)}>
-                                                {getClassName(a.class_schedule)}
+                                            <span className="block max-w-[120px] truncate" title={a.teacher_name}>
+                                                {a.teacher_name || "N/A"}
                                             </span>
+                                        </td>
+                                        <td className="p-2 border text-xs text-gray-800">
+                                            <span className="block max-w-[150px] truncate" title={a.school}>
+                                                {a.school || "N/A"}
+                                            </span>
+                                        </td>
+                                        <td className="p-2 border text-xs text-gray-800">
+                                            {a.created ? new Date(a.created).toLocaleDateString() : "N/A"}
                                         </td>
                                         {(canEdit || canDelete) && (
                                             <td className="p-2 border flex gap-2 justify-center text-xs">
@@ -324,7 +354,7 @@ const ClassAnnouncements = () => {
                                                             setEditingItem(a);
                                                             setShowForm(true);
                                                             setNewAnnouncement({
-                                                                class_schedule: a.class_schedule,
+                                                                class_schedule: a.class_schedule || "",
                                                                 title: a.title,
                                                                 description: a.description,
                                                             });
@@ -336,7 +366,7 @@ const ClassAnnouncements = () => {
                                                 )}
                                                 {canDelete && (
                                                     <MdDelete
-                                                        onClick={() => handleDelete(a.id)}
+                                                        onClick={() => handleDelete(a.uuid)}
                                                         className="text-red-500 cursor-pointer hover:text-red-700"
                                                         size={20}
                                                         title="Delete"
@@ -358,14 +388,12 @@ const ClassAnnouncements = () => {
                 pageSize={pageSize}
                 onPageChange={(newPage) => {
                     setPage(newPage);
-                    fetchData();
                 }}
                 onPageSizeChange={(size) => {
                     setPageSize(size);
                     setPage(1);
-                    fetchData();
                 }}
-                totalItems={announcements.length}
+                totalItems={totalItems}
                 showPageSizeSelector={true}
                 showPageInfo={true}
             />
@@ -398,8 +426,23 @@ const ClassAnnouncements = () => {
                             </div>
 
                             <div>
-                                <span className="font-semibold text-gray-800">🏫 Class Schedule:</span><br />
-                                <span className="ml-1">{getClassName(selectedItem.class_schedule)}</span>
+                                <span className="font-semibold text-gray-800">👨‍🏫 Teacher:</span><br />
+                                <span className="ml-1">{selectedItem.teacher_name || "N/A"}</span>
+                            </div>
+
+                            <div>
+                                <span className="font-semibold text-gray-800">🏫 School:</span><br />
+                                <span className="ml-1">{selectedItem.school || "N/A"}</span>
+                            </div>
+
+                            <div>
+                                <span className="font-semibold text-gray-800">📅 Created:</span><br />
+                                <span className="ml-1">{selectedItem.created ? new Date(selectedItem.created).toLocaleString() : "N/A"}</span>
+                            </div>
+
+                            <div>
+                                <span className="font-semibold text-gray-800">🆔 UUID:</span><br />
+                                <span className="ml-1 font-mono text-xs bg-gray-100 px-2 py-1 rounded">{selectedItem.uuid}</span>
                             </div>
                         </div>
 
