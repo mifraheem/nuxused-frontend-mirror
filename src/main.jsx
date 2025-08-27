@@ -75,6 +75,8 @@ import GradeCriteria from "./pages/Admin/GradeCriteria";
 import StudentResults from "./pages/Admin/StudentResults";
 import FinalResults from "./pages/Admin/FinalResults";
 import PromotionRecords from "./pages/Admin/PromotionRecords";
+import PermissionsPage from "./pages/Admin/PermissionsPage";
+import ClassPermissionsManager from "./pages/Admin/ClassPermissionsManager";
 
 const router = createBrowserRouter([
   {
@@ -208,6 +210,14 @@ const router = createBrowserRouter([
           {
             path: "/admin/registration",
             element: <AdminRegistration />,
+          },
+          {
+            path: "/admin/permissions",
+            element: <PermissionsPage/>,
+          },
+          {
+            path: "/admin/group-class-permissions",
+            element: <ClassPermissionsManager/>,
           },
           {
             path: "/admin/class-management",

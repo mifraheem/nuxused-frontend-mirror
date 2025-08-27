@@ -47,6 +47,7 @@ const AttendanceStd = () => {
 
   const [formData, setFormData] = useState({
     student: null,
+    student_uuid: '',
     subject: '',
     class_schedule: '',
     status: 'Present',
@@ -68,8 +69,37 @@ const AttendanceStd = () => {
   const [rowSubmitting, setRowSubmitting] = useState({});
   const [rowSubmitted, setRowSubmitted] = useState({});
 
-  const getStudentUUID = (s = {}) =>
-    s.profile_uuid || s.uuid || s.user_uuid || s.profile_id || s.id;
+  // Enhanced UUID extraction function with better fallback logic
+  const getStudentUUID = (student = {}) => {
+    // Priority order for UUID extraction - updated to include std_id
+    const possibleUUIDs = [
+      student.std_id,        // Added for your API response structure
+      student.profile_uuid,
+      student.user_uuid, 
+      student.uuid,
+      student.student_uuid,
+      student.profile_id,
+      student.user_id,
+      student.id
+    ];
+    
+    const uuid = possibleUUIDs.find(id => id != null && id !== '');
+    
+    if (!uuid) {
+      console.warn('No valid UUID found for student:', student);
+    }
+    
+    return uuid;
+  };
+
+  // Enhanced function to get student display name
+  const getStudentDisplayName = (student = {}) => {
+    const firstName = student.first_name || '';
+    const lastName = student.last_name || '';
+    const fullName = `${firstName} ${lastName}`.trim();
+    
+    return fullName || student.username || student.name || student.email || 'Unknown Student';
+  };
 
   useEffect(() => {
     fetchDropdowns();
@@ -94,8 +124,26 @@ const AttendanceStd = () => {
       const classData = classesRes.data?.data?.results || [];
       const subjectData = subjectsRes.data?.data?.results || [];
 
-      setStudentOptions(studentData);
-      setStudents(studentData);
+      console.log('Fetched student data:', studentData); // Debug log
+
+      // Validate students have UUIDs
+      const validStudents = studentData.filter(student => {
+        const uuid = getStudentUUID(student);
+        if (!uuid) {
+          console.warn('Student without valid UUID:', student);
+          return false;
+        }
+        return true;
+      });
+
+      console.log('Valid students after filtering:', validStudents); // Debug log
+
+      if (validStudents.length < studentData.length) {
+        toast.warning(`${studentData.length - validStudents.length} students excluded due to missing UUID`);
+      }
+
+      setStudentOptions(validStudents);
+      setStudents(validStudents);
       setClassOptions(classData);
       setSubjectOptions(subjectData);
     } catch (err) {
@@ -133,7 +181,18 @@ const AttendanceStd = () => {
           headers: { Authorization: `Bearer ${token}` }
         });
         const data = res.data?.data?.results || res.data.results || [];
-        setFilteredStudents(data);
+        
+        // Validate filtered students have UUIDs
+        const validStudents = data.filter(student => {
+          const uuid = getStudentUUID(student);
+          if (!uuid) {
+            console.warn('Filtered student without valid UUID:', student);
+            return false;
+          }
+          return true;
+        });
+        
+        setFilteredStudents(validStudents);
       } catch (err) {
         console.error('Error fetching filtered students:', err);
         if (err.response?.status === 404) {
@@ -194,19 +253,45 @@ const AttendanceStd = () => {
         headers: { Authorization: `Bearer ${token}` }
       });
       const data = res.data?.data?.results || res.data.results || [];
-      setStudents(data);
       
-      const initialAttendanceData = data.map(student => {
-        const uuidOrId = getStudentUUID(student);
+      // Validate students and filter out those without UUIDs
+      const validStudents = data.filter(student => {
+        const uuid = getStudentUUID(student);
+        if (!uuid) {
+          console.warn('Student in class without valid UUID:', student);
+          return false;
+        }
+        return true;
+      });
+
+      if (validStudents.length === 0) {
+        toast.error('No valid students found in this class');
+        setStudents([]);
+        setBulkAttendanceData([]);
+        setShowAttendanceTable(false);
+        return;
+      }
+
+      if (validStudents.length < data.length) {
+        toast.warning(`${data.length - validStudents.length} students excluded due to missing UUID`);
+      }
+      
+      setStudents(validStudents);
+      
+      // Initialize attendance data with proper UUID mapping
+      const initialAttendanceData = validStudents.map(student => {
+        const studentUUID = getStudentUUID(student);
         return {
-          student: uuidOrId,
-          student_uuid: uuidOrId,
+          student: studentUUID,
+          student_uuid: studentUUID, // Explicitly set student_uuid
           subject: '',
           class_schedule: selectedClass.id,
           status: 'Present',
-          remarks: ''
+          remarks: '',
+          student_info: student // Keep reference to full student object for display
         };
       });
+      
       setBulkAttendanceData(initialAttendanceData);
       setShowAttendanceTable(true);
       setRowSubmitting({});
@@ -215,16 +300,18 @@ const AttendanceStd = () => {
       console.error('Error fetching students for class:', err);
       if (err.response?.status === 404) {
         toast.error('Class student endpoint not found. Showing all students.');
-        setStudents(studentOptions);
-        const initialAttendanceData = studentOptions.map(student => {
-          const uuidOrId = getStudentUUID(student);
+        const validStudents = studentOptions.filter(student => getStudentUUID(student));
+        setStudents(validStudents);
+        const initialAttendanceData = validStudents.map(student => {
+          const studentUUID = getStudentUUID(student);
           return {
-            student: uuidOrId,
-            student_uuid: uuidOrId,
+            student: studentUUID,
+            student_uuid: studentUUID,
             subject: '',
             class_schedule: selectedClass.id,
             status: 'Present',
-            remarks: ''
+            remarks: '',
+            student_info: student
           };
         });
         setBulkAttendanceData(initialAttendanceData);
@@ -253,34 +340,56 @@ const AttendanceStd = () => {
 
     const record = bulkAttendanceData[index];
     const sourceStudent = students[index] || {};
-    const uuidOrId = record?.student_uuid || getStudentUUID(sourceStudent);
-    const displayName =
-      `${sourceStudent.first_name || ''} ${sourceStudent.last_name || ''}`.trim() ||
-      sourceStudent.username || sourceStudent.name || 'Student';
+    
+    // Double-check UUID extraction
+    const studentUUID = record?.student_uuid || record?.student || getStudentUUID(sourceStudent);
+    const displayName = getStudentDisplayName(sourceStudent);
+
+    // Validate required fields
+    if (!studentUUID) {
+      toast.error(`Missing student UUID for ${displayName}`);
+      return;
+    }
 
     if (!record?.subject) {
       toast.error(`Select subject for ${displayName}`);
       return;
     }
 
+    // Prepare payload with explicit UUID fields
     const payload = {
-      ...record,
-      student: uuidOrId,
-      student_uuid: uuidOrId,
+      student: studentUUID,
+      student_uuid: studentUUID, // Explicitly include student_uuid
+      subject: record.subject,
+      class_schedule: record.class_schedule,
+      status: record.status || 'Present',
+      remarks: record.remarks || '',
       date: new Date().toISOString().split('T')[0],
     };
 
+    console.log('Submitting single attendance:', {
+      student: displayName,
+      uuid: studentUUID,
+      payload
+    });
+
     try {
       setRowSubmitting(prev => ({ ...prev, [index]: true }));
-      await axios.post(API_BASE_URL, payload, {
+      
+      const response = await axios.post(API_BASE_URL, payload, {
         headers: { Authorization: `Bearer ${token}` },
       });
 
+      console.log('Single submission response:', response.data);
+      
       setRowSubmitted(prev => ({ ...prev, [index]: true }));
       toast.success(`Attendance saved for ${displayName}`);
     } catch (err) {
       console.error('Single submit error:', err);
-      toast.error(`Failed to submit for ${displayName}`);
+      console.error('Error response:', err.response?.data);
+      
+      const errorMessage = err.response?.data?.message || err.response?.data?.detail || 'Unknown error';
+      toast.error(`Failed to submit for ${displayName}: ${errorMessage}`);
     } finally {
       setRowSubmitting(prev => ({ ...prev, [index]: false }));
     }
@@ -332,9 +441,14 @@ const AttendanceStd = () => {
     const token = Cookies.get('access_token');
     if (!token) return toast.error('Not authenticated');
 
-    const invalidRecords = bulkAttendanceData.filter(record => !record.subject);
+    // Validate all records have required fields
+    const invalidRecords = bulkAttendanceData.filter(record => 
+      !record.subject || !record.student_uuid || !record.student
+    );
+    
     if (invalidRecords.length > 0) {
-      toast.error('Please select subject for all students');
+      toast.error('Please ensure all students have subject selected and valid UUID');
+      console.warn('Invalid records:', invalidRecords);
       return;
     }
 
@@ -344,23 +458,37 @@ const AttendanceStd = () => {
       
       const promises = bulkAttendanceData.map((record, idx) => {
         const sourceStudent = students[idx] || {};
-        const uuidOrId = record.student_uuid || getStudentUUID(sourceStudent);
+        const studentUUID = record.student_uuid || record.student || getStudentUUID(sourceStudent);
+        const displayName = getStudentDisplayName(sourceStudent);
 
-        return axios.post(
-          API_BASE_URL,
-          {
-            ...record,
-            student: uuidOrId,
-            student_uuid: uuidOrId,
-            date: currentDate
-          },
-          { headers: { Authorization: `Bearer ${token}` } }
-        );
+        if (!studentUUID) {
+          throw new Error(`Missing UUID for student: ${displayName}`);
+        }
+
+        const payload = {
+          student: studentUUID,
+          student_uuid: studentUUID, // Explicitly include student_uuid
+          subject: record.subject,
+          class_schedule: record.class_schedule,
+          status: record.status || 'Present',
+          remarks: record.remarks || '',
+          date: currentDate
+        };
+
+        console.log(`Bulk submission for ${displayName}:`, payload);
+
+        return axios.post(API_BASE_URL, payload, {
+          headers: { Authorization: `Bearer ${token}` }
+        }).catch(error => {
+          console.error(`Error submitting for ${displayName}:`, error.response?.data);
+          throw error;
+        });
       });
 
       await Promise.all(promises);
       toast.success('Bulk attendance submitted successfully');
       
+      // Reset form
       setShowAttendanceForm(false);
       setShowAttendanceTable(false);
       setShowClassSelection(false);
@@ -370,7 +498,8 @@ const AttendanceStd = () => {
       setRowSubmitted({});
     } catch (err) {
       console.error('Error submitting bulk attendance:', err);
-      toast.error('Failed to submit attendance');
+      const errorMessage = err.response?.data?.message || err.response?.data?.detail || err.message;
+      toast.error(`Failed to submit attendance: ${errorMessage}`);
     } finally {
       setLoading(false);
     }
@@ -487,13 +616,19 @@ const AttendanceStd = () => {
               const row = bulkAttendanceData[index] || {};
               const rowBusy = !!rowSubmitting[index];
               const done = !!rowSubmitted[index];
+              const displayName = getStudentDisplayName(student);
+              const studentUUID = getStudentUUID(student);
+              
               return (
                 <div
-                  key={student.profile_id || student.id}
+                  key={studentUUID || student.std_id || index}
                   className="border rounded-lg p-3 shadow-sm"
                 >
                   <div className="font-semibold text-gray-800 mb-2">
-                    {`${student.first_name || ''} ${student.last_name || ''}`.trim() || student.username || student.name}
+                    {displayName}
+                    <div className="text-xs text-gray-500 font-normal">
+                      UUID: {studentUUID || 'Missing'}
+                    </div>
                   </div>
                   <div className="grid grid-cols-1 gap-3">
                     <div>
@@ -553,16 +688,19 @@ const AttendanceStd = () => {
                   <div className="mt-3 flex justify-end">
                     <button
                       onClick={() => handleSubmitSingle(index)}
-                      disabled={rowBusy || done}
+                      disabled={rowBusy || done || !studentUUID}
                       className={`px-4 py-2 rounded text-sm text-white ${
-                        done
+                        !studentUUID
+                          ? 'bg-red-600 cursor-not-allowed'
+                          : done
                           ? 'bg-green-600 cursor-default'
                           : rowBusy
                           ? 'bg-blue-400 cursor-wait'
                           : 'bg-blue-600 hover:bg-blue-700'
                       } disabled:opacity-60 disabled:cursor-not-allowed`}
+                      title={!studentUUID ? 'Missing UUID' : done ? 'Submitted' : 'Submit this student'}
                     >
-                      {done ? 'Submitted ✓' : rowBusy ? 'Submitting…' : 'Submit'}
+                      {!studentUUID ? 'No UUID ✗' : done ? 'Submitted ✓' : rowBusy ? 'Submitting…' : 'Submit'}
                     </button>
                   </div>
                 </div>
@@ -576,6 +714,7 @@ const AttendanceStd = () => {
               <thead className="bg-gray-100">
                 <tr>
                   <th className="border border-gray-200 p-3 text-left text-sm font-medium">Student Name</th>
+                  {/* <th className="border border-gray-200 p-3 text-left text-sm font-medium">UUID</th> */}
                   <th className="border border-gray-200 p-3 text-left text-sm font-medium">Subject</th>
                   <th className="border border-gray-200 p-3 text-left text-sm font-medium">Status</th>
                   <th className="border border-gray-200 p-3 text-left text-sm font-medium">Remarks</th>
@@ -587,11 +726,17 @@ const AttendanceStd = () => {
                   const rowBusy = !!rowSubmitting[index];
                   const done = !!rowSubmitted[index];
                   const row = bulkAttendanceData[index] || {};
+                  const displayName = getStudentDisplayName(student);
+                  const studentUUID = getStudentUUID(student);
+                  
                   return (
-                    <tr key={student.profile_id || student.id} className="hover:bg-gray-50">
+                    <tr key={studentUUID || student.std_id || index} className="hover:bg-gray-50">
                       <td className="border border-gray-200 p-3 text-sm">
-                        {`${student.first_name || ''} ${student.last_name || ''}`.trim() || student.username || student.name}
+                        {displayName}
                       </td>
+                      {/* <td className="border border-gray-200 p-3 text-xs text-gray-600">
+                        {studentUUID || 'Missing'}
+                      </td> */}
                       <td className="border border-gray-200 p-3">
                         <Select
                           value={
@@ -644,17 +789,19 @@ const AttendanceStd = () => {
                       <td className="border border-gray-200 p-3">
                         <button
                           onClick={() => handleSubmitSingle(index)}
-                          disabled={rowBusy || done}
+                          disabled={rowBusy || done || !studentUUID}
                           className={`px-3 py-1.5 rounded text-sm text-white ${
-                            done
+                            !studentUUID
+                              ? 'bg-red-600 cursor-not-allowed'
+                              : done
                               ? 'bg-green-600 cursor-default'
                               : rowBusy
                               ? 'bg-blue-400 cursor-wait'
                               : 'bg-blue-600 hover:bg-blue-700'
                           } disabled:opacity-60 disabled:cursor-not-allowed`}
-                          title={done ? 'Submitted' : 'Submit this row'}
+                          title={!studentUUID ? 'Missing UUID' : done ? 'Submitted' : 'Submit this row'}
                         >
-                          {done ? 'Submitted ✓' : rowBusy ? 'Submitting…' : 'Submit'}
+                          {!studentUUID ? 'No UUID ✗' : done ? 'Submitted ✓' : rowBusy ? 'Submitting…' : 'Submit'}
                         </button>
                       </td>
                     </tr>
@@ -685,13 +832,21 @@ const AttendanceStd = () => {
               <label className="block text-sm font-medium text-gray-700 mb-1">Select Student</label>
               <Select
                 name="studentId"
-                value={studentOptions.find(s => s.profile_id === filters.studentId || s.id === filters.studentId) || null}
+                value={studentOptions.find(s => {
+                  const studentId = s.std_id || s.profile_id || s.id;
+                  return studentId === filters.studentId;
+                }) || null}
                 onChange={(selected) => {
-                  setFilters(prev => ({ ...prev, studentId: selected?.profile_id || selected?.id || '' }));
+                  const studentId = selected?.std_id || selected?.profile_id || selected?.id || '';
+                  setFilters(prev => ({ ...prev, studentId }));
                 }}
                 options={studentOptions}
-                getOptionLabel={(s) => s.username || s.name}
-                getOptionValue={(s) => s.profile_id || s.id}
+                getOptionLabel={(s) => {
+                  const displayName = getStudentDisplayName(s);
+                  const uuid = getStudentUUID(s);
+                  return `${displayName} (${uuid})`;
+                }}
+                getOptionValue={(s) => s.std_id || s.profile_id || s.id}
                 placeholder="-- Select Student --"
                 isClearable
                 styles={selectStyles}

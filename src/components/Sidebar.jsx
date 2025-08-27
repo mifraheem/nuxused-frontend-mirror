@@ -17,6 +17,13 @@ const Sidebar = ({ isSidebarOpen, toggleSidebar, activeTab, setActiveTab }) => {
         }
     }, [isSidebarOpen]);
 
+    // const canSeePermissions = [
+    //     "auth.view_permission",
+    //     "users.view_groupclasspermission",
+    //     "users.view_group",
+    //     "users.change_groupclasspermission",
+    // ].some(p => permissions.includes(p));
+
     return (
         <div className={`hidden sm:flex flex-col fixed top-0 left-0 h-screen overflow-y-auto no-scrollbar transition-all duration-300 z-40 ${isSidebarOpen ? 'w-64 bg-blue-900 text-white' : 'w-16 bg-blue-900 text-white'}`}>
             <div className="relative px-4 py-4 flex items-center justify-center border-b border-blue-700">
@@ -28,9 +35,8 @@ const Sidebar = ({ isSidebarOpen, toggleSidebar, activeTab, setActiveTab }) => {
                 )}
                 <button
                     onClick={toggleSidebar}
-                    className={`p-1 px-2 rounded-full shadow-md hover:bg-blue-300 transition-all duration-200 text-blue-900 bg-white ${
-                        isSidebarOpen ? 'absolute -right-3 top-4 mr-5 p-1 px-2' : 'flex items-center justify-center'
-                    }`}
+                    className={`p-1 px-2 rounded-full shadow-md hover:bg-blue-300 transition-all duration-200 text-blue-900 bg-white ${isSidebarOpen ? 'absolute -right-3 top-4 mr-5 p-1 px-2' : 'flex items-center justify-center'
+                        }`}
                 >
                     <i className="pi pi-bars"></i>
                 </button>
@@ -40,6 +46,13 @@ const Sidebar = ({ isSidebarOpen, toggleSidebar, activeTab, setActiveTab }) => {
                     <SidebarLink to="/admin" icon="pi pi-home" label="Home" currentPath={location.pathname} isSidebarOpen={isSidebarOpen} />
                     {permissions.includes("users.add_user") && (
                         <SidebarLink to="/admin/registration" icon="pi pi-user-plus" label="Registration" currentPath={location.pathname} isSidebarOpen={isSidebarOpen} />
+                    )}
+                    {/* NEW: Permissions tab (right after Registration) */}
+                    {permissions.includes("auth.view_permission") && (
+                        <SidebarLink to="/admin/permissions" icon="pi pi-shield" label="Group Permissions" currentPath={location.pathname} isSidebarOpen={isSidebarOpen} />
+                    )}
+                    {permissions.includes("users.view_groupclasspermission") && (
+                        <SidebarLink to="/admin/group-class-permissions" icon="pi pi-shield" label="Class Permissions" currentPath={location.pathname} isSidebarOpen={isSidebarOpen} />
                     )}
                     {permissions.includes("users.view_room") && (
                         <SidebarLink to="/admin/rooms-management" icon="pi pi-building" label="Rooms Management" currentPath={location.pathname} isSidebarOpen={isSidebarOpen} />
