@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Plus, Edit, Trash2, Users, GraduationCap, Search, Save, X, UserPlus, UserMinus } from 'lucide-react';
 import Cookies from 'js-cookie';
 import toast, { Toaster } from 'react-hot-toast';
@@ -9,18 +9,20 @@ const ClassPermissionsManager = () => {
   const [schools, setSchools] = useState([]);
   const [groups, setGroups] = useState([]);
   const [classes, setClasses] = useState([]);
-  const [selectedSchool, setSelectedSchool] = useState('93047a1b-8cc2-4983-86b1-997bd59dda53');
+  const [selectedSchool, setSelectedSchool] = useState(null);
   const [loading, setLoading] = useState(false);
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [editingGCP, setEditingGCP] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedGCPForClasses, setSelectedGCPForClasses] = useState(null);
   const [availableClasses, setAvailableClasses] = useState([]);
+  const [currentClasses, setCurrentClasses] = useState([]);
 
   const [formData, setFormData] = useState({
     title: '',
     group: '',
     class_ids: [],
+    school: '',
   });
 
   const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000/';
@@ -65,28 +67,41 @@ const ClassPermissionsManager = () => {
     const patch = {};
     if (current.title !== original.title) patch.title = current.title;
     if (String(current.group || '') !== String(original.group || '')) patch.group = current.group;
+    if (current.school !== original.school) patch.school = current.school;
     return patch;
   };
 
-  useEffect(() => {
-    const token = Cookies.get('access_token');
-    if (!token) {
-      toast.error('Please log in to access this feature');
-      window.location.href = '/login';
-      return;
-    }
-    fetchInitialData();
-  }, [selectedSchool]);
-
-  const fetchInitialData = async () => {
+  const fetchInitialData = useCallback(async () => {
     setLoading(true);
     try {
-      await Promise.all([
-        fetchGroupClassPermissions(),
-        fetchSchools(),
-        fetchAvailableGroups(),
-        fetchClasses(),
+      const [gcpResponse, schoolsResponse, groupsResponse, classesResponse] = await Promise.all([
+        fetch(`${API_BASE}api/group-class-permissions/`, { headers: getAuthHeaders() }),
+        fetch(`${API_BASE}api/schools/`, { headers: getAuthHeaders() }),
+        fetch(`${API_BASE}api/group-class-permissions/available_groups/`, { headers: getAuthHeaders() }),
+        fetch(`${API_BASE}api/classes/`, { headers: getAuthHeaders() }),
       ]);
+
+      const [gcpData, schoolsData, groupsData, classesData] = await Promise.all([
+        gcpResponse.json(),
+        schoolsResponse.json(),
+        groupsResponse.json(),
+        classesResponse.json(),
+      ]);
+
+      if (!gcpResponse.ok) throw new Error(gcpData.detail || 'Failed to fetch group class permissions');
+      if (!schoolsResponse.ok) throw new Error(schoolsData.detail || 'Failed to fetch schools');
+      if (!groupsResponse.ok) throw new Error(groupsData.detail || 'Failed to fetch available groups');
+      if (!classesResponse.ok) throw new Error(classesData.detail || 'Failed to fetch classes');
+
+      setGroupClassPermissions(gcpData.data?.results || []);
+      setSchools(schoolsData.data?.results || []);
+      setGroups(groupsData.data || []);
+      setClasses(classesData.data?.results || []);
+
+      if (!selectedSchool && schoolsData.data?.results?.length > 0) {
+        setSelectedSchool(schoolsData.data.results[0].id);
+        setFormData((prev) => ({ ...prev, school: schoolsData.data.results[0].id }));
+      }
     } catch (error) {
       console.error('Error fetching initial data:', error);
       if (String(error?.message || '').includes('401')) {
@@ -97,84 +112,23 @@ const ClassPermissionsManager = () => {
         Cookies.remove('username');
         localStorage.removeItem('user_permissions');
         window.location.href = '/login';
+      } else {
+        toast.error(`Failed to load data: ${error.message}`);
       }
     } finally {
       setLoading(false);
     }
-  };
+  }, [selectedSchool]);
 
-  const fetchGroupClassPermissions = async () => {
-    try {
-      const response = await fetch(`${API_BASE}api/group-class-permissions/`, {
-        headers: getAuthHeaders(),
-      });
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.detail || 'Failed to fetch group class permissions');
-      }
-      const data = await response.json();
-      setGroupClassPermissions(data.results || data);
-    } catch (error) {
-      console.error('Error fetching GCPs:', error);
-      toast.error(`Failed to load permissions: ${error.message}`);
-      throw error;
+  useEffect(() => {
+    const token = Cookies.get('access_token');
+    if (!token) {
+      toast.error('Please log in to access this feature');
+      window.location.href = '/login';
+      return;
     }
-  };
-
-  const fetchSchools = async () => {
-    try {
-      const response = await fetch(`${API_BASE}api/schools/`, {
-        headers: getAuthHeaders(),
-      });
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.detail || 'Failed to fetch schools');
-      }
-      const data = await response.json();
-      setSchools(data.results || data);
-    } catch (error) {
-      console.error('Error fetching schools:', error);
-      toast.error(`Failed to load schools: ${error.message}`);
-      throw error;
-    }
-  };
-
-  const fetchAvailableGroups = async () => {
-    try {
-      const response = await fetch(`${API_BASE}api/group-class-permissions/available_groups/`, {
-        headers: getAuthHeaders(),
-      });
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.detail || 'Failed to fetch available groups');
-      }
-      const data = await response.json();
-      setGroups(Array.isArray(data) ? data : data.results || []);
-    } catch (error) {
-      console.error('Error fetching groups:', error);
-      toast.error(`Failed to load groups: ${error.message}`);
-      throw error;
-    }
-  };
-
-  const fetchClasses = async (searchParams = '') => {
-    try {
-      const url = searchParams ? `${API_BASE}api/classes/?${searchParams}` : `${API_BASE}api/classes/`;
-      const response = await fetch(url, {
-        headers: getAuthHeaders(),
-      });
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.detail || 'Failed to fetch classes');
-      }
-      const data = await response.json();
-      setClasses(data.results || data);
-    } catch (error) {
-      console.error('Error fetching classes:', error);
-      toast.error(`Failed to load classes: ${error.message}`);
-      throw error;
-    }
-  };
+    fetchInitialData();
+  }, [fetchInitialData]);
 
   const createGroupClassPermission = async (data) => {
     setLoading(true);
@@ -182,16 +136,13 @@ const ClassPermissionsManager = () => {
       const response = await fetch(`${API_BASE}api/group-class-permissions/`, {
         method: 'POST',
         headers: getAuthHeaders(),
-        body: JSON.stringify({
-          ...data,
-          school: selectedSchool,
-        }),
+        body: JSON.stringify(data),
       });
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.detail || 'Failed to create group class permission');
       }
-      await fetchGroupClassPermissions();
+      await fetchInitialData();
       toast.success('Permission created successfully');
       return await response.json();
     } catch (error) {
@@ -215,7 +166,7 @@ const ClassPermissionsManager = () => {
         const errorData = await response.json();
         throw new Error(errorData.detail || 'Failed to partially update group class permission');
       }
-      await fetchGroupClassPermissions();
+      await fetchInitialData();
       toast.success('Permission updated (partial)');
       return await response.json();
     } catch (error) {
@@ -239,7 +190,7 @@ const ClassPermissionsManager = () => {
         const errorData = await response.json();
         throw new Error(errorData.detail || 'Failed to fully update group class permission');
       }
-      await fetchGroupClassPermissions();
+      await fetchInitialData();
       toast.success('Permission updated (full)');
       return await response.json();
     } catch (error) {
@@ -260,11 +211,9 @@ const ClassPermissionsManager = () => {
       });
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.detail
-
-          || 'Failed to delete group class permission');
+        throw new Error(errorData.detail || 'Failed to delete group class permission');
       }
-      await fetchGroupClassPermissions();
+      await fetchInitialData();
       toast.success('Permission deleted successfully');
     } catch (error) {
       console.error('Error deleting GCP:', error);
@@ -284,35 +233,12 @@ const ClassPermissionsManager = () => {
         const errorData = await response.json();
         throw new Error(errorData.detail || 'Failed to fetch group class permission');
       }
-      return await response.json();
+      const data = await response.json();
+      return data.data;
     } catch (error) {
       console.error('Error fetching GCP:', error);
       toast.error(`Failed to load permission: ${error.message}`);
       return null;
-    }
-  };
-
-  const handleEdit = async (gcp) => {
-    try {
-      const fullGcp = await getGroupClassPermission(gcp.id);
-      if (fullGcp) {
-        setFormData({
-          title: fullGcp.title,
-          group: fullGcp.group || '',
-          class_ids: fullGcp.class_ids || [],
-        });
-        setEditingGCP(fullGcp);
-        setShowCreateForm(true);
-      }
-    } catch (error) {
-      console.error('Error preparing edit:', error);
-      setFormData({
-        title: gcp.title,
-        group: gcp.group || '',
-        class_ids: gcp.class_ids || [],
-      });
-      setEditingGCP(gcp);
-      setShowCreateForm(true);
     }
   };
 
@@ -327,15 +253,38 @@ const ClassPermissionsManager = () => {
         throw new Error(errorData.detail || 'Failed to fetch available classes');
       }
       const data = await response.json();
-      const availableClassesData = data.results || data;
-      setAvailableClasses(Array.isArray(availableClassesData) ? availableClassesData : []);
+      // Ensure availableClasses is always an array
+      const availableClassesData = Array.isArray(data.data) ? data.data : data.data?.results || [];
+      setAvailableClasses(availableClassesData);
       return availableClassesData;
     } catch (error) {
       console.error('Error fetching available classes:', error);
       toast.error(`Failed to fetch available classes: ${error.message}`);
+      setAvailableClasses([]); // Set to empty array on error
       return [];
     } finally {
       setLoading(false);
+    }
+  };
+
+  const getCurrentClasses = async (gcpId) => {
+    try {
+      const response = await fetch(`${API_BASE}api/group-class-permissions/${gcpId}/`, {
+        headers: getAuthHeaders(),
+      });
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.detail || 'Failed to fetch current classes');
+      }
+      const data = await response.json();
+      const classesData = Array.isArray(data.data.classes) ? data.data.classes : [];
+      setCurrentClasses(classesData);
+      return classesData;
+    } catch (error) {
+      console.error('Error fetching current classes:', error);
+      toast.error(`Failed to fetch current classes: ${error.message}`);
+      setCurrentClasses([]);
+      return [];
     }
   };
 
@@ -351,8 +300,7 @@ const ClassPermissionsManager = () => {
         const errorData = await response.json();
         throw new Error(errorData.detail || 'Failed to add classes');
       }
-      await fetchGroupClassPermissions();
-      await getAvailableClasses(gcpId);
+      await Promise.all([fetchInitialData(), getAvailableClasses(gcpId), getCurrentClasses(gcpId)]);
       toast.success('Class added');
     } catch (error) {
       console.error('Error adding classes:', error);
@@ -375,8 +323,7 @@ const ClassPermissionsManager = () => {
         const errorData = await response.json();
         throw new Error(errorData.detail || 'Failed to remove classes');
       }
-      await fetchGroupClassPermissions();
-      await getAvailableClasses(gcpId);
+      await Promise.all([fetchInitialData(), getAvailableClasses(gcpId), getCurrentClasses(gcpId)]);
       toast.success('Class removed');
     } catch (error) {
       console.error('Error removing classes:', error);
@@ -387,38 +334,57 @@ const ClassPermissionsManager = () => {
     }
   };
 
+  const handleEdit = async (gcp) => {
+    const fullGcp = await getGroupClassPermission(gcp.id);
+    if (fullGcp) {
+      setFormData({
+        title: fullGcp.title,
+        group: fullGcp.group,
+        class_ids: fullGcp.classes?.map((c) => c.id) || [],
+        school: fullGcp.school,
+      });
+      setEditingGCP(fullGcp);
+      setShowCreateForm(true);
+    }
+  };
+
   const handleSubmit = async () => {
-    if (!formData.title || !formData.group) {
-      toast.error('Please fill in Title and Group');
+    if (!formData.title || !formData.group || !formData.school) {
+      toast.error('Please fill in Title, Group, and School');
       return;
     }
 
     try {
       if (editingGCP && editingGCP.id) {
         const patch = buildPatch(
-          { title: editingGCP.title, group: editingGCP.group },
-          { title: formData.title, group: formData.group }
+          { title: editingGCP.title, group: editingGCP.group, school: editingGCP.school },
+          { title: formData.title, group: formData.group, school: formData.school }
         );
 
         if (Object.keys(patch).length === 0) {
           toast('No changes to save', { icon: 'ℹ️' });
-        } else if (Object.keys(patch).length < 2) {
+        } else if (Object.keys(patch).length < 3) {
           await patchGroupClassPermission(editingGCP.id, patch);
         } else {
           await putGroupClassPermission(editingGCP.id, {
             title: formData.title,
             group: formData.group,
-            school: selectedSchool,
+            school: formData.school,
+            class_ids: formData.class_ids,
           });
         }
-
-        setEditingGCP(null);
       } else {
-        await createGroupClassPermission(formData);
+        await createGroupClassPermission({
+          title: formData.title,
+          group: formData.group,
+          school: formData.school,
+          class_ids: formData.class_ids,
+        });
       }
 
       setShowCreateForm(false);
-      setFormData({ title: '', group: '', class_ids: [] });
+      setEditingGCP(null);
+      setFormData({ title: '', group: '', class_ids: [], school: selectedSchool || '' });
     } catch {
       // errors are already toasted
     }
@@ -435,7 +401,7 @@ const ClassPermissionsManager = () => {
 
   const handleShowClasses = async (gcp) => {
     setSelectedGCPForClasses(gcp);
-    await getAvailableClasses(gcp.id);
+    await Promise.all([getAvailableClasses(gcp.id), getCurrentClasses(gcp.id)]);
   };
 
   const filteredGCPs = groupClassPermissions.filter(
@@ -446,9 +412,8 @@ const ClassPermissionsManager = () => {
 
   return (
     <div className="min-h-screen bg-gray-50 px-2 sm:px-4 md:px-6 lg:px-8">
-      <div className="max-w-full mx-auto py-4 sm:py-6">
-        <Toaster position="top-center" />
-        {/* Main Content */}
+      <Toaster position="top-center" />
+      <div className="max-w-7xl mx-auto py-4 sm:py-6">
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 sm:p-6 mb-6">
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
             <div>
@@ -458,18 +423,20 @@ const ClassPermissionsManager = () => {
               <p className="text-gray-600 mt-1 text-sm">Manage group access to classes</p>
             </div>
             <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 w-full sm:w-auto">
-              {/* School Dropdown with react-select */}
-              <div className="w-full sm:w-48">
+              <div className="w-full sm:w-64">
                 <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">
                   School <span className="text-red-500">*</span>
                 </label>
                 <Select
                   value={schools.find((school) => school.id === selectedSchool) || null}
-                  onChange={(selected) => setSelectedSchool(selected?.id || '')}
+                  onChange={(selected) => {
+                    setSelectedSchool(selected?.id || '');
+                    setFormData((prev) => ({ ...prev, school: selected?.id || '' }));
+                  }}
                   options={schools}
-                  getOptionLabel={(school) => school.school_name || school.name}
+                  getOptionLabel={(school) => school.school_name}
                   getOptionValue={(school) => school.id}
-                  placeholder="Search & select"
+                  placeholder="Select school"
                   isClearable
                   isSearchable
                   className="w-full"
@@ -478,8 +445,8 @@ const ClassPermissionsManager = () => {
               </div>
               <button
                 onClick={() => setShowCreateForm(true)}
-                className="w-full sm:w-auto bg-blue-600 text-white px-4 py-2 rounded-lg mt-5 hover:bg-blue-700 flex items-center gap-2 text-sm"
-                disabled={!selectedSchool}
+                className="w-full sm:w-auto bg-blue-600 text-white px-4 py-2 rounded-lg mt-5 hover:bg-blue-700 flex items-center gap-2 text-sm disabled:bg-gray-400"
+                disabled={!selectedSchool || loading}
               >
                 <Plus size={16} />
                 Create Permission
@@ -488,7 +455,6 @@ const ClassPermissionsManager = () => {
           </div>
         </div>
 
-        {/* Search Bar */}
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-6">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
@@ -502,7 +468,6 @@ const ClassPermissionsManager = () => {
           </div>
         </div>
 
-        {/* Permissions List */}
         <div className="bg-white rounded-lg shadow-sm border border-gray-200">
           <div className="p-4 sm:p-6">
             <h2 className="text-base sm:text-lg font-semibold text-gray-900 mb-4">Group Class Permissions</h2>
@@ -546,9 +511,7 @@ const ClassPermissionsManager = () => {
                       <div className="flex items-center gap-2">
                         <button
                           onClick={() => handleShowClasses(gcp)}
-                          className="text-green-600 hover:text-green-700 p-1.5 sm:p
-
--2 rounded-lg hover:bg-green-50"
+                          className="text-green-600 hover:text-green-700 p-1.5 sm:p-2 rounded-lg hover:bg-green-50"
                           title="Manage Classes"
                         >
                           <UserPlus size={14} />
@@ -576,7 +539,6 @@ const ClassPermissionsManager = () => {
           </div>
         </div>
 
-        {/* Create/Edit Form Modal */}
         {showCreateForm && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50 overflow-y-auto">
             <div className="bg-white rounded-lg w-full max-w-md sm:max-w-lg p-4 sm:p-6">
@@ -588,7 +550,7 @@ const ClassPermissionsManager = () => {
                   onClick={() => {
                     setShowCreateForm(false);
                     setEditingGCP(null);
-                    setFormData({ title: '', group: '', class_ids: [] });
+                    setFormData({ title: '', group: '', class_ids: [], school: selectedSchool || '' });
                   }}
                   className="text-gray-400 hover:text-gray-600"
                 >
@@ -597,7 +559,9 @@ const ClassPermissionsManager = () => {
               </div>
               <div className="space-y-4">
                 <div>
-                  <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">Title</label>
+                  <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">
+                    Title <span className="text-red-500">*</span>
+                  </label>
                   <input
                     type="text"
                     value={formData.title}
@@ -617,8 +581,24 @@ const ClassPermissionsManager = () => {
                     options={groups}
                     getOptionLabel={(group) => group.name}
                     getOptionValue={(group) => group.id}
-                    placeholder="Search & select group"
+                    placeholder="Select group"
                     isClearable
+                    isSearchable
+                    className="w-full"
+                    classNamePrefix="react-select"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">
+                    School <span className="text-red-500">*</span>
+                  </label>
+                  <Select
+                    value={schools.find((school) => school.id === formData.school) || null}
+                    onChange={(selected) => setFormData({ ...formData, school: selected?.id || '' })}
+                    options={schools}
+                    getOptionLabel={(school) => school.school_name}
+                    getOptionValue={(school) => school.id}
+                    placeholder="Select school"
                     isSearchable
                     className="w-full"
                     classNamePrefix="react-select"
@@ -628,12 +608,12 @@ const ClassPermissionsManager = () => {
                   <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">Classes</label>
                   <div className="max-h-40 overflow-y-auto border border-gray-300 rounded-lg p-2 bg-gray-50">
                     {classes.length === 0 ? (
-                      <p className="text-gray-500 text-xs sm:text-sm p-2">Loading classes...</p>
+                      <p className="text-gray-500 text-xs sm:text-sm p-2">No classes available</p>
                     ) : (
                       classes.map((cls) => (
                         <label
                           key={cls.id}
-                          className="/flex items-center gap-2 py-1.5 px-2 hover:bg-gray-100 rounded"
+                          className="flex items-center gap-2 py-1.5 px-2 hover:bg-gray-100 rounded"
                         >
                           <input
                             type="checkbox"
@@ -653,9 +633,7 @@ const ClassPermissionsManager = () => {
                             }}
                             className="rounded border-gray-300 focus:ring-blue-500"
                           />
-                          <span className="text-xs sm:text-sm">
-                            {cls.display_name || cls.class_name || cls.name}
-                          </span>
+                          <span className="text-xs sm:text-sm">{cls.display_name}</span>
                         </label>
                       ))
                     )}
@@ -667,7 +645,7 @@ const ClassPermissionsManager = () => {
                 <div className="flex flex-col sm:flex-row gap-2 pt-4">
                   <button
                     onClick={handleSubmit}
-                    className="flex-1 bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 flex items-center justify-center gap-2 text-sm"
+                    className="flex-1 bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 flex items-center justify-center gap-2 text-sm disabled:bg-gray-400"
                     disabled={loading}
                   >
                     <Save size={16} />
@@ -677,7 +655,7 @@ const ClassPermissionsManager = () => {
                     onClick={() => {
                       setShowCreateForm(false);
                       setEditingGCP(null);
-                      setFormData({ title: '', group: '', class_ids: [] });
+                      setFormData({ title: '', group: '', class_ids: [], school: selectedSchool || '' });
                     }}
                     className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-sm"
                   >
@@ -689,7 +667,6 @@ const ClassPermissionsManager = () => {
           </div>
         )}
 
-        {/* Manage Classes Modal */}
         {selectedGCPForClasses && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50 overflow-y-auto">
             <div className="bg-white rounded-lg w-full max-w-md sm:max-w-2xl p-4 sm:p-6">
@@ -701,6 +678,7 @@ const ClassPermissionsManager = () => {
                   onClick={() => {
                     setSelectedGCPForClasses(null);
                     setAvailableClasses([]);
+                    setCurrentClasses([]);
                   }}
                   className="text-gray-400 hover:text-gray-600"
                 >
@@ -708,40 +686,35 @@ const ClassPermissionsManager = () => {
                 </button>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
-                {/* <div>
+                <div>
                   <h3 className="text-sm sm:text-base font-medium mb-3">Current Classes</h3>
                   <div className="border border-gray-200 rounded-lg p-3 sm:p-4 max-h-64 overflow-y-auto bg-blue-50">
-                    {!selectedGCPForClasses.class_ids || selectedGCPForClasses.class_ids.length === 0 ? (
+                    {currentClasses.length === 0 ? (
                       <p className="text-gray-500 text-xs sm:text-sm">No classes assigned</p>
                     ) : (
                       <div className="space-y-2">
                         <p className="text-xs sm:text-sm text-gray-600 mb-2">
-                          {selectedGCPForClasses.classes_count || 0} classes assigned
+                          {currentClasses.length} classes assigned
                         </p>
-                        {selectedGCPForClasses.class_ids &&
-                          classes
-                            .filter((c) => selectedGCPForClasses.class_ids.includes(c.id))
-                            .map((cls) => (
-                              <div
-                                key={cls.id}
-                                className="flex items-center justify-between bg-blue-100 p-2 rounded"
-                              >
-                                <span className="text-xs sm:text-sm">
-                                  {cls.display_name || cls.class_name || cls.name}
-                                </span>
-                                <button
-                                  onClick={() => removeClassesFromGCP(selectedGCPForClasses.id, [cls.id])}
-                                  className="text-red-600 hover:text-red-700"
-                                  title="Remove class"
-                                >
-                                  <UserMinus size={14} />
-                                </button>
-                              </div>
-                            ))}
+                        {currentClasses.map((cls) => (
+                          <div
+                            key={cls.id}
+                            className="flex items-center justify-between bg-blue-100 p-2 rounded"
+                          >
+                            <span className="text-xs sm:text-sm">{cls.display_name}</span>
+                            <button
+                              onClick={() => removeClassesFromGCP(selectedGCPForClasses.id, [cls.id])}
+                              className="text-red-600 hover:text-red-700"
+                              title="Remove class"
+                            >
+                              <UserMinus size={14} />
+                            </button>
+                          </div>
+                        ))}
                       </div>
                     )}
                   </div>
-                </div> */}
+                </div>
                 <div>
                   <h3 className="text-sm sm:text-base font-medium mb-3">Available Classes</h3>
                   <div className="border border-gray-200 rounded-lg p-3 sm:p-4 max-h-64 overflow-y-auto bg-gray-50">
@@ -754,9 +727,7 @@ const ClassPermissionsManager = () => {
                             key={cls.id}
                             className="flex items-center justify-between bg-gray-100 p-2 rounded"
                           >
-                            <span className="text-xs sm:text-sm">
-                              {cls.display_name || cls.class_name || cls.name}
-                            </span>
+                            <span className="text-xs sm:text-sm">{cls.display_name}</span>
                             <button
                               onClick={() => addClassesToGCP(selectedGCPForClasses.id, [cls.id])}
                               className="text-green-600 hover:text-green-700"
