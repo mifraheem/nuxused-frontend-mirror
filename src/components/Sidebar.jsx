@@ -44,6 +44,9 @@ const Sidebar = ({ isSidebarOpen, toggleSidebar, activeTab, setActiveTab }) => {
             <nav className="flex-1 px-2 py-4">
                 <ul className="space-y-2">
                     <SidebarLink to="/admin" icon="pi pi-home" label="Home" currentPath={location.pathname} isSidebarOpen={isSidebarOpen} />
+                    {permissions.includes("business.view_subscription") && (
+                        <SidebarLink to="/admin/subscription" icon="pi pi-credit-card" label="Subscription" currentPath={location.pathname} isSidebarOpen={isSidebarOpen} />
+                    )}
                     {permissions.includes("users.add_user") && (
                         <SidebarLink to="/admin/registration" icon="pi pi-user-plus" label="Registration" currentPath={location.pathname} isSidebarOpen={isSidebarOpen} />
                     )}
@@ -223,6 +226,7 @@ const Sidebar = ({ isSidebarOpen, toggleSidebar, activeTab, setActiveTab }) => {
                     {permissions.includes("users.view_classtask") && (
                         <SidebarLink to="/admin/class-tasks" icon="pi pi-list" label="Class Tasks" currentPath={location.pathname} isSidebarOpen={isSidebarOpen} />
                     )}
+
                 </ul>
             </nav>
         </div>

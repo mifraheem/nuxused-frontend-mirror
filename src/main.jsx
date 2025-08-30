@@ -77,6 +77,7 @@ import FinalResults from "./pages/Admin/FinalResults";
 import PromotionRecords from "./pages/Admin/PromotionRecords";
 import PermissionsPage from "./pages/Admin/PermissionsPage";
 import ClassPermissionsManager from "./pages/Admin/ClassPermissionsManager";
+import SubscriptionPage from "./pages/Admin/SubscriptionPage";
 
 const router = createBrowserRouter([
   {
@@ -218,6 +219,10 @@ const router = createBrowserRouter([
           {
             path: "/admin/group-class-permissions",
             element: <ClassPermissionsManager/>,
+          },
+          {
+            path: "/admin/Subscription",
+            element: <SubscriptionPage/>,
           },
           {
             path: "/admin/class-management",

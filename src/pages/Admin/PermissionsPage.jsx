@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Search, Plus, Edit3, Shield, Trash2, X, Loader2, Users, UserPlus, UserCheck, UserX, Settings } from "lucide-react";
+import { Search, Plus, Edit3, Shield, Trash2, X, Loader2, Users, UserPlus, UserCheck, UserX, Settings, Eye } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import Cookies from "js-cookie";
 import toast, { Toaster } from "react-hot-toast";
@@ -110,7 +110,7 @@ async function removePermissionsFromGroup(groupId, permissionIds) {
 
 async function fetchAvailablePermissions() {
   const res = await http("GET", "/api/groups/available_permissions/");
-  return res?.data?.results || res?.results || res || [];
+  return res?.data?.results || res?.results || res?.data || res || [];
 }
 
 // User Management API Functions
@@ -152,6 +152,7 @@ export default function PermissionsPage() {
   const [userSearch, setUserSearch] = useState("");
   const [groups, setGroups] = useState([]);
   const [permissions, setPermissions] = useState([]);
+  const [rawPermissions, setRawPermissions] = useState([]);
   const [manageableUsers, setManageableUsers] = useState([]);
   const [availableGroups, setAvailableGroups] = useState([]);
   const [loadingGroups, setLoadingGroups] = useState(false);
@@ -213,6 +214,15 @@ export default function PermissionsPage() {
     }
   };
 
+  // Helper function to extract app label from display_name
+  const extractAppLabel = (permission) => {
+    if (permission.display_name) {
+      const parts = permission.display_name.split(' | ');
+      return parts[0] || "Other";
+    }
+    return permission.app_label || permission.content_type || "Other";
+  };
+
   // Initial data loading
   useEffect(() => {
     const token = Cookies.get("access_token");
@@ -230,8 +240,10 @@ export default function PermissionsPage() {
       // Load groups
       try {
         const groupsData = await fetchGroups();
+        console.log("Groups data:", groupsData);
         setGroups(Array.isArray(groupsData) ? groupsData : []);
       } catch (error) {
+        console.error("Groups loading error:", error);
         if (error.status === 401) setAuthIssue("unauth");
         else if (error.status === 403) setAuthIssue("forbidden");
         showError(error);
@@ -242,12 +254,21 @@ export default function PermissionsPage() {
       // Load permissions
       try {
         const permissionsData = await fetchAvailablePermissions();
+        console.log("Raw permissions data:", permissionsData);
+        
+        // Store raw permissions for debugging
+        setRawPermissions(permissionsData);
+        
+        // Process permissions
         const processedPermissions = (Array.isArray(permissionsData) ? permissionsData : []).map((p) => ({
           ...p,
-          app_label: p.content_type || p.app_label || "Other",
+          app_label: extractAppLabel(p),
         }));
+        
+        console.log("Processed permissions:", processedPermissions);
         setPermissions(processedPermissions);
       } catch (error) {
+        console.error("Permissions loading error:", error);
         if (error.status === 401) setAuthIssue("unauth");
         else if (error.status === 403) setAuthIssue("forbidden");
         showError(error);
@@ -258,8 +279,10 @@ export default function PermissionsPage() {
       // Load available groups for assignment
       try {
         const availableGroupsData = await fetchAvailableGroupsForAssignment();
+        console.log("Available groups data:", availableGroupsData);
         setAvailableGroups(Array.isArray(availableGroupsData) ? availableGroupsData : []);
       } catch (error) {
+        console.error("Available groups loading error:", error);
         if (error.status === 401) setAuthIssue("unauth");
         else if (error.status === 403) setAuthIssue("forbidden");
         showError(error);
@@ -276,8 +299,10 @@ export default function PermissionsPage() {
         setLoadingUsers(true);
         try {
           const usersData = await fetchUsersList();
+          console.log("Users data:", usersData);
           setManageableUsers(Array.isArray(usersData) ? usersData : []);
         } catch (error) {
+          console.error("Users loading error:", error);
           if (error.status === 401) setAuthIssue("unauth");
           else if (error.status === 403) setAuthIssue("forbidden");
           showError(error);
@@ -299,7 +324,7 @@ export default function PermissionsPage() {
     if (!permissionSearch.trim()) return permissions;
     const q = permissionSearch.toLowerCase();
     return permissions.filter((p) =>
-      `${p.name || ""} ${p.codename || ""} ${p.app_label || ""}`.toLowerCase().includes(q)
+      `${p.name || ""} ${p.codename || ""} ${p.app_label || ""} ${p.display_name || ""}`.toLowerCase().includes(q)
     );
   }, [permissions, permissionSearch]);
 
@@ -332,6 +357,7 @@ export default function PermissionsPage() {
   const handleEditGroup = async (group) => {
     try {
       const details = await fetchGroupDetails(group.id);
+      console.log("Group details:", details);
       setSelectedGroup(group);
       setGroupName(details.name || group.name || "");
       setSelectedPermissions(
@@ -354,6 +380,8 @@ export default function PermissionsPage() {
         permission_ids: selectedPermissions, 
         school_id: schoolId 
       };
+
+      console.log("Saving group with payload:", payload);
 
       if (selectedGroup) {
         await updateGroup(selectedGroup.id, payload);
@@ -393,6 +421,7 @@ export default function PermissionsPage() {
   const handleManagePermissions = async (group) => {
     try {
       const details = await fetchGroupDetails(group.id);
+      console.log("Group details for permissions:", details);
       setSelectedGroup(group);
       setSelectedPermissions(
         Array.isArray(details.permissions) ? details.permissions.map((p) => p.id) : []
@@ -411,6 +440,9 @@ export default function PermissionsPage() {
 
       const toAdd = selectedPermissions.filter((id) => !current.includes(id));
       const toRemove = current.filter((id) => !selectedPermissions.includes(id));
+
+      console.log("Permissions to add:", toAdd);
+      console.log("Permissions to remove:", toRemove);
 
       if (toAdd.length) await addPermissionsToGroup(selectedGroup.id, toAdd);
       if (toRemove.length) await removePermissionsFromGroup(selectedGroup.id, toRemove);
@@ -433,6 +465,7 @@ export default function PermissionsPage() {
     try {
       setSelectedUser(user);
       const userGroups = await fetchUserGroups(user.id);
+      console.log("User groups:", userGroups);
       setSelectedUserGroups(Array.isArray(userGroups) ? userGroups.map((g) => g.id) : []);
       setShowUserGroupsDialog(true);
     } catch (error) {
@@ -448,6 +481,9 @@ export default function PermissionsPage() {
 
       const toAssign = selectedUserGroups.filter((id) => !currentGroupIds.includes(id));
       const toRemove = currentGroupIds.filter((id) => !selectedUserGroups.includes(id));
+
+      console.log("Groups to assign:", toAssign);
+      console.log("Groups to remove:", toRemove);
 
       if (toAssign.length) {
         await assignGroupsToUser(selectedUser.id, toAssign);
@@ -518,7 +554,7 @@ export default function PermissionsPage() {
 
       <div className="bg-white border-b border-gray-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
+          <div className="flex items-center justify-between h-16 ">
             <div>
               <h1 className="text-2xl font-bold text-gray-900">Groups & Permissions</h1>
               <p className="text-sm text-gray-600 mt-1">Manage groups, permissions, and user assignments</p>
@@ -560,6 +596,17 @@ export default function PermissionsPage() {
             >
               <Users className="w-4 h-4 inline mr-2" />
               Users
+            </button>
+            <button
+              onClick={() => setActiveTab("permissions")}
+              className={`py-2 px-1 border-b-2 font-medium text-sm ${
+                activeTab === "permissions"
+                  ? "border-blue-500 text-blue-600"
+                  : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+              }`}
+            >
+              <Eye className="w-4 h-4 inline mr-2" />
+              All Permissions
             </button>
           </div>
         </div>
@@ -652,6 +699,127 @@ export default function PermissionsPage() {
                     )}
                   </div>
                 )}
+              </div>
+            )}
+          </div>
+        ) : activeTab === "permissions" ? (
+          /* Permissions Debug Tab Content */
+          <div className="space-y-6">
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">Debug Information</h3>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                <div className="p-4 bg-gray-50 rounded-lg">
+                  <h4 className="font-medium text-gray-700 mb-2">Raw Permissions Count</h4>
+                  <p className="text-2xl font-bold text-blue-600">{rawPermissions.length}</p>
+                </div>
+                <div className="p-4 bg-gray-50 rounded-lg">
+                  <h4 className="font-medium text-gray-700 mb-2">Processed Permissions Count</h4>
+                  <p className="text-2xl font-bold text-green-600">{permissions.length}</p>
+                </div>
+                <div className="p-4 bg-gray-50 rounded-lg">
+                  <h4 className="font-medium text-gray-700 mb-2">Filtered Permissions Count</h4>
+                  <p className="text-2xl font-bold text-purple-600">{filteredPermissions.length}</p>
+                </div>
+              </div>
+              
+              {/* {rawPermissions.length > 0 && (
+                <div className="mt-4">
+                  <h4 className="font-medium text-gray-700 mb-2">Sample Raw Permission Object</h4>
+                  <pre className="bg-gray-100 p-3 rounded text-xs overflow-x-auto">
+                    {JSON.stringify(rawPermissions[0], null, 2)}
+                  </pre>
+                </div>
+              )} */}
+            </div>
+
+            <div className="relative max-w-md">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+              <input
+                type="text"
+                placeholder="Search permissions..."
+                value={permissionSearch}
+                onChange={(e) => setPermissionSearch(e.target.value)}
+                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              />
+              {permissionSearch && (
+                <button
+                  onClick={() => setPermissionSearch("")}
+                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              )}
+            </div>
+
+            {loadingPermissions ? (
+              <div className="flex items-center justify-center py-12">
+                <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+                <span className="ml-3 text-gray-600">Loading permissions...</span>
+              </div>
+            ) : (
+              <div className="bg-white rounded-lg shadow-sm border border-gray-200">
+                <div className="px-6 py-4 border-b border-gray-200">
+                  <h3 className="text-lg font-semibold text-gray-900">All Available Permissions</h3>
+                  <p className="text-sm text-gray-600 mt-1">
+                    Total: {permissions.length} permissions 
+                    {permissionSearch && ` (filtered: ${filteredPermissions.length})`}
+                  </p>
+                </div>
+
+                <div className="max-h-96 overflow-y-auto">
+                  {Object.entries(permissionOptions).length > 0 ? (
+                    Object.entries(permissionOptions).map(([app, perms]) => (
+                      <div key={app} className="border-b border-gray-200 last:border-b-0">
+                        <div className="px-6 py-3 bg-gray-50">
+                          <h4 className="text-sm font-semibold text-gray-700 uppercase tracking-wide">
+                            {app} ({perms.length} permissions)
+                          </h4>
+                        </div>
+                        <div className="divide-y divide-gray-100">
+                          {perms.map((permission) => (
+                            <div key={permission.id} className="px-6 py-3 hover:bg-gray-50">
+                              <div className="flex items-start justify-between">
+                                <div className="flex-1">
+                                  <div className="text-sm font-medium text-gray-900">
+                                    {permission.name}
+                                  </div>
+                                  <div className="text-xs text-gray-500 mt-1">
+                                    Codename: {permission.codename}
+                                  </div>
+                                  {permission.display_name && (
+                                    <div className="text-xs text-gray-400 mt-1">
+                                      {permission.display_name}
+                                    </div>
+                                  )}
+                                </div>
+                                <div className="ml-4 flex-shrink-0">
+                                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                                    ID: {permission.id}
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="text-center py-12">
+                      <Shield className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                      <p className="text-gray-600">
+                        {permissionSearch ? "No permissions match your search" : "No permissions found"}
+                      </p>
+                      {permissionSearch && (
+                        <button 
+                          onClick={() => setPermissionSearch("")} 
+                          className="mt-2 text-blue-600 hover:text-blue-800"
+                        >
+                          Clear search
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </div>
               </div>
             )}
           </div>
@@ -799,7 +967,9 @@ export default function PermissionsPage() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Permissions</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Permissions ({selectedPermissions.length} selected)
+                </label>
                 <div className="relative mb-4">
                   <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
                   <input
@@ -820,35 +990,41 @@ export default function PermissionsPage() {
                 </div>
 
                 <div className="max-h-64 overflow-y-auto border border-gray-200 rounded-lg p-4">
-                  {Object.entries(permissionOptions).map(([app, perms]) => (
-                    <div key={app} className="mb-4 last:mb-0">
-                      <h3 className="text-sm font-semibold text-gray-700 uppercase tracking-wide mb-2">{app}</h3>
-                      <div className="space-y-2 ml-4">
-                        {perms.map((permission) => (
-                          <label key={permission.id} className="flex items-center space-x-3 cursor-pointer">
-                            <input
-                              type="checkbox"
-                              checked={selectedPermissions.includes(permission.id)}
-                              onChange={(e) => {
-                                if (e.target.checked) {
-                                  setSelectedPermissions((prev) => [...prev, permission.id]);
-                                } else {
-                                  setSelectedPermissions((prev) => prev.filter((id) => id !== permission.id));
-                                }
-                              }}
-                              className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                            />
-                            <div>
-                              <div className="text-sm font-medium text-gray-900">{permission.name}</div>
-                              <div className="text-xs text-gray-500">{permission.codename}</div>
-                            </div>
-                          </label>
-                        ))}
+                  {Object.entries(permissionOptions).length > 0 ? (
+                    Object.entries(permissionOptions).map(([app, perms]) => (
+                      <div key={app} className="mb-4 last:mb-0">
+                        <h3 className="text-sm font-semibold text-gray-700 uppercase tracking-wide mb-2 flex items-center justify-between">
+                          {app}
+                          <span className="text-xs font-normal text-gray-500">({perms.length})</span>
+                        </h3>
+                        <div className="space-y-2 ml-4">
+                          {perms.map((permission) => (
+                            <label key={permission.id} className="flex items-center space-x-3 cursor-pointer">
+                              <input
+                                type="checkbox"
+                                checked={selectedPermissions.includes(permission.id)}
+                                onChange={(e) => {
+                                  if (e.target.checked) {
+                                    setSelectedPermissions((prev) => [...prev, permission.id]);
+                                  } else {
+                                    setSelectedPermissions((prev) => prev.filter((id) => id !== permission.id));
+                                  }
+                                }}
+                                className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                              />
+                              <div>
+                                <div className="text-sm font-medium text-gray-900">{permission.name}</div>
+                                <div className="text-xs text-gray-500">{permission.codename}</div>
+                              </div>
+                            </label>
+                          ))}
+                        </div>
                       </div>
-                    </div>
-                  ))}
-                  {filteredPermissions.length === 0 && (
-                    <p className="text-sm text-gray-500 text-center py-4">No permissions found</p>
+                    ))
+                  ) : (
+                    <p className="text-sm text-gray-500 text-center py-4">
+                      {loadingPermissions ? "Loading permissions..." : "No permissions found"}
+                    </p>
                   )}
                 </div>
               </div>
@@ -902,36 +1078,73 @@ export default function PermissionsPage() {
                 )}
               </div>
 
+              <div className="bg-blue-50 p-3 rounded-lg">
+                <p className="text-sm text-blue-800">
+                  Selected: {selectedPermissions.length} of {permissions.length} permissions
+                </p>
+              </div>
+
               <div className="max-h-96 overflow-y-auto">
-                {Object.entries(permissionOptions).map(([app, perms]) => (
-                  <div key={app} className="space-y-2 mb-6">
-                    <h3 className="text-sm font-semibold text-gray-700 uppercase tracking-wide">{app}</h3>
-                    <div className="space-y-2 ml-4">
-                      {perms.map((permission) => (
-                        <label key={permission.id} className="flex items-center space-x-3 cursor-pointer">
-                          <input
-                            type="checkbox"
-                            checked={selectedPermissions.includes(permission.id)}
-                            onChange={(e) => {
-                              if (e.target.checked) {
-                                setSelectedPermissions((prev) => [...prev, permission.id]);
-                              } else {
-                                setSelectedPermissions((prev) => prev.filter((id) => id !== permission.id));
-                              }
+                {Object.entries(permissionOptions).length > 0 ? (
+                  Object.entries(permissionOptions).map(([app, perms]) => (
+                    <div key={app} className="space-y-2 mb-6">
+                      <div className="flex items-center justify-between">
+                        <h3 className="text-sm font-semibold text-gray-700 uppercase tracking-wide">
+                          {app} ({perms.length})
+                        </h3>
+                        <div className="flex space-x-2">
+                          <button
+                            onClick={() => {
+                              const appPermissionIds = perms.map(p => p.id);
+                              setSelectedPermissions(prev => 
+                                [...new Set([...prev, ...appPermissionIds])]
+                              );
                             }}
-                            className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                          />
-                          <div>
-                            <div className="text-sm font-medium text-gray-900">{permission.name}</div>
-                            <div className="text-xs text-gray-500">{permission.codename}</div>
-                          </div>
-                        </label>
-                      ))}
+                            className="text-xs text-blue-600 hover:text-blue-800"
+                          >
+                            Select All
+                          </button>
+                          <button
+                            onClick={() => {
+                              const appPermissionIds = perms.map(p => p.id);
+                              setSelectedPermissions(prev => 
+                                prev.filter(id => !appPermissionIds.includes(id))
+                              );
+                            }}
+                            className="text-xs text-red-600 hover:text-red-800"
+                          >
+                            Deselect All
+                          </button>
+                        </div>
+                      </div>
+                      <div className="space-y-2 ml-4">
+                        {perms.map((permission) => (
+                          <label key={permission.id} className="flex items-center space-x-3 cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={selectedPermissions.includes(permission.id)}
+                              onChange={(e) => {
+                                if (e.target.checked) {
+                                  setSelectedPermissions((prev) => [...prev, permission.id]);
+                                } else {
+                                  setSelectedPermissions((prev) => prev.filter((id) => id !== permission.id));
+                                }
+                              }}
+                              className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                            />
+                            <div>
+                              <div className="text-sm font-medium text-gray-900">{permission.name}</div>
+                              <div className="text-xs text-gray-500">{permission.codename}</div>
+                            </div>
+                          </label>
+                        ))}
+                      </div>
                     </div>
-                  </div>
-                ))}
-                {filteredPermissions.length === 0 && (
-                  <p className="text-sm text-gray-500 text-center py-4">No permissions found</p>
+                  ))
+                ) : (
+                  <p className="text-sm text-gray-500 text-center py-4">
+                    {loadingPermissions ? "Loading permissions..." : "No permissions found"}
+                  </p>
                 )}
               </div>
             </div>
