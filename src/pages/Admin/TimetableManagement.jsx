@@ -478,6 +478,7 @@ const TimetableManagement = () => {
                   <option value="Wednesday">Wednesday</option>
                   <option value="Thursday">Thursday</option>
                   <option value="Friday">Friday</option>
+                  <option value="Friday">Saturday</option>
                 </select>
                 <p className="text-gray-500 text-xs mt-1">
                   Hold <strong>Ctrl</strong> (or <strong>Cmd</strong> on Mac) to select multiple days.

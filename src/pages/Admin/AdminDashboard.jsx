@@ -26,21 +26,22 @@ const AdminDashboard = () => {
     }
   };
 
-  const attendanceData = {
+  // Initialize attendance data with empty state
+  const [attendanceData, setAttendanceData] = useState({
     labels: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"],
     datasets: [
       {
         label: "Students",
-        data: [90, 85, 80, 70, 75],
+        data: [0, 0, 0, 0, 0],
         backgroundColor: "#1d72b8",
       },
       {
         label: "Teachers",
-        data: [30, 25, 35, 20, 15],
+        data: [0, 0, 0, 0, 0],
         backgroundColor: "#77abdf",
       },
     ],
-  };
+  });
 
   const [counts, setCounts] = useState({
     students: 0,
@@ -50,6 +51,183 @@ const AdminDashboard = () => {
   });
 
   const API = import.meta.env.VITE_SERVER_URL;
+
+  // Helper function to get dates for the current week
+  const getCurrentWeekDates = () => {
+    const today = new Date();
+    const currentDay = today.getDay(); // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
+    const monday = new Date(today);
+    monday.setDate(today.getDate() - currentDay + (currentDay === 0 ? -6 : 1)); // Get Monday of current week
+    
+    const weekDates = [];
+    for (let i = 0; i < 5; i++) { // Monday to Friday
+      const date = new Date(monday);
+      date.setDate(monday.getDate() + i);
+      weekDates.push(date.toISOString().split('T')[0]); // Format: YYYY-MM-DD
+    }
+    return weekDates;
+  };
+
+  // Helper function to format date to YYYY-MM-DD
+  const formatDate = (date) => {
+    return date.toISOString().split('T')[0];
+  };
+
+  // Fetch students for attendance data
+  const fetchStudentsForAttendance = async () => {
+    try {
+      const token = Cookies.get("access_token");
+      const config = {
+        headers: { Authorization: `Bearer ${token}` },
+      };
+
+      const schoolParam = schoolId ? `?school_id=${schoolId}` : '';
+      const studentsUrl = `${API}api/auth/users/list_profiles/student/${schoolParam}`;
+      
+      const res = await axios.get(studentsUrl, config);
+      const students = res.data?.data?.results || res.data?.data || [];
+      
+      return students;
+    } catch (err) {
+      console.error("❌ Failed to fetch students for attendance:", err);
+      return [];
+    }
+  };
+
+  // Fetch student attendance for a specific date
+  const fetchStudentAttendanceForDate = async (date, students) => {
+    try {
+      const token = Cookies.get("access_token");
+      const config = {
+        headers: { Authorization: `Bearer ${token}` },
+      };
+
+      let totalPresent = 0;
+      
+      // If no students, return 0
+      if (!students.length) return 0;
+
+      // Fetch attendance for each student (you might want to optimize this with a bulk API if available)
+      const attendancePromises = students.slice(0, 10).map(async (student) => { // Limit to first 10 students to avoid too many API calls
+        try {
+          const studentId = student.profile_id || student.id;
+          const res = await axios.get(
+            `${API}attendance/student-attendance/?student_id=${studentId}&daily=true&date=${date}`,
+            config
+          );
+          
+          const attendanceData = res.data?.data || res.data;
+          // Check if student was present on this date
+          if (Array.isArray(attendanceData)) {
+            return attendanceData.some(record => 
+              record.date === date && (record.status === 'present' || record.is_present === true)
+            ) ? 1 : 0;
+          } else if (attendanceData && (attendanceData.status === 'present' || attendanceData.is_present === true)) {
+            return 1;
+          }
+          return 0;
+        } catch (err) {
+          console.error(`❌ Error fetching attendance for student ${student.profile_id}:`, err);
+          return 0;
+        }
+      });
+
+      const attendanceResults = await Promise.all(attendancePromises);
+      totalPresent = attendanceResults.reduce((sum, present) => sum + present, 0);
+      
+      // Scale up based on total students if we only sampled a subset
+      if (students.length > 10) {
+        totalPresent = Math.round((totalPresent / 10) * students.length);
+      }
+      
+      return totalPresent;
+    } catch (err) {
+      console.error("❌ Error fetching student attendance for date:", date, err);
+      return 0;
+    }
+  };
+
+  // Fetch teacher attendance for a specific date
+  const fetchTeacherAttendanceForDate = async (date) => {
+    try {
+      const token = Cookies.get("access_token");
+      const config = {
+        headers: { Authorization: `Bearer ${token}` },
+      };
+
+      const res = await axios.get(`${API}staff-attendance/?date=${date}`, config);
+      const attendanceData = res.data?.data || res.data?.results || res.data || [];
+      
+      // Count present teachers
+      if (Array.isArray(attendanceData)) {
+        return attendanceData.filter(record => 
+          record.status === 'present' || 
+          record.is_present === true ||
+          record.attendance_status === 'present'
+        ).length;
+      }
+      
+      return 0;
+    } catch (err) {
+      console.error("❌ Error fetching teacher attendance for date:", date, err);
+      return 0;
+    }
+  };
+
+  // Fetch attendance data for the current week
+  const fetchWeeklyAttendanceData = async () => {
+    try {
+      console.log("🔍 Fetching weekly attendance data...");
+      
+      const weekDates = getCurrentWeekDates();
+      const students = await fetchStudentsForAttendance();
+      
+      console.log("📅 Week dates:", weekDates);
+      console.log("👥 Students count:", students.length);
+
+      // Fetch attendance for each day of the week
+      const studentAttendancePromises = weekDates.map(date => 
+        fetchStudentAttendanceForDate(date, students)
+      );
+      
+      const teacherAttendancePromises = weekDates.map(date => 
+        fetchTeacherAttendanceForDate(date)
+      );
+
+      const [studentAttendanceData, teacherAttendanceData] = await Promise.all([
+        Promise.all(studentAttendancePromises),
+        Promise.all(teacherAttendancePromises)
+      ]);
+
+      console.log("📊 Student attendance data:", studentAttendanceData);
+      console.log("👨‍🏫 Teacher attendance data:", teacherAttendanceData);
+
+      // Update the chart data
+      setAttendanceData({
+        labels: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"],
+        datasets: [
+          {
+            label: "Students Present",
+            data: studentAttendanceData,
+            backgroundColor: "#1d72b8",
+            borderColor: "#1d72b8",
+            borderWidth: 1,
+          },
+          {
+            label: "Teachers Present",
+            data: teacherAttendanceData,
+            backgroundColor: "#77abdf",
+            borderColor: "#77abdf",
+            borderWidth: 1,
+          },
+        ],
+      });
+
+    } catch (err) {
+      console.error("❌ Error fetching weekly attendance data:", err);
+      // Keep default empty data if there's an error
+    }
+  };
 
   // Fetch current user's profile and school information
   const fetchUserProfile = async () => {
@@ -292,30 +470,6 @@ const AdminDashboard = () => {
     }
   };
 
-  // Fetch attendance data for the specific school
-  const fetchAttendanceData = async () => {
-    try {
-      const token = Cookies.get("access_token");
-      const config = {
-        headers: { Authorization: `Bearer ${token}` },
-      };
-
-      const schoolParam = schoolId ? `?school_id=${schoolId}` : '';
-      
-      // Adjust this endpoint based on your API
-      const res = await axios.get(`${API}attendance/weekly-stats/${schoolParam}`, config);
-      
-      if (res.data && res.data.data) {
-        // Update attendance data with school-specific data
-        // This is just an example - adjust based on your API response
-        setAttendanceData(res.data.data);
-      }
-    } catch (err) {
-      console.error("❌ Failed to fetch attendance data:", err);
-      // Keep default data if API call fails
-    }
-  };
-
   // First fetch user profile, then fetch school-specific data
   useEffect(() => {
     fetchUserProfile();
@@ -328,7 +482,8 @@ const AdminDashboard = () => {
     fetchAnnouncements();
     fetchTasks();
     fetchTeachers();
-    fetchAttendanceData();
+    // Fetch real attendance data
+    fetchWeeklyAttendanceData();
   }, [schoolId]); // Still depend on schoolId in case it's needed later
 
   const stats = [
@@ -377,14 +532,35 @@ const AdminDashboard = () => {
         <div className="col-span-2">
           <div className="bg-white rounded-lg p-6 shadow-md mb-14 h-96 ">
             <h4 className="text-lg  mb-4 text-blue-900 font-bold">
-              Per Day Attendance for Students and Teachers
+              Per Day Attendance for Students and Teachers (Current Week)
               {userProfile?.school_name && (
                 <span className="text-sm text-gray-600"> - {userProfile.school_name}</span>
               )}
             </h4>
             <Bar
               data={attendanceData}
-              options={{ responsive: true, maintainAspectRatio: false }}
+              options={{ 
+                responsive: true, 
+                maintainAspectRatio: false,
+                scales: {
+                  y: {
+                    beginAtZero: true,
+                    ticks: {
+                      stepSize: 1,
+                    }
+                  }
+                },
+                plugins: {
+                  legend: {
+                    display: true,
+                    position: 'top',
+                  },
+                  tooltip: {
+                    mode: 'index',
+                    intersect: false,
+                  }
+                }
+              }}
               height={200}
             />
           </div>
