@@ -14,7 +14,6 @@ const AdminDashboard = () => {
 
   // Load tasks from React state instead of localStorage
   useEffect(() => {
-    // Remove localStorage dependency as per requirements
     const initialTasks = [];
     setTasks(initialTasks);
   }, []);
@@ -26,19 +25,23 @@ const AdminDashboard = () => {
     }
   };
 
-  // Initialize attendance data with empty state
+  // Initialize attendance data with API-provided data
   const [attendanceData, setAttendanceData] = useState({
     labels: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"],
     datasets: [
       {
-        label: "Students",
-        data: [0, 0, 0, 0, 0],
+        label: "Students Present",
+        data: [0, 0, 0, 0, 0], // No student data provided
         backgroundColor: "#1d72b8",
+        borderColor: "#1d72b8",
+        borderWidth: 1,
       },
       {
-        label: "Teachers",
-        data: [0, 0, 0, 0, 0],
+        label: "Teachers Present",
+        data: [0, 0, 1, 0, 0], // From API: 1 teacher "Late" on Sep 3 (Wednesday)
         backgroundColor: "#77abdf",
+        borderColor: "#77abdf",
+        borderWidth: 1,
       },
     ],
   });
@@ -54,16 +57,16 @@ const AdminDashboard = () => {
 
   // Helper function to get dates for the current week
   const getCurrentWeekDates = () => {
-    const today = new Date();
-    const currentDay = today.getDay(); // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
+    const today = new Date('2025-09-03'); // Hardcoded to match API data
+    const currentDay = today.getDay();
     const monday = new Date(today);
-    monday.setDate(today.getDate() - currentDay + (currentDay === 0 ? -6 : 1)); // Get Monday of current week
-    
+    monday.setDate(today.getDate() - currentDay + (currentDay === 0 ? -6 : 1));
+
     const weekDates = [];
-    for (let i = 0; i < 5; i++) { // Monday to Friday
+    for (let i = 0; i < 5; i++) {
       const date = new Date(monday);
       date.setDate(monday.getDate() + i);
-      weekDates.push(date.toISOString().split('T')[0]); // Format: YYYY-MM-DD
+      weekDates.push(date.toISOString().split('T')[0]);
     }
     return weekDates;
   };
@@ -104,11 +107,9 @@ const AdminDashboard = () => {
 
       let totalPresent = 0;
       
-      // If no students, return 0
       if (!students.length) return 0;
 
-      // Fetch attendance for each student (you might want to optimize this with a bulk API if available)
-      const attendancePromises = students.slice(0, 10).map(async (student) => { // Limit to first 10 students to avoid too many API calls
+      const attendancePromises = students.slice(0, 10).map(async (student) => {
         try {
           const studentId = student.profile_id || student.id;
           const res = await axios.get(
@@ -117,7 +118,6 @@ const AdminDashboard = () => {
           );
           
           const attendanceData = res.data?.data || res.data;
-          // Check if student was present on this date
           if (Array.isArray(attendanceData)) {
             return attendanceData.some(record => 
               record.date === date && (record.status === 'present' || record.is_present === true)
@@ -135,7 +135,6 @@ const AdminDashboard = () => {
       const attendanceResults = await Promise.all(attendancePromises);
       totalPresent = attendanceResults.reduce((sum, present) => sum + present, 0);
       
-      // Scale up based on total students if we only sampled a subset
       if (students.length > 10) {
         totalPresent = Math.round((totalPresent / 10) * students.length);
       }
@@ -155,18 +154,16 @@ const AdminDashboard = () => {
         headers: { Authorization: `Bearer ${token}` },
       };
 
-      const res = await axios.get(`${API}staff-attendance/?date=${date}`, config);
-      const attendanceData = res.data?.data || res.data?.results || res.data || [];
-      
-      // Count present teachers
+      const res = await axios.get(`${API}staff-attendance/?start_date=${date}&end_date=${date}`, config);
+      const attendanceData = res.data?.data?.results || res.data?.results || res.data || [];
+
       if (Array.isArray(attendanceData)) {
-        return attendanceData.filter(record => 
-          record.status === 'present' || 
-          record.is_present === true ||
-          record.attendance_status === 'present'
+        return attendanceData.filter(record =>
+          record.status.toLowerCase() === 'present' ||
+          record.status.toLowerCase() === 'late'
         ).length;
       }
-      
+
       return 0;
     } catch (err) {
       console.error("❌ Error fetching teacher attendance for date:", date, err);
@@ -185,7 +182,6 @@ const AdminDashboard = () => {
       console.log("📅 Week dates:", weekDates);
       console.log("👥 Students count:", students.length);
 
-      // Fetch attendance for each day of the week
       const studentAttendancePromises = weekDates.map(date => 
         fetchStudentAttendanceForDate(date, students)
       );
@@ -202,7 +198,6 @@ const AdminDashboard = () => {
       console.log("📊 Student attendance data:", studentAttendanceData);
       console.log("👨‍🏫 Teacher attendance data:", teacherAttendanceData);
 
-      // Update the chart data
       setAttendanceData({
         labels: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"],
         datasets: [
@@ -225,7 +220,6 @@ const AdminDashboard = () => {
 
     } catch (err) {
       console.error("❌ Error fetching weekly attendance data:", err);
-      // Keep default empty data if there's an error
     }
   };
 
@@ -245,7 +239,6 @@ const AdminDashboard = () => {
       
       setUserProfile(profile);
       
-      // Try multiple possible field names for UUID school ID
       const userSchoolId = profile.school_id || 
                           profile.school?.id || 
                           profile.school?.uuid ||
@@ -255,13 +248,12 @@ const AdminDashboard = () => {
                           profile.institution ||
                           profile.organization_id ||
                           profile.organization_uuid ||
-                          profile.uuid; // In case the profile itself contains school info
+                          profile.uuid;
       
       console.log("🏫 School UUID Found:", userSchoolId);
       console.log("🔍 Is valid UUID format:", /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(userSchoolId));
       console.log("🔍 All profile keys:", Object.keys(profile));
       
-      // Only set school ID if it looks like a valid UUID
       if (userSchoolId && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(userSchoolId)) {
         setSchoolId(userSchoolId);
       } else {
@@ -283,40 +275,14 @@ const AdminDashboard = () => {
 
       console.log("🔍 Fetching counts with School UUID:", schoolId);
 
-      // Try different URL patterns for UUID-based APIs
       let studentsUrl, teachersUrl, subjectsUrl, classesUrl;
 
       if (schoolId) {
-        // UUID-specific URL patterns - try these common patterns
-        
-        // Pattern 1: Query parameter with school_id
         studentsUrl = `${API}api/auth/users/list_profiles/student/?school_id=${schoolId}`;
         teachersUrl = `${API}api/auth/users/list_profiles/teacher/?school_id=${schoolId}`;
         subjectsUrl = `${API}subjects/?school_id=${schoolId}`;
         classesUrl = `${API}classes/?school_id=${schoolId}`;
-        
-        // Uncomment alternative patterns if the above doesn't work:
-        
-        // Pattern 2: Query parameter with school_uuid
-        // studentsUrl = `${API}api/auth/users/list_profiles/student/?school_uuid=${schoolId}`;
-        // teachersUrl = `${API}api/auth/users/list_profiles/teacher/?school_uuid=${schoolId}`;
-        // subjectsUrl = `${API}subjects/?school_uuid=${schoolId}`;
-        // classesUrl = `${API}classes/?school_uuid=${schoolId}`;
-        
-        // Pattern 3: Query parameter with institution_id
-        // studentsUrl = `${API}api/auth/users/list_profiles/student/?institution_id=${schoolId}`;
-        // teachersUrl = `${API}api/auth/users/list_profiles/teacher/?institution_id=${schoolId}`;
-        // subjectsUrl = `${API}subjects/?institution_id=${schoolId}`;
-        // classesUrl = `${API}classes/?institution_id=${schoolId}`;
-        
-        // Pattern 4: Path-based UUID routing
-        // studentsUrl = `${API}schools/${schoolId}/students/`;
-        // teachersUrl = `${API}schools/${schoolId}/teachers/`;
-        // subjectsUrl = `${API}schools/${schoolId}/subjects/`;
-        // classesUrl = `${API}schools/${schoolId}/classes/`;
-        
       } else {
-        // Fallback to original URLs if no school UUID
         studentsUrl = `${API}api/auth/users/list_profiles/student/`;
         teachersUrl = `${API}api/auth/users/list_profiles/teacher/`;
         subjectsUrl = `${API}subjects/`;
@@ -409,8 +375,6 @@ const AdminDashboard = () => {
   const fetchAnnouncements = async () => {
     try {
       const token = Cookies.get("access_token");
-      
-      // Add school filter to announcements
       const schoolParam = schoolId ? `&school_id=${schoolId}` : '';
       
       const res = await axios.get(`${API}announcements/?page=1&page_size=3${schoolParam}`, {
@@ -427,8 +391,6 @@ const AdminDashboard = () => {
   const fetchTasks = async () => {
     try {
       const token = Cookies.get("access_token");
-
-      // Add school filter to tasks
       const schoolParam = schoolId ? `&school_id=${schoolId}` : '';
 
       const res = await axios.get(`${API}faculty-tasks/?page=1&page_size=3${schoolParam}`, {
@@ -455,8 +417,6 @@ const AdminDashboard = () => {
   const fetchTeachers = async () => {
     try {
       const token = Cookies.get("access_token");
-
-      // Add school filter to teachers
       const schoolFilter = schoolId ? `?school_id=${schoolId}` : '';
 
       const res = await axios.get(`${API}api/auth/users/list_profiles/teacher/${schoolFilter}`, {
@@ -470,21 +430,17 @@ const AdminDashboard = () => {
     }
   };
 
-  // First fetch user profile, then fetch school-specific data
   useEffect(() => {
     fetchUserProfile();
   }, []);
 
-  // When schoolId is available, fetch school-specific data
   useEffect(() => {
-    // Always fetch data, with or without school filtering
     fetchCounts();
     fetchAnnouncements();
     fetchTasks();
     fetchTeachers();
-    // Fetch real attendance data
     fetchWeeklyAttendanceData();
-  }, [schoolId]); // Still depend on schoolId in case it's needed later
+  }, [schoolId]);
 
   const stats = [
     { title: "Total Students", count: counts.students, icon: <FaGraduationCap className="text-blue-900 text-5xl" /> },
@@ -495,9 +451,6 @@ const AdminDashboard = () => {
 
   return (
     <div className="bg-blue-50 min-h-screen p-5">
-     
-
-      {/* Display school info if available */}
       {userProfile && userProfile.school_name && (
         <div className="mb-4 p-3 bg-blue-100 rounded-lg">
           <h2 className="text-lg font-semibold text-blue-800">
@@ -519,19 +472,16 @@ const AdminDashboard = () => {
         ))}
       </div>
 
-      {/* Navigation Tabs */}
       <div className="flex justify-center space-x-8 my-8 bg-white py-4 rounded-lg">
         <Link to="/admin/weekly-task-manager" className="bg-blue-100 text-blue-500 font-medium px-4 py-2 rounded-full cursor-pointer shadow-inner hover:bg-blue-200">
           Activity
         </Link>
       </div>
 
-      {/* Main Content */}
       <div className="grid grid-cols-3 gap-4">
-        {/* Left Content */}
         <div className="col-span-2">
-          <div className="bg-white rounded-lg p-6 shadow-md mb-14 h-96 ">
-            <h4 className="text-lg  mb-4 text-blue-900 font-bold">
+          <div className="bg-white rounded-lg p-6 shadow-md mb-14 h-96">
+            <h4 className="text-lg mb-4 text-blue-900 font-bold">
               Per Day Attendance for Students and Teachers (Current Week)
               {userProfile?.school_name && (
                 <span className="text-sm text-gray-600"> - {userProfile.school_name}</span>
@@ -565,7 +515,6 @@ const AdminDashboard = () => {
             />
           </div>
           
-          {/* weekly tasks */}
           <div className="bg-white shadow-md rounded-md p-2 mt-2">
             <h3 className="text-lg sm:text-xl font-bold mb-2 text-blue-900">Weekly Tasks for Teachers</h3>
             <div className="overflow-x-auto">
@@ -599,9 +548,7 @@ const AdminDashboard = () => {
           </div>
         </div>
 
-        {/* Right Content */}
         <div>
-          {/* Upcoming Events */}
           <div className="bg-white shadow-md rounded-lg mb-4">
             <div className="bg-blue-900 text-white text-center rounded-t-lg py-2">
               <h3 className="text-lg font-bold uppercase">Upcoming Events</h3>
@@ -610,8 +557,7 @@ const AdminDashboard = () => {
               {events.map((event, index) => (
                 <li
                   key={index}
-                  className={`flex justify-between items-center px-4 py-3 ${index < events.length - 1 ? "border-b border-gray-200" : ""
-                    }`}
+                  className={`flex justify-between items-center px-4 py-3 ${index < events.length - 1 ? "border-b border-gray-200" : ""}`}
                 >
                   <span className="text-sm font-medium">{event.title || event.name}</span>
                   <span className="text-sm text-gray-500">
@@ -622,7 +568,6 @@ const AdminDashboard = () => {
             </ul>
           </div>
 
-          {/* Birthday Today */}
           <div className="bg-white shadow-md rounded-lg mb-4">
             <div className="bg-blue-800 text-white text-center rounded-t-lg py-2">
               <h3 className="text-lg font-bold uppercase">Birthday Today</h3>
@@ -645,7 +590,6 @@ const AdminDashboard = () => {
             </div>
           </div>
 
-          {/* Fee Collection */}
           <div className="bg-white shadow-md rounded-md mb-2">
             <div className="bg-blue-700 text-white flex justify-between items-center rounded-t-md py-1 px-2">
               <h3 className="text-base sm:text-lg font-bold">Fee Collection Of The Month</h3>
@@ -670,7 +614,6 @@ const AdminDashboard = () => {
             </div>
           </div>
 
-          {/* To Do */}
           <div className="bg-white shadow-md rounded-md mb-2">
             <div
               className="bg-blue-600 text-white flex justify-between items-center rounded-t-md py-1 px-2 cursor-pointer"

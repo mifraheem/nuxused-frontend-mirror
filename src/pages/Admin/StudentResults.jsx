@@ -3,47 +3,95 @@ import axios from "axios";
 import Cookies from "js-cookie";
 import toast, { Toaster } from "react-hot-toast";
 import { MdEdit, MdDelete, MdVisibility } from "react-icons/md";
-import { Buttons } from '../../components';
-import Select from 'react-select';
+import Select from "react-select";
+import * as XLSX from "xlsx";
+import Buttons from "../../components/Buttons";
 import Pagination from "../../components/Pagination";
 
 const StudentResults = () => {
   const [results, setResults] = useState([]);
-  const [newResult, setNewResult] = useState({
-    student: "",
-    exam: "",
-    subject: "",
-    marks_obtained: "",
-    total_marks: "",
-    remarks: ""
-  });
-  const [editingResult, setEditingResult] = useState(null);
   const [showForm, setShowForm] = useState(false);
+  const [showExcelOptions, setShowExcelOptions] = useState(false);
+  const [showResultTable, setShowResultTable] = useState(false);
+  const [bulkResultData, setBulkResultData] = useState([]);
+  const [excelData, setExcelData] = useState([]);
+  const [rowSubmitting, setRowSubmitting] = useState({});
+  const [rowSubmitted, setRowSubmitted] = useState({});
   const [currentPage, setCurrentPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
   const [pageSize, setPageSize] = useState(10);
+  const [totalPages, setTotalPages] = useState(1);
   const [classes, setClasses] = useState([]);
   const [students, setStudents] = useState([]);
   const [subjects, setSubjects] = useState([]);
   const [exams, setExams] = useState([]);
   const [selectedClass, setSelectedClass] = useState(null);
+  const [selectedSubject, setSelectedSubject] = useState(null);
+  const [selectedExam, setSelectedExam] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isLoadingStudents, setIsLoadingStudents] = useState(false);
+  const [isLoadingSubjects, setIsLoadingSubjects] = useState(false);
+  const [isLoadingExams, setIsLoadingExams] = useState(false);
+  const [viewModalData, setViewModalData] = useState(null);
   const [filter, setFilter] = useState({
     subject: "",
     class_schedule: "",
-    exam: ""
+    exam: "",
   });
   const [filterType, setFilterType] = useState(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [viewModalData, setViewModalData] = useState(null);
 
   const API = import.meta.env.VITE_SERVER_URL;
   const API_URL = `${API}/student-results/`;
+  const CLASSES_API = `${API}/classes/`;
+  const STUDENTS_API = `${API}/api/auth/users/list_profiles/student/`;
+  const SUBJECTS_API = `${API}/subjects/`;
+  const EXAMS_API = `${API}/exams/`;
 
   const permissions = JSON.parse(localStorage.getItem("user_permissions") || "[]");
   const canAdd = permissions.includes("users.add_studentresult");
   const canEdit = permissions.includes("users.change_studentresult");
   const canDelete = permissions.includes("users.delete_studentresult");
   const canView = permissions.includes("users.view_studentresult");
+
+  const [isMobile, setIsMobile] = useState(typeof window !== "undefined" ? window.innerWidth < 768 : true);
+  useEffect(() => {
+    const onResize = () => setIsMobile(window.innerWidth < 768);
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
+
+  const getStudentUUID = (student = {}) => {
+    const possibleUUIDs = [
+      student.profile_id,
+      student.std_id,
+      student.profile_uuid,
+      student.user_uuid,
+      student.uuid,
+      student.student_uuid,
+      student.user_id,
+      student.id,
+    ];
+    const uuid = possibleUUIDs.find((id) => id != null && id !== "");
+    if (!uuid) console.warn("No valid UUID found for student:", student);
+    return uuid;
+  };
+
+  const getStudentDisplayName = (student = {}) => {
+    const firstName = student.first_name || "";
+    const lastName = student.last_name || "";
+    const fullName = `${firstName} ${lastName}`.trim();
+    return fullName || student.username || student.name || student.email || "Unknown Student";
+  };
+
+  const getStudentRegNumber = (student = {}) => {
+    return (
+      student.registration_no ||
+      student.registration_number ||
+      student.reg_no ||
+      student.student_id ||
+      student.std_id ||
+      "N/A"
+    );
+  };
 
   const fetchResults = async (page = 1, size = pageSize, filters = {}) => {
     try {
@@ -52,16 +100,13 @@ const StudentResults = () => {
         toast.error("User is not authenticated.");
         return;
       }
-
       let url = `${API_URL}?page=${page}&page_size=${size}`;
       if (filters.subject) url += `&subject=${filters.subject}`;
       if (filters.class_schedule) url += `&student__class_schedule=${filters.class_schedule}`;
       if (filters.exam) url += `&exam=${filters.exam}`;
-
       const response = await axios.get(url, {
         headers: { Authorization: `Bearer ${token}` },
       });
-
       const data = response.data.data;
       if (Array.isArray(data.results)) {
         setResults(data.results);
@@ -76,184 +121,365 @@ const StudentResults = () => {
     }
   };
 
-  const fetchClasses = async () => {
+  const fetchDropdowns = async () => {
     try {
       const token = Cookies.get("access_token");
       if (!token) {
         toast.error("User is not authenticated.");
         return;
       }
-      const response = await axios.get(`${API}/classes/`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      const classData = response.data.data?.results || response.data.data || response.data;
-      if (Array.isArray(classData)) {
-        setClasses(classData.map(cls => ({
+      setIsLoading(true);
+      setIsLoadingSubjects(true);
+      setIsLoadingExams(true);
+      const [classesRes, subjectsRes, examsRes] = await Promise.all([
+        axios.get(`${CLASSES_API}?page_size=100`, {
+          headers: { Authorization: `Bearer ${token}` },
+        }),
+        axios.get(SUBJECTS_API, {
+          headers: { Authorization: `Bearer ${token}` },
+        }),
+        axios.get(EXAMS_API, {
+          headers: { Authorization: `Bearer ${token}` },
+        }),
+      ]);
+      const classData = classesRes.data?.data?.results || classesRes.data.data || classesRes.data;
+      const subjectData = subjectsRes.data?.data?.results || subjectsRes.data.data || subjectsRes.data;
+      const examData = Array.isArray(examsRes.data)
+        ? examsRes.data
+        : examsRes.data.data?.results || examsRes.data.results || examsRes.data.data || [];
+      setClasses(
+        classData.map((cls) => ({
           value: cls.id,
-          label: ` ${cls.class_name}-${cls.section} (${cls.session})`.trim()
-        })));
-      } else {
-        throw new Error("Unexpected classes API response format.");
-      }
+          label: `${cls.class_name} - ${cls.section} (${cls.session})`.trim(),
+        }))
+      );
+      setSubjects(
+        subjectData.map((sub) => ({
+          value: sub.id,
+          label: sub.subject_name,
+        }))
+      );
+      setExams(
+        examData.map((exam) => ({
+          value: exam.exam_id || exam.id,
+          label: exam.exam_type || exam.title || exam.name,
+        }))
+      );
     } catch (error) {
-      console.error("Error fetching classes:", error.response || error.message);
-      toast.error("Failed to fetch classes. Please try again.");
+      console.error("Error fetching dropdowns:", error.response || error.message);
+      toast.error("Failed to fetch dropdown data. Please try again.");
+    } finally {
+      setIsLoading(false);
+      setIsLoadingSubjects(false);
+      setIsLoadingExams(false);
     }
   };
 
-  const fetchStudents = async (classId) => {
+  const fetchStudents = async () => {
     try {
-      console.log("Fetching students for classId:", classId);
-      if (!classId) {
-        console.log("ClassId is undefined, skipping fetchStudents.");
-        return;
-      }
+      setIsLoadingStudents(true);
       const token = Cookies.get("access_token");
       if (!token) {
         toast.error("User is not authenticated.");
         return;
       }
-      const response = await axios.get(`${API}/classes/${classId}/students/`, {
+      const response = await axios.get(STUDENTS_API, {
         headers: { Authorization: `Bearer ${token}` },
       });
-      console.log("Students API response:", response.data);
       const studentData = response.data.data?.results || response.data.data || response.data;
       if (Array.isArray(studentData)) {
-        setStudents(studentData.map(student => ({
-          value: student.std_id,
-          label: `${student.username} `.trim()
-        })));
+        const validStudents = studentData.filter((student) => {
+          const uuid = getStudentUUID(student);
+          if (!uuid) {
+            console.warn("Student without valid UUID:", student);
+            return false;
+          }
+          return true;
+        });
+        setStudents(validStudents);
+        if (validStudents.length < studentData.length) {
+          toast.warning(
+            `${studentData.length - validStudents.length} students excluded due to missing UUID`
+          );
+        }
       } else {
         throw new Error("Unexpected students API response format.");
       }
     } catch (error) {
       console.error("Error fetching students:", error.response || error.message);
       toast.error("Failed to fetch students. Please try again.");
+    } finally {
+      setIsLoadingStudents(false);
     }
   };
 
-  const fetchSubjects = async () => {
-    try {
-      const token = Cookies.get("access_token");
-      if (!token) {
-        toast.error("User is not authenticated.");
-        return;
-      }
-      const response = await axios.get(`${API}/subjects/`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      const subjectData = response.data.data?.results || response.data.data || response.data;
-      if (Array.isArray(subjectData)) {
-        setSubjects(subjectData.map(subject => ({
-          value: subject.id,
-          label: subject.subject_name
-        })));
-      } else {
-        throw new Error("Unexpected subjects API response format.");
-      }
-    } catch (error) {
-      console.error("Error fetching subjects:", error.response || error.message);
-      toast.error("Failed to fetch subjects. Please try again.");
-    }
-  };
-
-  const fetchExams = async () => {
-    try {
-      const token = Cookies.get("access_token");
-      if (!token) {
-        toast.error("User is not authenticated.");
-        return;
-      }
-
-      const response = await axios.get(`${API}/exams/`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-
-      console.log("Exam API raw response:", response.data);
-
-      let examData = [];
-
-      if (Array.isArray(response.data)) {
-        examData = response.data;
-      } else if (Array.isArray(response.data.data?.results)) {
-        examData = response.data.data.results;
-      } else if (Array.isArray(response.data.results)) {
-        examData = response.data.results;
-      } else if (Array.isArray(response.data.data)) {
-        examData = response.data.data;
-      } else {
-        throw new Error("Unexpected exams API response format.");
-      }
-
-      setExams(examData.map(exam => ({
-        value: exam.exam_id || exam.id,
-        label: exam.exam_type || exam.title || exam.name
-      })));
-    } catch (error) {
-      console.error("Error fetching exams:", error.response || error.message);
-      toast.error("Failed to fetch exams. Please try again.");
-    }
-  };
-
-  const handleSaveResult = async () => {
-    console.log("New Result State:", newResult);
-    const marksObtained = Number(newResult.marks_obtained);
-    const totalMarks = Number(newResult.total_marks);
-
-    if (!newResult.student || !newResult.exam || !newResult.subject || isNaN(marksObtained) || marksObtained <= 0 || isNaN(totalMarks) || totalMarks <= 0) {
-      toast.error("All fields are required and marks must be valid positive numbers!");
+  const handleClassSubjectExamSelect = async () => {
+    if (!selectedClass || !selectedSubject || !selectedExam) {
+      toast.error("Please select class, subject, and exam");
       return;
     }
-
+    setIsLoadingStudents(true);
     try {
-      const token = Cookies.get("access_token");
-      if (!token) {
-        toast.error("User is not authenticated.");
+      await fetchStudents();
+      if (students.length === 0) {
+        toast.error("No valid students found");
+        setBulkResultData([]);
+        setShowExcelOptions(false);
         return;
       }
-
-      const payload = {
-        student: newResult.student,
-        exam: newResult.exam,
-        subject: newResult.subject,
-        marks_obtained: marksObtained,
-        total_marks: totalMarks,
-        remarks: newResult.remarks || ""
-      };
-
-      if (editingResult) {
-        const response = await axios.put(`${API_URL}${editingResult.id}/`, payload, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-
-        if (response.status === 200) {
-          toast.success("Result updated successfully!");
-          setResults((prev) => prev.map((r) => (r.id === editingResult.id ? response.data.data : r)));
-          setEditingResult(null);
-        } else {
-          throw new Error("Failed to update result.");
-        }
-      } else {
-        const response = await axios.post(API_URL, payload, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-
-        if (response.status === 201) {
-          toast.success("Result created successfully!");
-          setResults((prev) => [...prev, response.data.data]);
-        } else {
-          throw new Error("Failed to create result.");
-        }
-      }
-
-      setNewResult({ student: "", exam: "", subject: "", marks_obtained: "", total_marks: "", remarks: "" });
-      setSelectedClass(null);
-      setStudents([]);
-      setShowForm(false);
+      setShowExcelOptions(true);
+      setShowResultTable(false);
+      setBulkResultData(
+        students.map((student) => ({
+          student: getStudentUUID(student),
+          student_info: student,
+          exam: selectedExam.value,
+          subject: selectedSubject.value,
+          marks_obtained: "",
+          total_marks: "",
+          remarks: "",
+          class_schedule: selectedClass.value,
+        }))
+      );
     } catch (error) {
-      console.error("Error saving result:", error.response || error.message);
-      toast.error(error.response?.data?.message || "Failed to save result. Please try again.");
+      console.error("Error in class/subject/exam selection:", error);
+      toast.error("Failed to load students.");
+    } finally {
+      setIsLoadingStudents(false);
     }
+  };
+
+  const handleExportExcel = () => {
+    if (!selectedClass || !selectedSubject || !selectedExam || students.length === 0) {
+      toast.error("Please select class, subject, and exam first");
+      return;
+    }
+    const excelData = students.map((student, index) => ({
+      "S.No": index + 1,
+      "Registration Number": getStudentRegNumber(student),
+      "First Name": student.first_name || "",
+      "Last Name": student.last_name || "",
+      "Marks Obtained": "",
+      "Total Marks": "",
+      Remarks: "",
+    }));
+    const ws = XLSX.utils.json_to_sheet(excelData);
+    const wb = XLSX.utils.book_new();
+    ws["!cols"] = [
+      { width: 8 },
+      { width: 20 },
+      { width: 15 },
+      { width: 15 },
+      { width: 15 },
+      { width: 15 },
+      { width: 20 },
+    ];
+    XLSX.utils.book_append_sheet(wb, ws, "Results");
+    const fileName = `Results_${selectedClass.label}_${selectedSubject.label}_${selectedExam.label}.xlsx`;
+    XLSX.writeFile(wb, fileName);
+    toast.success("Excel template exported successfully");
+  };
+
+  const handleImportExcel = (event) => {
+    const file = event.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const data = new Uint8Array(e.target.result);
+        const workbook = XLSX.read(data, { type: "array" });
+        const sheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[sheetName];
+        const jsonData = XLSX.utils.sheet_to_json(worksheet);
+        const processedData = jsonData
+          .map((row) => {
+            const regNumber = row["Registration Number"];
+            const matchingStudent = students.find(
+              (student) => getStudentRegNumber(student) === regNumber
+            );
+            if (!matchingStudent) {
+              console.warn(`No matching student for registration number: ${regNumber}`);
+              return null;
+            }
+            const marksObtained = Number(row["Marks Obtained"]);
+            const totalMarks = Number(row["Total Marks"]);
+            if (isNaN(marksObtained) || isNaN(totalMarks)) {
+              console.warn(`Invalid marks for student: ${regNumber}`);
+              return null;
+            }
+            const studentUUID = getStudentUUID(matchingStudent);
+            return {
+              student: studentUUID,
+              student_info: matchingStudent,
+              exam: selectedExam.value,
+              subject: selectedSubject.value,
+              marks_obtained: marksObtained,
+              total_marks: totalMarks,
+              remarks: row["Remarks"] || "",
+              class_schedule: selectedClass.value,
+            };
+          })
+          .filter((item) => item !== null);
+        if (processedData.length === 0) {
+          toast.error("No valid data found in Excel file");
+          return;
+        }
+        if (processedData.length < jsonData.length) {
+          toast.warning(`${jsonData.length - processedData.length} rows could not be processed`);
+        }
+        setExcelData(processedData);
+        setBulkResultData(processedData);
+        setShowResultTable(true);
+        toast.success(`${processedData.length} result records imported from Excel`);
+      } catch (error) {
+        console.error("Error importing Excel file:", error);
+        toast.error("Failed to import Excel file. Please check the format.");
+      }
+    };
+    reader.readAsArrayBuffer(file);
+    event.target.value = "";
+  };
+
+  const handleBulkResultChange = (index, field, value) => {
+    setBulkResultData((prev) =>
+      prev.map((item, i) => (i === index ? { ...item, [field]: value } : item))
+    );
+  };
+
+  const handleSubmitSingle = async (index) => {
+    const token = Cookies.get("access_token");
+    if (!token) return toast.error("Not authenticated");
+    const record = bulkResultData[index];
+    const sourceStudent = students[index] || record.student_info || {};
+    const studentUUID = record.student || getStudentUUID(sourceStudent);
+    const displayName = getStudentDisplayName(sourceStudent);
+    if (!studentUUID) {
+      toast.error(`Missing student UUID for ${displayName}`);
+      return;
+    }
+    if (!record.subject || !record.exam || !record.class_schedule) {
+      toast.error(`Missing required fields for ${displayName}`);
+      return;
+    }
+    const marksObtained = Number(record.marks_obtained);
+    const totalMarks = Number(record.total_marks);
+    if (isNaN(marksObtained) || isNaN(totalMarks) || marksObtained < 0 || totalMarks <= 0) {
+      toast.error(`Invalid marks for ${displayName}`);
+      return;
+    }
+    const payload = {
+      student: studentUUID,
+      exam: record.exam,
+      subject: record.subject,
+      marks_obtained: marksObtained,
+      total_marks: totalMarks,
+      remarks: record.remarks || "",
+      class_schedule: record.class_schedule,
+    };
+    try {
+      setRowSubmitting((prev) => ({ ...prev, [index]: true }));
+      const response = await axios.post(API_URL, payload, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setRowSubmitted((prev) => ({ ...prev, [index]: true }));
+      setResults((prev) => [...prev, response.data.data]);
+      toast.success(`Result saved for ${displayName}`);
+    } catch (err) {
+      console.error("Single submit error:", err.response?.data);
+      const errorMessage = err.response?.data?.message || err.response?.data?.detail || "Unknown error";
+      toast.error(`Failed to submit for ${displayName}: ${errorMessage}`);
+    } finally {
+      setRowSubmitting((prev) => ({ ...prev, [index]: false }));
+    }
+  };
+
+  const handleSubmitBulkResults = async () => {
+    const token = Cookies.get("access_token");
+    if (!token) return toast.error("Not authenticated");
+    const invalidRecords = bulkResultData.filter(
+      (record) =>
+        !record.student ||
+        !record.subject ||
+        !record.exam ||
+        isNaN(Number(record.marks_obtained)) ||
+        isNaN(Number(record.total_marks)) ||
+        Number(record.total_marks) <= 0
+    );
+    if (invalidRecords.length > 0) {
+      toast.error("Please ensure all records have valid data");
+      return;
+    }
+    try {
+      setIsLoading(true);
+      const promises = bulkResultData.map((record, idx) => {
+        const sourceStudent = students[idx] || record.student_info || {};
+        const studentUUID = record.student || getStudentUUID(sourceStudent);
+        const displayName = getStudentDisplayName(sourceStudent);
+        if (!studentUUID) {
+          throw new Error(`Missing UUID for student: ${displayName}`);
+        }
+        const payload = {
+          student: studentUUID,
+          exam: record.exam,
+          subject: record.subject,
+          marks_obtained: Number(record.marks_obtained),
+          total_marks: Number(record.total_marks),
+          remarks: record.remarks || "",
+          class_schedule: record.class_schedule,
+        };
+        return axios
+          .post(API_URL, payload, {
+            headers: { Authorization: `Bearer ${token}` },
+          })
+          .catch((error) => {
+            console.error(`Error submitting for ${displayName}:`, error.response?.data);
+            throw error;
+          });
+      });
+      const responses = await Promise.all(promises);
+      setResults((prev) => [...prev, ...responses.map((res) => res.data.data)]);
+      toast.success("Bulk results submitted successfully");
+      setShowForm(false);
+      setShowExcelOptions(false);
+      setShowResultTable(false);
+      setSelectedClass(null);
+      setSelectedSubject(null);
+      setSelectedExam(null);
+      setBulkResultData([]);
+      setExcelData([]);
+      setRowSubmitting({});
+      setRowSubmitted({});
+    } catch (err) {
+      console.error("Error submitting bulk results:", err);
+      const errorMessage = err.response?.data?.message || err.response?.data?.detail || err.message;
+      toast.error(`Failed to submit results: ${errorMessage}`);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleEditResult = (result) => {
+    setShowForm(true);
+    setShowExcelOptions(false);
+    setShowResultTable(false);
+    setSelectedClass(
+      classes.find((c) => c.value === result.student__class_schedule) || null
+    );
+    setSelectedSubject(subjects.find((s) => s.value === result.subject) || null);
+    setSelectedExam(exams.find((e) => e.value === result.exam) || null);
+    fetchStudents();
+    setBulkResultData([
+      {
+        student: result.student,
+        exam: result.exam,
+        subject: result.subject,
+        marks_obtained: result.marks_obtained,
+        total_marks: result.total_marks,
+        remarks: result.remarks,
+        class_schedule: result.student__class_schedule,
+        student_info: { username: result.student_name },
+      },
+    ]);
   };
 
   const handleDeleteResult = async (id) => {
@@ -273,7 +499,6 @@ const StudentResults = () => {
       ));
       return;
     }
-
     toast((t) => (
       <div>
         <p className="text-gray-600 text-xs">Are you sure you want to delete?</p>
@@ -282,15 +507,9 @@ const StudentResults = () => {
             onClick={async () => {
               try {
                 const token = Cookies.get("access_token");
-                if (!token) {
-                  toast.error("User is not authenticated.");
-                  return;
-                }
-
                 await axios.delete(`${API_URL}${id}/`, {
                   headers: { Authorization: `Bearer ${token}` },
                 });
-
                 toast.success("Result deleted successfully!");
                 setResults((prev) => prev.filter((r) => r.id !== id));
                 toast.dismiss(t.id);
@@ -314,30 +533,6 @@ const StudentResults = () => {
     ), { duration: 5000 });
   };
 
-  const handleEditResult = (result) => {
-    console.log("Editing result:", result);
-    setEditingResult(result);
-    setNewResult({
-      student: result.student || "",
-      exam: result.exam || "",
-      subject: result.subject || "",
-      marks_obtained: result.marks_obtained || "",
-      total_marks: result.total_marks || "",
-      remarks: result.remarks || ""
-    });
-    const classId = result.student__class_schedule || (result.class_id ? result.class_id : null);
-    console.log("Derived classId for fetchStudents:", classId);
-    if (classId) {
-      setSelectedClass({ value: classId, label: result.class_name });
-      fetchStudents(classId);
-    } else {
-      console.log("No valid classId found, students may not load.");
-      setSelectedClass(null);
-      setStudents([]);
-    }
-    setShowForm(true);
-  };
-
   const handleFilterChange = (field, value) => {
     setFilter((prev) => ({ ...prev, [field]: value }));
     fetchResults(1, pageSize, { ...filter, [field]: value });
@@ -348,59 +543,82 @@ const StudentResults = () => {
     fetchResults(1, pageSize, { ...filter, subject, class_schedule });
   };
 
-  const goToPage = (page) => {
-    if (page >= 1 && page <= totalPages) fetchResults(page, pageSize, filter);
-  };
-
   useEffect(() => {
-    const fetchData = async () => {
-      setIsLoading(true);
-      await Promise.all([fetchResults(), fetchClasses(), fetchSubjects(), fetchExams()]);
-      if (selectedClass) {
-        await fetchStudents(selectedClass.value);
-      }
-      setIsLoading(false);
-    };
-    fetchData();
-  }, [pageSize, selectedClass]);
+    fetchDropdowns();
+    fetchResults();
+  }, [pageSize]);
 
-  const columns = [
-    { label: "Student Name", key: "student_name" },
-    { label: "Class", key: "class_name" },
-    { label: "Exam", key: "exam_term" },
-    { label: "Subject", key: "subject_name" },
-    { label: "Marks Obtained", key: "marks_obtained" },
-    { label: "Total Marks", key: "total_marks" },
-    { label: "Grade", key: "grade" },
-    { label: "Remarks", key: "remarks" },
+  const baseFont = isMobile ? "0.85rem" : "0.95rem";
+  const compactFont = isMobile ? "0.75rem" : "0.85rem";
+  const selectStyles = {
+    control: (provided) => ({
+      ...provided,
+      minHeight: isMobile ? "2.25rem" : "2.5rem",
+      fontSize: baseFont,
+    }),
+    menu: (provided) => ({
+      ...provided,
+      fontSize: baseFont,
+      maxHeight: "220px",
+      overflowY: "auto",
+    }),
+    option: (provided) => ({
+      ...provided,
+      fontSize: baseFont,
+      padding: isMobile ? "0.5rem" : "0.6rem 0.75rem",
+    }),
+  };
+  const tinySelectStyles = {
+    ...selectStyles,
+    control: (p) => ({
+      ...selectStyles.control(p),
+      minHeight: isMobile ? "2rem" : "2.25rem",
+      fontSize: compactFont,
+    }),
+    option: (p) => ({
+      ...selectStyles.option(p),
+      fontSize: compactFont,
+    }),
+    menu: (p) => ({
+      ...selectStyles.menu(p),
+      fontSize: compactFont,
+    }),
+  };
+  const pageSizeOptions = [
+    { value: 5, label: "5" },
+    { value: 10, label: "10" },
+    { value: 15, label: "15" },
+    { value: 20, label: "20" },
   ];
 
   return (
-    <div className="p-2">
+    <div className="container mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-6">
       <Toaster position="top-center" reverseOrder={false} />
-      <div className="bg-blue-900 text-white py-1 px-2 rounded-md flex justify-between items-center mt-2">
-        <h1 className="text-lg font-bold">Manage Student Results</h1>
-        <div className="flex gap-2">
+      <div className="bg-blue-900 text-white py-3 px-4 sm:px-6 rounded-lg shadow-md flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-6">
+        <h1 className="text-lg sm:text-xl font-bold text-center md:text-left">Manage Student Results</h1>
+        <div className="flex flex-col sm:flex-row gap-3">
           {canAdd && (
             <button
               onClick={() => {
                 setShowForm((prev) => !prev);
-                setEditingResult(null);
-                setNewResult({ student: "", exam: "", subject: "", marks_obtained: "", total_marks: "", remarks: "" });
+                setShowExcelOptions(false);
+                setShowResultTable(false);
                 setSelectedClass(null);
-                setStudents([]);
+                setSelectedSubject(null);
+                setSelectedExam(null);
+                setBulkResultData([]);
+                setExcelData([]);
+                setRowSubmitting({});
+                setRowSubmitted({});
                 setFilterType(null);
                 setFilter({ subject: "", class_schedule: "", exam: "" });
               }}
-              className="flex items-center px-2 py-1 bg-cyan-400 text-white font-semibold rounded-md shadow-md hover:bg-cyan-500 text-sm"
+              className="bg-cyan-500 text-white px-4 py-2 rounded-md shadow hover:bg-cyan-700 text-sm sm:text-base"
             >
-              <div className="flex items-center justify-center w-6 h-6 bg-black rounded-full mr-1">
-                <span className="text-cyan-500 text-base font-bold">{showForm ? "-" : "+"}</span>
-              </div>
               {showForm ? "Close Form" : "Add New Result"}
             </button>
           )}
-          <div className="relative">
+          {canView && (
             <button
               onClick={() => {
                 if (filterType) {
@@ -411,345 +629,746 @@ const StudentResults = () => {
                   setFilterType("menu");
                 }
               }}
-              className="bg-cyan-400 hover:bg-cyan-600 text-white font-semibold px-2 py-1 mt-1 rounded shadow-md text-sm"
+              className="bg-green-500 text-white px-4 py-2 rounded-md shadow hover:bg-green-700 text-sm sm:text-base"
             >
-              {filterType ? "Close Form" : "Filter Data"}
+              {filterType ? "Close Filter" : "Filter Data"}
             </button>
-            {filterType === "menu" && (
-              <div className="absolute right-0 mt-1 w-40 bg-white border rounded shadow-md z-10 text-gray-700">
-                <button className="block w-full text-left px-2 py-1 text-xs hover:bg-gray-100" onClick={() => { setFilterType(null); fetchResults(); }}>Show All</button>
-                <button className="block w-full text-left px-2 py-1 text-xs hover:bg-gray-100" onClick={() => setFilterType("subject")}>By Subject</button>
-                <button className="block w-full text-left px-2 py-1 text-xs hover:bg-gray-100" onClick={() => setFilterType("class")}>By Class</button>
-                <button className="block w-full text-left px-2 py-1 text-xs hover:bg-gray-100" onClick={() => setFilterType("exam")}>By Exam</button>
-                <button className="block w-full text-left px-2 py-1 text-xs hover:bg-gray-100" onClick={() => setFilterType("subject_class")}>By Subject & Class</button>
-              </div>
-            )}
-          </div>
+          )}
         </div>
       </div>
 
-      <div className="flex justify-center">
-        <div className="w-full max-w-md">
-          {filterType === "subject" && (
-            <div className="mt-2 p-2 border rounded-md bg-white shadow-md max-w-md">
-              <h3 className="text-base font-semibold text-blue-800 mb-2">🎓 Filter by Subject</h3>
-              <label className="block text-xs font-medium text-gray-700 mb-0.5">Select Subject</label>
+      {canAdd && showForm && !showExcelOptions && !showResultTable && (
+        <div className="mt-6 bg-white p-4 sm:p-6 rounded-lg shadow-md max-w-full md:max-w-4xl mx-auto">
+          <h2 className="text-lg sm:text-xl font-semibold mb-4">
+            Select Class, Subject, and Exam for Results
+          </h2>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Select Class</label>
               <Select
-                options={subjects}
-                value={subjects.find(s => s.value === filter.subject) || null}
-                onChange={(selected) => handleFilterChange("subject", selected ? selected.value : "")}
-                placeholder="Select Subject"
-                isClearable
-                className="w-full text-xs"
-              />
-              <div className="mt-2 text-right">
-                <button
-                  onClick={() => { handleFilterChange("subject", ""); setFilterType(null); }}
-                  className="bg-blue-600 hover:bg-blue-800 text-white px-3 py-1 rounded-md shadow-sm text-xs"
-                >
-                  Clear Filter
-                </button>
-              </div>
-            </div>
-          )}
-
-          {filterType === "class" && (
-            <div className="mt-2 p-2 border rounded-md bg-white shadow-md max-w-md">
-              <h3 className="text-base font-semibold text-blue-800 mb-2">🏫 Filter by Class</h3>
-              <label className="block text-xs font-medium text-gray-700 mb-0.5">Select Class</label>
-              <Select
+                name="class_schedule"
+                value={selectedClass}
+                onChange={setSelectedClass}
                 options={classes}
-                value={classes.find(c => c.value === filter.class_schedule) || null}
-                onChange={(selected) => handleFilterChange("class_schedule", selected ? selected.value : "")}
                 placeholder="Select Class"
                 isClearable
-                className="w-full text-xs"
+                styles={selectStyles}
+                isLoading={isLoading}
               />
-              <div className="mt-2 text-right">
-                <button
-                  onClick={() => { handleFilterChange("class_schedule", ""); setFilterType(null); }}
-                  className="bg-blue-600 hover:bg-blue-800 text-white px-3 py-1 rounded-md shadow-sm text-xs"
-                >
-                  Clear Filter
-                </button>
-              </div>
             </div>
-          )}
-
-          {filterType === "exam" && (
-            <div className="mt-2 p-2 border rounded-md bg-white shadow-md max-w-md">
-              <h3 className="text-base font-semibold text-blue-800 mb-2">📅 Filter by Exam</h3>
-              <label className="block text-xs font-medium text-gray-700 mb-0.5">Select Exam</label>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Select Subject</label>
               <Select
+                name="subject"
+                value={selectedSubject}
+                onChange={setSelectedSubject}
+                options={subjects}
+                placeholder="Select Subject"
+                isClearable
+                styles={selectStyles}
+                isLoading={isLoadingSubjects}
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Select Exam</label>
+              <Select
+                name="exam"
+                value={selectedExam}
+                onChange={setSelectedExam}
                 options={exams}
-                value={exams.find(e => e.value === filter.exam) || null}
-                onChange={(selected) => handleFilterChange("exam", selected ? selected.value : "")}
                 placeholder="Select Exam"
                 isClearable
-                className="w-full text-xs"
+                styles={selectStyles}
+                isLoading={isLoadingExams}
               />
-              <div className="mt-2 text-right">
-                <button
-                  onClick={() => { handleFilterChange("exam", ""); setFilterType(null); }}
-                  className="bg-blue-600 hover:bg-blue-800 text-white px-3 py-1 rounded-md shadow-sm text-xs"
-                >
-                  Clear Filter
-                </button>
-              </div>
             </div>
-          )}
-
-          {filterType === "subject_class" && (
-            <div className="mt-2 p-2 border rounded-md bg-white shadow-md max-w-lg">
-              <h3 className="text-base font-semibold text-blue-800 mb-2">📊 Filter by Subject & Class</h3>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 items-end">
-                <div>
-                  <label className="block text-xs font-medium text-gray-700 mb-0.5">Select Subject</label>
-                  <Select
-                    options={subjects}
-                    value={subjects.find(s => s.value === filter.subject) || null}
-                    onChange={(selected) => handleFilterChange("subject", selected ? selected.value : "")}
-                    placeholder="Select Subject"
-                    isClearable
-                    className="w-full text-xs"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-gray-700 mb-0.5">Select Class</label>
-                  <Select
-                    options={classes}
-                    value={classes.find(c => c.value === filter.class_schedule) || null}
-                    onChange={(selected) => handleFilterChange("class_schedule", selected ? selected.value : "")}
-                    placeholder="Select Class"
-                    isClearable
-                    className="w-full text-xs"
-                  />
-                </div>
-                <div className="sm:col-span-2 text-right mt-2">
-                  <button
-                    onClick={() => { handleCombinedFilter("", ""); setFilterType(null); }}
-                    className="bg-blue-600 hover:bg-blue-800 text-white px-3 py-1 rounded-md shadow-sm text-xs"
-                  >
-                    Clear Filter
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
+          </div>
+          <div className="text-right">
+            <button
+              onClick={handleClassSubjectExamSelect}
+              disabled={!selectedClass || !selectedSubject || !selectedExam}
+              className="bg-blue-600 text-white px-6 py-2 rounded-md hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
+            >
+              Continue
+            </button>
+          </div>
         </div>
-      </div>
+      )}
 
-      <div className="p-2">
-        {canAdd && showForm && (
-          <div className="p-2 bg-white rounded-md shadow-md border border-gray-200 max-w-md mx-auto mb-2">
-            <h2 className="text-base font-semibold text-blue-800 mb-2">
-              {editingResult ? "Edit Result" : "Create New Result"}
-            </h2>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-              <div>
-                <label className="block text-xs font-medium text-gray-700 mb-0.5">Class</label>
-                <Select
-                  options={classes}
-                  value={selectedClass}
-                  onChange={(selected) => {
-                    setSelectedClass(selected);
-                    setNewResult({ ...newResult, student: "" });
-                    if (selected) fetchStudents(selected.value);
-                    else setStudents([]);
-                  }}
-                  placeholder="Select Class"
-                  isClearable
-                  className="w-full text-xs"
-                  isDisabled={isLoading}
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-gray-700 mb-0.5">Student</label>
-                <Select
-                  options={students}
-                  value={students.find(s => s.value === newResult.student) || null}
-                  onChange={(selected) => setNewResult({ ...newResult, student: selected ? selected.value : "" })}
-                  placeholder="Select Student"
-                  isClearable
-                  isDisabled={!selectedClass || isLoading || students.length === 0}
-                  className="w-full text-xs"
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-gray-700 mb-0.5">Exam</label>
-                <Select
-                  options={exams}
-                  value={exams.find(e => e.value === newResult.exam) || null}
-                  onChange={(selected) => setNewResult({ ...newResult, exam: selected ? selected.value : "" })}
-                  placeholder="Select Exam"
-                  isClearable
-                  isDisabled={isLoading}
-                  className="w-full text-xs"
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-gray-700 mb-0.5">Subject</label>
-                <Select
-                  options={subjects}
-                  value={subjects.find(s => s.value === newResult.subject) || null}
-                  onChange={(selected) => setNewResult({ ...newResult, subject: selected ? selected.value : "" })}
-                  placeholder="Select Subject"
-                  isClearable
-                  isDisabled={isLoading}
-                  className="w-full text-xs"
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-gray-700 mb-0.5">Marks Obtained</label>
-                <input
-                  type="number"
-                  placeholder="e.g. 106.00"
-                  className="w-full px-2 py-1 border border-gray-300 rounded-md text-xs focus:outline-none focus:ring-2 focus:ring-blue-400"
-                  value={newResult.marks_obtained}
-                  onChange={(e) => setNewResult({ ...newResult, marks_obtained: e.target.value })}
-                  min="0"
-                  disabled={isLoading}
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-gray-700 mb-0.5">Total Marks</label>
-                <input
-                  type="number"
-                  placeholder="e.g. 150.00"
-                  className="w-full px-2 py-1 border border-gray-300 rounded-md text-xs focus:outline-none focus:ring-2 focus:ring-blue-400"
-                  value={newResult.total_marks}
-                  onChange={(e) => setNewResult({ ...newResult, total_marks: e.target.value })}
-                  min="0"
-                  disabled={isLoading}
-                />
-              </div>
-              <div className="col-span-2">
-                <label className="block text-xs font-medium text-gray-700 mb-0.5">Remarks</label>
-                <input
-                  type="text"
-                  placeholder="e.g. DFGHJK"
-                  className="w-full px-2 py-1 border border-gray-300 rounded-md text-xs focus:outline-none focus:ring-2 focus:ring-blue-400"
-                  value={newResult.remarks}
-                  onChange={(e) => setNewResult({ ...newResult, remarks: e.target.value })}
-                  disabled={isLoading}
-                />
-              </div>
-            </div>
-            <div className="mt-2 text-right">
+      {canAdd && showForm && showExcelOptions && (
+        <div className="mt-6 bg-white p-4 sm:p-6 rounded-lg shadow-md max-w-full md:max-w-4xl mx-auto">
+          <h2 className="text-lg sm:text-xl font-semibold mb-4">
+            Manage Results for {selectedClass?.label} ({selectedSubject?.label}, {selectedExam?.label})
+          </h2>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+            <div className="bg-blue-50 p-4 rounded-lg">
+              <h3 className="font-semibold text-blue-800 mb-2">Export Excel Template</h3>
+              <p className="text-sm text-gray-600 mb-3">
+                Download an Excel file with students. Fill in marks and remarks manually.
+              </p>
               <button
-                onClick={handleSaveResult}
-                className="bg-blue-600 hover:bg-blue-800 text-white font-medium px-3 py-1 rounded-md shadow-sm text-xs transition duration-150"
-                disabled={isLoading}
+                onClick={handleExportExcel}
+                className="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 text-sm"
               >
-                {editingResult ? "Update Result" : "Save Result"}
+                Export Excel Template
+              </button>
+            </div>
+            <div className="bg-orange-50 p-4 rounded-lg">
+              <h3 className="font-semibold text-orange-800 mb-2">Import Filled Excel</h3>
+              <p className="text-sm text-gray-600 mb-3">
+                Upload the filled Excel file to populate the result form.
+              </p>
+              <input
+                type="file"
+                accept=".xlsx,.xls"
+                onChange={handleImportExcel}
+                className="hidden"
+                id="excel-import"
+              />
+              <label
+                htmlFor="excel-import"
+                className="bg-orange-600 text-white px-4 py-2 rounded-md hover:bg-orange-700 cursor-pointer text-sm inline-block"
+              >
+                Import Excel File
+              </label>
+            </div>
+            <div className="bg-purple-50 p-4 rounded-lg">
+              <h3 className="font-semibold text-purple-800 mb-2">Manual Entry</h3>
+              <p className="text-sm text-gray-600 mb-3">
+                Enter results manually in a table format.
+              </p>
+              <button
+                onClick={() => {
+                  setShowResultTable(true);
+                  setExcelData([]);
+                }}
+                className="bg-purple-600 text-white px-4 py-2 rounded-md hover:bg-purple-700 text-sm"
+              >
+                Manual Entry
               </button>
             </div>
           </div>
-        )}
+          <div className="text-center">
+            <p className="text-sm text-gray-500 mb-2">
+              Instructions: Export template → Fill marks/remarks → Import back or enter manually → Save results
+            </p>
+          </div>
+        </div>
+      )}
 
-        {results.length > 0 ? (
-          <div>
-            <Buttons data={results} columns={columns} filename="StudentResults" />
-            <h2 className="text-base font-semibold text-white bg-blue-900 px-2 py-0.5 rounded-t-md">Student Results</h2>
-            <div className="overflow-x-auto">
-              <table className="w-full border-collapse border border-gray-300 bg-white min-w-[400px]">
-                <thead className="bg-gray-200">
-                  <tr>
-                    <th className="border border-gray-300 p-0.5 text-center text-xs">ID</th>
-                    <th className="border border-gray-300 p-0.5 text-center text-xs">Student Name</th>
-                    <th className="border border-gray-300 p-0.5 text-center text-xs">Subject</th>
-                    <th className="border border-gray-300 p-0.5 text-center text-xs">Marks Obtained</th>
-                    <th className="border border-gray-300 p-0.5 text-center text-xs">Total Marks</th>
-                    <th className="border border-gray-300 p-0.5 text-center text-xs">Grade</th>
-                    <th className="border border-gray-300 p-0.5 text-center text-xs">Remarks</th>
-                    {(canEdit || canDelete || canView) && (
-                      <th className="border border-gray-300 p-0.5 text-center text-xs">Actions</th>
-                    )}
-                  </tr>
-                </thead>
-                <tbody>
-                  {results.map((result, index) => (
-                    <tr key={result.id}>
-                      {/* Sequence number */}
-                      <td className="border border-gray-300 p-0.5 text-center text-xs">
-                        {(currentPage - 1) * pageSize + index + 1}
+      {canAdd && showForm && showResultTable && selectedClass && selectedSubject && selectedExam && (
+        <div className="mt-6 bg-white p-4 sm:p-6 rounded-lg shadow-md">
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="text-lg sm:text-xl font-semibold">
+              Enter Results for {selectedClass.label} ({selectedSubject.label}, {selectedExam.label})
+            </h2>
+            {excelData.length > 0 && (
+              <span className="bg-green-100 text-green-800 px-3 py-1 rounded-full text-sm">
+                Imported from Excel
+              </span>
+            )}
+          </div>
+          <div className="md:hidden space-y-3">
+            {bulkResultData.map((record, index) => {
+              const student = record.student_info || students[index] || {};
+              const rowBusy = !!rowSubmitting[index];
+              const done = !!rowSubmitted[index];
+              const displayName = getStudentDisplayName(student);
+              const regNumber = getStudentRegNumber(student);
+              const studentUUID = record.student || getStudentUUID(student);
+              return (
+                <div
+                  key={studentUUID || index}
+                  className="border rounded-lg p-3 shadow-sm"
+                >
+                  <div className="font-semibold text-gray-800 mb-2">
+                    {displayName}
+                    <div className="text-xs text-gray-500 font-normal">
+                      Reg: {regNumber} | UUID: {studentUUID || "Missing"}
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-1 gap-3">
+                    <div>
+                      <label className="block text-xs text-gray-600 mb-1">Marks Obtained</label>
+                      <input
+                        type="number"
+                        value={record.marks_obtained}
+                        onChange={(e) =>
+                          handleBulkResultChange(index, "marks_obtained", e.target.value)
+                        }
+                        className="w-full border border-gray-300 p-2 rounded-md text-sm"
+                        placeholder="e.g., 85"
+                        min="0"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs text-gray-600 mb-1">Total Marks</label>
+                      <input
+                        type="number"
+                        value={record.total_marks}
+                        onChange={(e) =>
+                          handleBulkResultChange(index, "total_marks", e.target.value)
+                        }
+                        className="w-full border border-gray-300 p-2 rounded-md text-sm"
+                        placeholder="e.g., 100"
+                        min="0"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs text-gray-600 mb-1">Remarks</label>
+                      <input
+                        type="text"
+                        value={record.remarks}
+                        onChange={(e) =>
+                          handleBulkResultChange(index, "remarks", e.target.value)
+                        }
+                        className="w-full border border-gray-300 p-2 rounded-md text-sm"
+                        placeholder="Enter remarks"
+                      />
+                    </div>
+                  </div>
+                  <div className="mt-3 flex justify-end">
+                    <button
+                      onClick={() => handleSubmitSingle(index)}
+                      disabled={rowBusy || done || !studentUUID}
+                      className={`px-4 py-2 rounded text-sm text-white ${
+                        !studentUUID
+                          ? "bg-red-600 cursor-not-allowed"
+                          : done
+                          ? "bg-green-600 cursor-default"
+                          : rowBusy
+                          ? "bg-blue-400 cursor-wait"
+                          : "bg-blue-600 hover:bg-blue-700"
+                      } disabled:opacity-60 disabled:cursor-not-allowed`}
+                      title={
+                        !studentUUID ? "Missing UUID" : done ? "Submitted" : "Submit this student"
+                      }
+                    >
+                      {!studentUUID
+                        ? "No UUID"
+                        : done
+                        ? "Submitted"
+                        : rowBusy
+                        ? "Submitting..."
+                        : "Submit"}
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          <div className="hidden md:block overflow-x-auto">
+            <table className="w-full border border-gray-200">
+              <thead className="bg-gray-100">
+                <tr>
+                  <th className="border border-gray-200 p-3 text-left text-sm font-medium">S.No</th>
+                  <th className="border border-gray-200 p-3 text-left text-sm font-medium">
+                    Registration
+                  </th>
+                  <th className="border border-gray-200 p-3 text-left text-sm font-medium">
+                    Student Name
+                  </th>
+                  <th className="border border-gray-200 p-3 text-left text-sm font-medium">
+                    Marks Obtained
+                  </th>
+                  <th className="border border-gray-200 p-3 text-left text-sm font-medium">
+                    Total Marks
+                  </th>
+                  <th className="border border-gray-200 p-3 text-left text-sm font-medium">Remarks</th>
+                  <th className="border border-gray-200 p-3 text-left text-sm font-medium">Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {bulkResultData.map((record, index) => {
+                  const student = record.student_info || students[index] || {};
+                  const rowBusy = !!rowSubmitting[index];
+                  const done = !!rowSubmitted[index];
+                  const displayName = getStudentDisplayName(student);
+                  const regNumber = getStudentRegNumber(student);
+                  const studentUUID = record.student || getStudentUUID(student);
+                  return (
+                    <tr key={studentUUID || index} className="hover:bg-gray-50">
+                      <td className="border border-gray-200 p-3 text-sm">{index + 1}</td>
+                      <td className="border border-gray-200 p-3 text-sm">{regNumber}</td>
+                      <td className="border border-gray-200 p-3 text-sm">{displayName}</td>
+                      <td className="border border-gray-200 p-3">
+                        <input
+                          type="number"
+                          value={record.marks_obtained}
+                          onChange={(e) =>
+                            handleBulkResultChange(index, "marks_obtained", e.target.value)
+                          }
+                          className="w-full border border-gray-300 p-2 rounded-md text-sm"
+                          placeholder="e.g., 85"
+                          min="0"
+                        />
                       </td>
-
-                      <td className="border border-gray-300 p-0.5 text-xs">{result.student_name}</td>
-                      <td className="border border-gray-300 p-0.5 text-xs">{result.subject_name}</td>
-                      <td className="border border-gray-300 p-0.5 text-center text-xs">{result.marks_obtained}</td>
-                      <td className="border border-gray-300 p-0.5 text-center text-xs">{result.total_marks}</td>
-                      <td className="border border-gray-300 p-0.5 text-center text-xs">{result.grade}</td>
-                      <td className="border border-gray-300 p-0.5 text-xs">{result.remarks}</td>
-                      {(canEdit || canDelete || canView) && (
-                        <td className="border border-gray-300 p-0.5 flex justify-center gap-1 text-xs">
-                          {canView && (
-                            <button onClick={() => setViewModalData(result)} className="text-blue-600">
-                              <MdVisibility size={18} />
-                            </button>
-                          )}
-                          {canEdit && (
-                            <MdEdit
-                              onClick={() => handleEditResult(result)}
-                              className="text-yellow-500 cursor-pointer hover:text-yellow-700"
-                              size={18}
-                            />
-                          )}
-                          {canDelete && (
-                            <MdDelete
-                              onClick={() => handleDeleteResult(result.id)}
-                              className="text-red-500 cursor-pointer hover:text-red-700"
-                              size={18}
-                            />
-                          )}
-                        </td>
-                      )}
+                      <td className="border border-gray-200 p-3">
+                        <input
+                          type="number"
+                          value={record.total_marks}
+                          onChange={(e) =>
+                            handleBulkResultChange(index, "total_marks", e.target.value)
+                          }
+                          className="w-full border border-gray-300 p-2 rounded-md text-sm"
+                          placeholder="e.g., 100"
+                          min="0"
+                        />
+                      </td>
+                      <td className="border border-gray-200 p-3">
+                        <input
+                          type="text"
+                          value={record.remarks}
+                          onChange={(e) =>
+                            handleBulkResultChange(index, "remarks", e.target.value)
+                          }
+                          className="w-full border border-gray-300 p-2 rounded-md text-sm"
+                          placeholder="Enter remarks"
+                        />
+                      </td>
+                      <td className="border border-gray-200 p-3">
+                        <button
+                          onClick={() => handleSubmitSingle(index)}
+                          disabled={rowBusy || done || !studentUUID}
+                          className={`px-3 py-1.5 rounded text-sm text-white ${
+                            !studentUUID
+                              ? "bg-red-600 cursor-not-allowed"
+                              : done
+                              ? "bg-green-600 cursor-default"
+                              : rowBusy
+                              ? "bg-blue-400 cursor-wait"
+                              : "bg-blue-600 hover:bg-blue-700"
+                          } disabled:opacity-60 disabled:cursor-not-allowed`}
+                          title={
+                            !studentUUID ? "Missing UUID" : done ? "Submitted" : "Submit this row"
+                          }
+                        >
+                          {!studentUUID
+                            ? "No UUID"
+                            : done
+                            ? "Submitted"
+                            : rowBusy
+                            ? "Submitting..."
+                            : "Submit"}
+                        </button>
+                      </td>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+          <div className="mt-6 flex flex-col sm:flex-row gap-3 sm:gap-4 justify-between items-center">
+            <div className="text-sm text-gray-600">
+              Total Students: {bulkResultData.length}
+            </div>
+            <div className="flex gap-3">
+              <button
+                onClick={() => {
+                  setShowResultTable(false);
+                  setExcelData([]);
+                }}
+                className="bg-gray-600 text-white px-4 py-2 rounded hover:bg-gray-700 text-sm"
+              >
+                Back to Options
+              </button>
+              <button
+                onClick={handleSubmitBulkResults}
+                disabled={isLoading}
+                className="bg-blue-600 text-white px-6 py-2 rounded hover:bg-blue-700 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isLoading ? "Saving Results..." : "Save All Results"}
+              </button>
             </div>
           </div>
-        ) : (
-          <p className="text-center text-gray-500 text-xs">No results available.</p>
-        )}
+        </div>
+      )}
 
-        <Pagination
-          currentPage={currentPage}
-          totalPages={totalPages}
-          pageSize={pageSize}
-          onPageChange={(page) => {
-            setCurrentPage(page);
-            fetchResults(page, pageSize);
-          }}
-          onPageSizeChange={(size) => {
-            setPageSize(size);
-            setCurrentPage(1);
-            fetchResults(1, size);
-          }}
-          totalItems={results.length}
-          showPageSizeSelector={true}
-          showPageInfo={true}
-        />
-      </div>
+      {canView && filterType && (
+        <div className="mt-6 bg-white p-4 sm:p-6 rounded-lg shadow-md max-w-full md:max-w-4xl mx-auto border border-gray-200">
+          <h2 className="text-lg sm:text-xl font-semibold text-gray-800 mb-4">
+            Filter Results
+          </h2>
+          {filterType === "menu" && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
+              <button
+                className="bg-blue-100 text-blue-800 px-4 py-2 rounded-md hover:bg-blue-200 text-sm"
+                onClick={() => {
+                  setFilterType(null);
+                  fetchResults();
+                }}
+              >
+                Show All
+              </button>
+              <button
+                className="bg-blue-100 text-blue-800 px-4 py-2 rounded-md hover:bg-blue-200 text-sm"
+                onClick={() => setFilterType("subject")}
+              >
+                By Subject
+              </button>
+              <button
+                className="bg-blue-100 text-blue-800 px-4 py-2 rounded-md hover:bg-blue-200 text-sm"
+                onClick={() => setFilterType("class")}
+              >
+                By Class
+              </button>
+              <button
+                className="bg-blue-100 text-blue-800 px-4 py-2 rounded-md hover:bg-blue-200 text-sm"
+                onClick={() => setFilterType("exam")}
+              >
+                By Exam
+              </button>
+            </div>
+          )}
+          {filterType === "subject" && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Select Subject</label>
+              <Select
+                options={subjects}
+                value={subjects.find((s) => s.value === filter.subject) || null}
+                onChange={(selected) => handleFilterChange("subject", selected ? selected.value : "")}
+                placeholder="Select Subject"
+                isClearable
+                styles={selectStyles}
+              />
+            </div>
+          )}
+          {filterType === "class" && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Select Class</label>
+              <Select
+                options={classes}
+                value={classes.find((c) => c.value === filter.class_schedule) || null}
+                onChange={(selected) =>
+                  handleFilterChange("class_schedule", selected ? selected.value : "")
+                }
+                placeholder="Select Class"
+                isClearable
+                styles={selectStyles}
+              />
+            </div>
+          )}
+          {filterType === "exam" && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Select Exam</label>
+              <Select
+                options={exams}
+                value={exams.find((e) => e.value === filter.exam) || null}
+                onChange={(selected) => handleFilterChange("exam", selected ? selected.value : "")}
+                placeholder="Select Exam"
+                isClearable
+                styles={selectStyles}
+              />
+            </div>
+          )}
+          {filterType === "subject_class" && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Select Subject</label>
+                <Select
+                  options={subjects}
+                  value={subjects.find((s) => s.value === filter.subject) || null}
+                  onChange={(selected) => handleFilterChange("subject", selected ? selected.value : "")}
+                  placeholder="Select Subject"
+                  isClearable
+                  styles={selectStyles}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Select Class</label>
+                <Select
+                  options={classes}
+                  value={classes.find((c) => c.value === filter.class_schedule) || null}
+                  onChange={(selected) =>
+                    handleFilterChange("class_schedule", selected ? selected.value : "")
+                  }
+                  placeholder="Select Class"
+                  isClearable
+                  styles={selectStyles}
+                />
+              </div>
+            </div>
+          )}
+          {filterType !== "menu" && (
+            <div className="mt-4 text-right">
+              <button
+                onClick={() => {
+                  handleCombinedFilter("", "");
+                  setFilterType(null);
+                }}
+                className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 text-sm"
+              >
+                Clear Filter
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+
+      {canView && results.length > 0 && (
+        <div className="mt-6 bg-white p-4 sm:p-6 rounded-lg shadow-md">
+          <Buttons
+            data={results.map((rec, index) => ({
+              ...rec,
+              sequence: (currentPage - 1) * pageSize + index + 1,
+            }))}
+            columns={[
+              { label: "S.No", key: "sequence" },
+              { label: "Student Name", key: "student_name" },
+              { label: "Class", key: "class_name" },
+              { label: "Exam", key: "exam_term" },
+              { label: "Subject", key: "subject_name" },
+              { label: "Marks Obtained", key: "marks_obtained" },
+              { label: "Total Marks", key: "total_marks" },
+              { label: "Grade", key: "grade" },
+              { label: "Remarks", key: "remarks" },
+            ]}
+            filename="StudentResults"
+          />
+          <div className="hidden md:block overflow-x-auto">
+            <table className="w-full border border-gray-200">
+              <thead className="bg-gray-100">
+                <tr>
+                  <th className="border border-gray-200 p-3 text-left text-sm font-medium">S.No</th>
+                  <th className="border border-gray-200 p-3 text-left text-sm font-medium">
+                    Student Name
+                  </th>
+                  <th className="border border-gray-200 p-3 text-left text-sm font-medium">Class</th>
+                  <th className="border border-gray-200 p-3 text-left text-sm font-medium">Exam</th>
+                  <th className="border border-gray-200 p-3 text-left text-sm font-medium">Subject</th>
+                  <th className="border border-gray-200 p-3 text-left text-sm font-medium">
+                    Marks Obtained
+                  </th>
+                  <th className="border border-gray-200 p-3 text-left text-sm font-medium">
+                    Total Marks
+                  </th>
+                  <th className="border border-gray-200 p-3 text-left text-sm font-medium">Grade</th>
+                  <th className="border border-gray-200 p-3 text-left text-sm font-medium">Remarks</th>
+                  {(canEdit || canDelete || canView) && (
+                    <th className="border border-gray-200 p-3 text-left text-sm font-medium">
+                      Actions
+                    </th>
+                  )}
+                </tr>
+              </thead>
+              <tbody>
+                {results.map((result, index) => (
+                  <tr key={result.id} className="hover:bg-gray-50">
+                    <td className="border border-gray-200 p-3 text-sm">
+                      {(currentPage - 1) * pageSize + index + 1}
+                    </td>
+                    <td className="border border-gray-200 p-3 text-sm">{result.student_name}</td>
+                    <td className="border border-gray-200 p-3 text-sm">{result.class_name}</td>
+                    <td className="border border-gray-200 p-3 text-sm">{result.exam_term}</td>
+                    <td className="border border-gray-200 p-3 text-sm">{result.subject_name}</td>
+                    <td className="border border-gray-200 p-3 text-sm">{result.marks_obtained}</td>
+                    <td className="border border-gray-200 p-3 text-sm">{result.total_marks}</td>
+                    <td className="border border-gray-200 p-3 text-sm">{result.grade}</td>
+                    <td className="border border-gray-200 p-3 text-sm">{result.remarks || "—"}</td>
+                    {(canEdit || canDelete || canView) && (
+                      <td className="border border-gray-200 p-3 flex gap-2">
+                        {canView && (
+                          <button
+                            onClick={() => setViewModalData(result)}
+                            className="text-blue-600 hover:text-blue-800"
+                          >
+                            <MdVisibility size={18} />
+                          </button>
+                        )}
+                        {canEdit && (
+                          <button
+                            onClick={() => handleEditResult(result)}
+                            className="text-yellow-500 hover:text-yellow-700"
+                          >
+                            <MdEdit size={18} />
+                          </button>
+                        )}
+                        {canDelete && (
+                          <button
+                            onClick={() => handleDeleteResult(result.id)}
+                            className="text-red-500 hover:text-red-700"
+                          >
+                            <MdDelete size={18} />
+                          </button>
+                        )}
+                      </td>
+                    )}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <div className="md:hidden mt-4 space-y-3">
+            {results.map((result, index) => (
+              <div key={result.id} className="border rounded-lg p-3 shadow-sm">
+                <div className="flex items-center justify-between">
+                  <div className="font-semibold text-gray-800">{result.student_name}</div>
+                  <div className="text-xs text-gray-500">
+                    #{(currentPage - 1) * pageSize + index + 1}
+                  </div>
+                </div>
+                <div className="mt-2 grid grid-cols-1 gap-1 text-sm">
+                  <div>
+                    <span className="font-medium">Class:</span> {result.class_name}
+                  </div>
+                  <div>
+                    <span className="font-medium">Exam:</span> {result.exam_term}
+                  </div>
+                  <div>
+                    <span className="font-medium">Subject:</span> {result.subject_name}
+                  </div>
+                  <div>
+                    <span className="font-medium">Marks Obtained:</span> {result.marks_obtained}
+                  </div>
+                  <div>
+                    <span className="font-medium">Total Marks:</span> {result.total_marks}
+                  </div>
+                  <div>
+                    <span className="font-medium">Grade:</span> {result.grade}
+                  </div>
+                  <div>
+                    <span className="font-medium">Remarks:</span> {result.remarks || "—"}
+                  </div>
+                </div>
+                {(canEdit || canDelete || canView) && (
+                  <div className="mt-2 flex justify-end gap-2">
+                    {canView && (
+                      <button
+                        onClick={() => setViewModalData(result)}
+                        className="text-blue-600 hover:text-blue-800"
+                      >
+                        <MdVisibility size={18} />
+                      </button>
+                    )}
+                    {canEdit && (
+                      <button
+                        onClick={() => handleEditResult(result)}
+                        className="text-yellow-500 hover:text-yellow-700"
+                      >
+                        <MdEdit size={18} />
+                      </button>
+                    )}
+                    {canDelete && (
+                      <button
+                        onClick={() => handleDeleteResult(result.id)}
+                        className="text-red-500 hover:text-red-700"
+                      >
+                        <MdDelete size={18} />
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mt-4 gap-3 sm:gap-4">
+            <div className="flex items-center gap-2 w-full sm:w-auto">
+              <label className="text-xs sm:text-sm font-medium text-gray-700 whitespace-nowrap">
+                Page Size:
+              </label>
+              <div className="w-28">
+                <Select
+                  value={pageSizeOptions.find((opt) => opt.value === pageSize)}
+                  onChange={(selected) => {
+                    setPageSize(selected?.value || 10);
+                    setCurrentPage(1);
+                    fetchResults(1, selected?.value || 10);
+                  }}
+                  options={pageSizeOptions}
+                  styles={tinySelectStyles}
+                  isSearchable={false}
+                />
+              </div>
+            </div>
+            <div className="flex flex-wrap justify-center sm:justify-end gap-1 sm:gap-2 w-full sm:w-auto">
+              <button
+                onClick={() => {
+                  setCurrentPage((prev) => Math.max(prev - 1, 1));
+                  fetchResults(currentPage - 1, pageSize);
+                }}
+                disabled={currentPage === 1}
+                className="px-3 py-1.5 bg-gray-300 rounded disabled:opacity-50 disabled:cursor-not-allowed text-xs sm:text-sm hover:bg-gray-400 transition-colors"
+              >
+                Prev
+              </button>
+              {Array.from({ length: totalPages }, (_, i) => i + 1)
+                .slice(
+                  Math.max(0, Math.min(currentPage - 3, totalPages - 5)),
+                  Math.max(5, Math.min(totalPages, currentPage - 3 + 5))
+                )
+                .map((p) => (
+                  <button
+                    key={p}
+                    onClick={() => {
+                      setCurrentPage(p);
+                      fetchResults(p, pageSize);
+                    }}
+                    className={`px-3 py-1.5 rounded text-xs sm:text-sm transition-colors ${
+                      currentPage === p
+                        ? "bg-blue-600 text-white hover:bg-blue-700"
+                        : "bg-gray-200 hover:bg-gray-300"
+                    }`}
+                  >
+                    {p}
+                  </button>
+                ))}
+              <button
+                onClick={() => {
+                  setCurrentPage((prev) => Math.min(prev + 1, totalPages));
+                  fetchResults(currentPage + 1, pageSize);
+                }}
+                disabled={currentPage === totalPages}
+                className="px-3 py-1.5 bg-gray-300 rounded disabled:opacity-50 disabled:cursor-not-allowed text-xs sm:text-sm hover:bg-gray-400 transition-colors"
+              >
+                Next
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {viewModalData && canView && (
         <div className="fixed inset-0 bg-black bg-opacity-50 backdrop-blur-sm flex items-center justify-center z-50 px-2">
           <div className="bg-white rounded-xl shadow-2xl w-full max-w-sm max-h-[70vh] border border-gray-200 p-3 overflow-y-auto">
             <div className="mb-3 border-b pb-1">
-              <h3 className="text-lg font-bold text-blue-800 text-center">📄 Student Result Details</h3>
+              <h3 className="text-lg font-bold text-blue-800 text-center">
+                📄 Student Result Details
+              </h3>
             </div>
             <div className="grid grid-cols-1 gap-y-1 text-xs text-gray-700">
-              <div className="font-semibold text-blue-900 border-b pb-0.5">👤 Student Information</div>
-              <div><span className="font-semibold">Student Name:</span> {viewModalData.student_name}</div>
-              <div><span className="font-semibold">Class:</span> {viewModalData.class_name}</div>
-              <div><span className="font-semibold">Exam:</span> {viewModalData.exam_term}</div>
-              <div><span className="font-semibold">Subject:</span> {viewModalData.subject_name}</div>
-              <div className="font-semibold text-blue-900 border-b pt-1 pb-0.5">📋 Result Details</div>
-              <div><span className="font-semibold">Marks Obtained:</span> {viewModalData.marks_obtained}</div>
-              <div><span className="font-semibold">Total Marks:</span> {viewModalData.total_marks}</div>
-              <div><span className="font-semibold">Grade:</span> {viewModalData.grade}</div>
-              <div><span className="font-semibold">Remarks:</span> {viewModalData.remarks || "—"}</div>
+              <div className="font-semibold text-blue-900 border-b pb-0.5">
+                👤 Student Information
+              </div>
+              <div>
+                <span className="font-semibold">Student Name:</span>{" "}
+                {viewModalData.student_name}
+              </div>
+              <div>
+                <span className="font-semibold">Class:</span> {viewModalData.class_name}
+              </div>
+              <div>
+                <span className="font-semibold">Exam:</span> {viewModalData.exam_term}
+              </div>
+              <div>
+                <span className="font-semibold">Subject:</span> {viewModalData.subject_name}
+              </div>
+              <div className="font-semibold text-blue-900 border-b pt-1 pb-0.5">
+                📋 Result Details
+              </div>
+              <div>
+                <span className="font-semibold">Marks Obtained:</span>{" "}
+                {viewModalData.marks_obtained}
+              </div>
+              <div>
+                <span className="font-semibold">Total Marks:</span> {viewModalData.total_marks}
+              </div>
+              <div>
+                <span className="font-semibold">Grade:</span> {viewModalData.grade}
+              </div>
+              <div>
+                <span className="font-semibold">Remarks:</span>{" "}
+                {viewModalData.remarks || "—"}
+              </div>
             </div>
             <div className="mt-2 text-center">
               <button

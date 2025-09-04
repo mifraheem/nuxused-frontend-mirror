@@ -51,12 +51,28 @@ const Sidebar = ({ isSidebarOpen, toggleSidebar, activeTab, setActiveTab }) => {
                         <SidebarLink to="/admin/registration" icon="pi pi-user-plus" label="Registration" currentPath={location.pathname} isSidebarOpen={isSidebarOpen} />
                     )}
                     {/* NEW: Permissions tab (right after Registration) */}
-                    {permissions.includes("auth.view_permission") && (
-                        <SidebarLink to="/admin/permissions" icon="pi pi-shield" label="Group Permissions" currentPath={location.pathname} isSidebarOpen={isSidebarOpen} />
-                    )}
-                    {permissions.includes("users.view_groupclasspermission") && (
-                        <SidebarLink to="/admin/group-class-permissions" icon="pi pi-shield" label="Class Permissions" currentPath={location.pathname} isSidebarOpen={isSidebarOpen} />
-                    )}
+                    {/* ADMINISTRATION (wrap Group & Class permissions together) */}
+                    {(permissions.includes("auth.view_permission") ||
+                        permissions.includes("users.view_groupclasspermission")) && (
+                            <SidebarDropdown
+                                label="Administration"
+                                icon="pi pi-cog"
+                                tabKey="administration"
+                                activeTab={activeTab}
+                                toggleTab={toggleTab}
+                                items={[
+                                    permissions.includes("auth.view_permission")
+                                        ? { to: "/admin/permissions", label: "Role Permissions" }
+                                        : null,
+                                    permissions.includes("users.view_groupclasspermission")
+                                        ? { to: "/admin/group-class-permissions", label: "Class Permissions" }
+                                        : null,
+                                ].filter(Boolean)}
+                                currentPath={location.pathname}
+                                isSidebarOpen={isSidebarOpen}
+                            />
+                        )}
+
                     {permissions.includes("users.view_room") && (
                         <SidebarLink to="/admin/rooms-management" icon="pi pi-building" label="Rooms Management" currentPath={location.pathname} isSidebarOpen={isSidebarOpen} />
                     )}

@@ -316,8 +316,8 @@ const AttendanceStd = () => {
       'Registration Number': getStudentRegNumber(student),
       'First Name': student.first_name || '', // Ensure first_name is accessed
       'Last Name': student.last_name || '',   // Ensure last_name is accessed
-      'Attendance Status': 'P', // Default to Present
-      'Remarks': 'Select: Present, Absent, Late, Leave, Half-day'
+      'Attendance Status': '', // Default to Present
+      'Remarks': ''
     }));
 
     const ws = XLSX.utils.json_to_sheet(excelData);
