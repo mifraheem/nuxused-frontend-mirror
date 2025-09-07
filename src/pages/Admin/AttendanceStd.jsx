@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import toast, { Toaster } from 'react-hot-toast';
 import Cookies from 'js-cookie';
 import Select from 'react-select';
 import Buttons from '../../components/Buttons';
 import * as XLSX from 'xlsx';
+import Toaster from '../../components/Toaster'; // Import custom Toaster component
 
-const API = import.meta.env.VITE_SERVER_URL;
+const API = import.meta.env.VITE_SERVER_URL || "http://127.0.0.1:8000/";
 const API_BASE_URL = `${API}attendance/`;
 const STUDENTS_API = `${API}api/auth/users/list_profiles/student/`;
 const CLASSES_API = `${API}classes/`;
@@ -32,13 +32,14 @@ const AttendanceStd = () => {
   const [selectedSubject, setSelectedSubject] = useState(null);
   const [showClassSelection, setShowClassSelection] = useState(false);
   const [bulkAttendanceData, setBulkAttendanceData] = useState([]);
-
-  // New states for Excel functionality
   const [showExcelOptions, setShowExcelOptions] = useState(false);
   const [excelData, setExcelData] = useState([]);
   const [attendanceDate, setAttendanceDate] = useState(new Date().toISOString().split('T')[0]);
+  const [rowSubmitting, setRowSubmitting] = useState({});
+  const [rowSubmitted, setRowSubmitted] = useState({});
+  const [toaster, setToaster] = useState({ message: "", type: "success" });
 
-  // responsive helpers
+  // Responsive helpers
   const [isMobile, setIsMobile] = useState(typeof window !== 'undefined' ? window.innerWidth < 768 : true);
   useEffect(() => {
     const onResize = () => setIsMobile(window.innerWidth < 768);
@@ -73,10 +74,22 @@ const AttendanceStd = () => {
   });
 
   const [filteredStudents, setFilteredStudents] = useState([]);
-  const [rowSubmitting, setRowSubmitting] = useState({});
-  const [rowSubmitted, setRowSubmitted] = useState({});
 
-  // Enhanced UUID extraction function with better fallback logic
+  // Remarks dropdown options
+  const remarksOptions = [
+    { value: "On Time", label: "On Time" },
+    { value: "Late Reason", label: "Late Reason" },
+    { value: "Absent Reason", label: "Absent Reason" },
+    { value: "Leave Approved", label: "Leave Approved" },
+    { value: "Other", label: "Other" },
+  ];
+
+  // Toast helper
+  const showToast = (message, type = "success") => {
+    setToaster({ message, type });
+  };
+
+  // Enhanced UUID extraction function
   const getStudentUUID = (student = {}) => {
     const possibleUUIDs = [
       student.std_id,
@@ -88,22 +101,18 @@ const AttendanceStd = () => {
       student.user_id,
       student.id
     ];
-
     const uuid = possibleUUIDs.find(id => id != null && id !== '');
-
     if (!uuid) {
       console.warn('No valid UUID found for student:', student);
     }
-
     return uuid;
   };
 
-  // Enhanced function to get student display name
+  // Get student display name
   const getStudentDisplayName = (student = {}) => {
     const firstName = student.first_name || '';
     const lastName = student.last_name || '';
     const fullName = `${firstName} ${lastName}`.trim();
-
     return fullName || student.username || student.name || student.email || 'Unknown Student';
   };
 
@@ -119,7 +128,7 @@ const AttendanceStd = () => {
   const fetchDropdowns = async () => {
     const token = Cookies.get('access_token');
     if (!token) {
-      toast.error('Not authenticated');
+      showToast('Not authenticated', 'error');
       return;
     }
 
@@ -149,7 +158,7 @@ const AttendanceStd = () => {
       console.log('Valid students after filtering:', validStudents);
 
       if (validStudents.length < studentData.length) {
-        toast.warning(`${studentData.length - validStudents.length} students excluded due to missing UUID`);
+        showToast(`${studentData.length - validStudents.length} students excluded due to missing UUID`, 'warning');
       }
 
       setStudentOptions(validStudents);
@@ -159,19 +168,60 @@ const AttendanceStd = () => {
     } catch (err) {
       console.error('Error fetching dropdowns:', err);
       if (err.response?.status === 404 && err.config?.url?.includes(SUBJECTS_API)) {
-        toast.error('Subjects endpoint not found. Using default subjects.');
+        showToast('Subjects endpoint not found. Using default subjects.', 'error');
         setSubjectOptions([
           { id: 1, subject_name: 'Mathematics' },
           { id: 2, subject_name: 'English' },
           { id: 3, subject_name: 'Science' }
         ]);
       } else if (err.response?.status === 401) {
-        toast.error('Unauthorized. Please log in again.');
+        showToast('Unauthorized. Please log in again.', 'error');
       } else {
-        toast.error('Failed to load dropdown data');
+        showToast('Failed to load dropdown data', 'error');
       }
     } finally {
       setIsLoadingSubjects(false);
+    }
+  };
+
+  const fetchStudents = async () => {
+    try {
+      setIsLoadingStudents(true);
+      const token = Cookies.get('access_token');
+      if (!token) {
+        showToast('User is not authenticated.', 'error');
+        return;
+      }
+      const response = await axios.get(STUDENTS_API, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const studentData = response.data.data?.results || response.data.data || response.data;
+      if (Array.isArray(studentData)) {
+        const validStudents = studentData.filter((student) => {
+          const uuid = getStudentUUID(student);
+          if (!uuid) {
+            console.warn(`Student excluded due to missing UUID:`, student);
+            return false;
+          }
+          return true;
+        });
+        setStudents(validStudents);
+        if (validStudents.length === 0 && studentData.length > 0) {
+          showToast("No students with valid UUIDs found. Please check the student data.", 'error');
+        } else if (validStudents.length < studentData.length) {
+          showToast(
+            `${studentData.length - validStudents.length} students excluded due to missing UUIDs`,
+            'warning'
+          );
+        }
+      } else {
+        throw new Error("Unexpected students API response format.");
+      }
+    } catch (error) {
+      console.error("Error fetching students:", error.response || error.message);
+      showToast("Failed to fetch students. Please try again.", 'error');
+    } finally {
+      setIsLoadingStudents(false);
     }
   };
 
@@ -191,7 +241,6 @@ const AttendanceStd = () => {
           headers: { Authorization: `Bearer ${token}` }
         });
         const data = res.data?.data?.results || res.data.results || [];
-
         const validStudents = data.filter(student => {
           const uuid = getStudentUUID(student);
           if (!uuid) {
@@ -200,15 +249,14 @@ const AttendanceStd = () => {
           }
           return true;
         });
-
         setFilteredStudents(validStudents);
       } catch (err) {
         console.error('Error fetching filtered students:', err);
         if (err.response?.status === 404) {
-          toast.error('Class student endpoint not found. Showing all students.');
+          showToast('Class student endpoint not found. Showing all students.', 'error');
           setFilteredStudents(studentOptions);
         } else {
-          toast.error('Failed to load students for selected class.');
+          showToast('Failed to load students for selected class.', 'error');
           setFilteredStudents([]);
         }
       }
@@ -224,104 +272,97 @@ const AttendanceStd = () => {
 
   const handleMarkAttendance = () => {
     if (!showAttendanceForm) {
-      setShowClassSelection(true);
       setShowAttendanceForm(true);
+      setShowClassSelection(true);
+      setShowExcelOptions(false);
       setShowAttendanceTable(false);
       setSelectedClass(null);
       setSelectedSubject(null);
       setBulkAttendanceData([]);
       setRowSubmitting({});
       setRowSubmitted({});
-      setShowExcelOptions(false);
       setExcelData([]);
     } else {
-      setShowClassSelection(false);
       setShowAttendanceForm(false);
+      setShowClassSelection(false);
+      setShowExcelOptions(false);
       setShowAttendanceTable(false);
       setSelectedClass(null);
       setSelectedSubject(null);
       setBulkAttendanceData([]);
       setRowSubmitting({});
       setRowSubmitted({});
-      setShowExcelOptions(false);
       setExcelData([]);
     }
   };
 
   const handleClassSubjectSelect = async () => {
     if (!selectedClass || !selectedSubject) {
-      toast.error('Please select both class and subject');
+      showToast('Please select both class and subject', 'error');
       return;
     }
 
-    setIsLoadingStudents(true);
-
     try {
-      const token = Cookies.get('access_token');
-      const res = await axios.get(`${API}classes/${selectedClass.id}/students/`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      const data = res.data?.data?.results || res.data.results || [];
+      setIsLoadingStudents(true);
+      await fetchStudents();
 
-      const validStudents = data.filter(student => {
-        const uuid = getStudentUUID(student);
-        if (!uuid) {
-          console.warn('Student in class without valid UUID:', student);
-          return false;
-        }
-        return true;
-      });
-
-      if (validStudents.length === 0) {
-        toast.error('No valid students found in this class');
-        setStudents([]);
+      if (students.length === 0) {
+        showToast("No valid students found", 'error');
         setBulkAttendanceData([]);
         setShowExcelOptions(false);
         return;
       }
 
-      if (validStudents.length < data.length) {
-        toast.warning(`${data.length - validStudents.length} students excluded due to missing UUID`);
-      }
-
-      setStudents(validStudents);
+      setShowClassSelection(false);
       setShowExcelOptions(true);
       setShowAttendanceTable(false);
-
-    } catch (err) {
-      console.error('Error fetching students for class:', err);
-      if (err.response?.status === 404) {
-        toast.error('Class student endpoint not found. Showing all students.');
-        const validStudents = studentOptions.filter(student => getStudentUUID(student));
-        setStudents(validStudents);
-        setShowExcelOptions(true);
-      } else {
-        toast.error('Failed to load students for selected class.');
-        setStudents([]);
-      }
+      setBulkAttendanceData(
+        students.map((student) => ({
+          student: getStudentUUID(student),
+          student_info: student,
+          subject: selectedSubject?.uuid || selectedSubject?.id || selectedSubject?.subject_id,
+          class_schedule: selectedClass.id,
+          status: 'Present',
+          remarks: '',
+        }))
+      );
+    } catch (error) {
+      console.error("Error in class/subject selection:", error);
+      showToast("Failed to load students.", 'error');
     } finally {
       setIsLoadingStudents(false);
     }
   };
 
-  // Excel Export Function
+  // Excel Export Function with Remarks Dropdown
   const handleExportExcel = () => {
     if (!selectedClass || !selectedSubject || students.length === 0) {
-      toast.error('Please select class and subject first');
+      showToast('Please select class and subject first', 'error');
       return;
     }
 
     const excelData = students.map((student, index) => ({
       'S.No': index + 1,
       'Registration Number': getStudentRegNumber(student),
-      'First Name': student.first_name || '', // Ensure first_name is accessed
-      'Last Name': student.last_name || '',   // Ensure last_name is accessed
-      'Attendance Status': '', // Default to Present
+      'First Name': student.first_name || '',
+      'Last Name': student.last_name || '',
+      'Attendance Status': '',
       'Remarks': ''
     }));
 
     const ws = XLSX.utils.json_to_sheet(excelData);
     const wb = XLSX.utils.book_new();
+
+    // Add dropdown for Remarks column (column F)
+    const remarksExcelOptions = ["On Time", "Late Reason", "Absent Reason", "Leave Approved", "Other"];
+    ws['!dataValidation'] = [
+      {
+        type: "list",
+        allowBlank: true,
+        formula1: `"${remarksExcelOptions.join(",")}"`,
+        sqref: `F2:F${students.length + 1}`,
+      },
+    ];
 
     // Set column widths
     ws['!cols'] = [
@@ -334,11 +375,9 @@ const AttendanceStd = () => {
     ];
 
     XLSX.utils.book_append_sheet(wb, ws, 'Attendance');
-
     const fileName = `Attendance_${selectedClass.class_name}_${selectedClass.section}_${selectedSubject.subject_name}_${attendanceDate}.xlsx`;
     XLSX.writeFile(wb, fileName);
-
-    toast.success('Excel file exported successfully');
+    showToast('Excel file exported successfully', 'success');
   };
 
   // Excel Import Function
@@ -357,12 +396,9 @@ const AttendanceStd = () => {
 
         console.log('Imported Excel data:', jsonData);
 
-        // Validate and process the imported data
         const processedData = jsonData.map((row, index) => {
           const regNumber = row['Registration Number'];
           const attendanceStatus = row['Attendance Status']?.toString().toUpperCase();
-
-          // Find matching student by registration number
           const matchingStudent = students.find(student =>
             getStudentRegNumber(student) === regNumber
           );
@@ -372,10 +408,8 @@ const AttendanceStd = () => {
             return null;
           }
 
-          // Validate attendance status
           const validStatuses = ['P', 'A', 'L', 'PRESENT', 'ABSENT', 'LATE', 'LEAVE', 'HALF-DAY'];
-          let status = 'Present'; // default
-
+          let status = 'Present';
           if (validStatuses.includes(attendanceStatus)) {
             switch (attendanceStatus) {
               case 'P':
@@ -403,6 +437,9 @@ const AttendanceStd = () => {
 
           const studentUUID = getStudentUUID(matchingStudent);
           const subjectId = selectedSubject?.uuid || selectedSubject?.id || selectedSubject?.subject_id;
+          const remarks = remarksOptions.some(opt => opt.value === row['Remarks'])
+            ? row['Remarks']
+            : '';
 
           return {
             student: studentUUID,
@@ -410,34 +447,33 @@ const AttendanceStd = () => {
             subject: subjectId,
             class_schedule: selectedClass.id,
             status: status,
-            remarks: row['Remarks'] || '',
+            remarks: remarks,
             student_info: matchingStudent,
             originalRow: row
           };
         }).filter(item => item !== null);
 
         if (processedData.length === 0) {
-          toast.error('No valid data found in Excel file');
+          showToast('No valid data found in Excel file', 'error');
           return;
         }
 
         if (processedData.length < jsonData.length) {
-          toast.warning(`${jsonData.length - processedData.length} rows could not be processed`);
+          showToast(`${jsonData.length - processedData.length} rows could not be processed`, 'warning');
         }
 
         setExcelData(processedData);
         setBulkAttendanceData(processedData);
+        setShowExcelOptions(false);
         setShowAttendanceTable(true);
-        toast.success(`${processedData.length} attendance records imported from Excel`);
-
+        showToast(`${processedData.length} attendance records imported from Excel`, 'success');
       } catch (error) {
         console.error('Error importing Excel file:', error);
-        toast.error('Failed to import Excel file. Please check the format.');
+        showToast('Failed to import Excel file. Please check the format.', 'error');
       }
     };
 
     reader.readAsArrayBuffer(file);
-    // Clear the file input
     event.target.value = '';
   };
 
@@ -451,21 +487,20 @@ const AttendanceStd = () => {
 
   const handleSubmitSingle = async (index) => {
     const token = Cookies.get('access_token');
-    if (!token) return toast.error('Not authenticated');
+    if (!token) return showToast('Not authenticated', 'error');
 
     const record = bulkAttendanceData[index];
     const sourceStudent = students[index] || record.student_info || {};
-
     const studentUUID = record?.student_uuid || record?.student || getStudentUUID(sourceStudent);
     const displayName = getStudentDisplayName(sourceStudent);
 
     if (!studentUUID) {
-      toast.error(`Missing student UUID for ${displayName}`);
+      showToast(`Missing student UUID for ${displayName}`, 'error');
       return;
     }
 
     if (!record?.subject) {
-      toast.error(`Select subject for ${displayName}`);
+      showToast(`Select subject for ${displayName}`, 'error');
       return;
     }
 
@@ -487,21 +522,17 @@ const AttendanceStd = () => {
 
     try {
       setRowSubmitting(prev => ({ ...prev, [index]: true }));
-
       const response = await axios.post(API_BASE_URL, payload, {
         headers: { Authorization: `Bearer ${token}` },
       });
-
       console.log('Single submission response:', response.data);
-
       setRowSubmitted(prev => ({ ...prev, [index]: true }));
-      toast.success(`Attendance saved for ${displayName}`);
+      showToast(`Attendance saved for ${displayName}`, 'success');
     } catch (err) {
       console.error('Single submit error:', err);
       console.error('Error response:', err.response?.data);
-
       const errorMessage = err.response?.data?.message || err.response?.data?.detail || 'Unknown error';
-      toast.error(`Failed to submit for ${displayName}: ${errorMessage}`);
+      showToast(`Failed to submit for ${displayName}: ${errorMessage}`, 'error');
     } finally {
       setRowSubmitting(prev => ({ ...prev, [index]: false }));
     }
@@ -511,7 +542,7 @@ const AttendanceStd = () => {
     setLoading(true);
     let params = [];
     if (!filters.studentId) {
-      toast.error('Student required');
+      showToast('Student required', 'error');
       setLoading(false);
       return;
     }
@@ -529,12 +560,10 @@ const AttendanceStd = () => {
       const response = await axios.get(`${API_BASE_URL}?${params.join('&')}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
-
       const rawRecords = response.data?.results || [];
       const records = rawRecords.map((entry) => entry.data);
-
       if (records.length === 0) {
-        toast.error('No attendance records found for selected criteria');
+        showToast('No attendance records found for selected criteria', 'error');
         setAttendanceData([]);
         setShowReport(false);
       } else {
@@ -543,7 +572,7 @@ const AttendanceStd = () => {
       }
     } catch (err) {
       console.error('Error fetching attendance:', err);
-      toast.error('Fetch failed');
+      showToast('Fetch failed', 'error');
     } finally {
       setLoading(false);
     }
@@ -551,21 +580,20 @@ const AttendanceStd = () => {
 
   const handleSubmitBulkAttendance = async () => {
     const token = Cookies.get('access_token');
-    if (!token) return toast.error('Not authenticated');
+    if (!token) return showToast('Not authenticated', 'error');
 
     const invalidRecords = bulkAttendanceData.filter(record =>
       !record.subject || !record.student_uuid || !record.student
     );
 
     if (invalidRecords.length > 0) {
-      toast.error('Please ensure all students have subject selected and valid UUID');
+      showToast('Please ensure all students have subject selected and valid UUID', 'error');
       console.warn('Invalid records:', invalidRecords);
       return;
     }
 
     try {
       setLoading(true);
-
       const promises = bulkAttendanceData.map((record, idx) => {
         const sourceStudent = students[idx] || record.student_info || {};
         const studentUUID = record.student_uuid || record.student || getStudentUUID(sourceStudent);
@@ -586,7 +614,6 @@ const AttendanceStd = () => {
         };
 
         console.log(`Bulk submission for ${displayName}:`, payload);
-
         return axios.post(API_BASE_URL, payload, {
           headers: { Authorization: `Bearer ${token}` }
         }).catch(error => {
@@ -596,9 +623,7 @@ const AttendanceStd = () => {
       });
 
       await Promise.all(promises);
-      toast.success('Bulk attendance submitted successfully');
-
-      // Reset form
+      showToast('Bulk attendance submitted successfully', 'success');
       setShowAttendanceForm(false);
       setShowAttendanceTable(false);
       setShowClassSelection(false);
@@ -612,7 +637,7 @@ const AttendanceStd = () => {
     } catch (err) {
       console.error('Error submitting bulk attendance:', err);
       const errorMessage = err.response?.data?.message || err.response?.data?.detail || err.message;
-      toast.error(`Failed to submit attendance: ${errorMessage}`);
+      showToast(`Failed to submit attendance: ${errorMessage}`, 'error');
     } finally {
       setLoading(false);
     }
@@ -637,7 +662,7 @@ const AttendanceStd = () => {
       maxHeight: '220px',
       overflowY: 'auto',
     }),
-    option: (provided, state) => ({
+    option: (provided) => ({
       ...provided,
       fontSize: baseFont,
       padding: isMobile ? '0.5rem' : '0.6rem 0.75rem',
@@ -669,7 +694,12 @@ const AttendanceStd = () => {
 
   return (
     <div className="container mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-6">
-      <Toaster position="top-center" />
+      <Toaster
+        message={toaster.message}
+        type={toaster.type}
+        duration={3000}
+        onClose={() => setToaster({ message: "", type: "success" })}
+      />
       <div className="bg-blue-900 text-white py-3 px-4 sm:px-6 rounded-lg shadow-md flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-6">
         <h2 className="text-lg sm:text-xl font-bold text-center md:text-left">Student Attendance</h2>
         <div className="flex flex-col sm:flex-row gap-3">
@@ -693,7 +723,7 @@ const AttendanceStd = () => {
       </div>
 
       {/* Class and Subject Selection */}
-      {canAdd && showAttendanceForm && showClassSelection && (
+      {canAdd && showAttendanceForm && showClassSelection && !showExcelOptions && !showAttendanceTable && (
         <div className="mt-6 bg-white p-4 sm:p-6 rounded-lg shadow-md max-w-full md:max-w-4xl mx-auto">
           <h2 className="text-lg sm:text-xl font-semibold mb-4">Select Class and Subject for Attendance</h2>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
@@ -750,15 +780,14 @@ const AttendanceStd = () => {
       )}
 
       {/* Excel Options */}
-      {canAdd && showAttendanceForm && showExcelOptions && (
+      {canAdd && showAttendanceForm && showExcelOptions && !showAttendanceTable && (
         <div className="mt-6 bg-white p-4 sm:p-6 rounded-lg shadow-md max-w-full md:max-w-4xl mx-auto">
           <h2 className="text-lg sm:text-xl font-semibold mb-4">
-            Excel Attendance for {selectedClass?.class_name} - {selectedClass?.section} ({selectedSubject?.subject_name})
+            Manage Attendance for {selectedClass?.class_name} - {selectedClass?.section} ({selectedSubject?.subject_name})
           </h2>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
             <div className="bg-blue-50 p-4 rounded-lg">
-              <h3 className="font-semibold text-blue-800 mb-2">Step 1: Export Excel Template</h3>
+              <h3 className="font-semibold text-blue-800 mb-2">Export Excel Template</h3>
               <p className="text-sm text-gray-600 mb-3">
                 Download an Excel file with all students. Mark attendance manually (P for Present, A for Absent).
               </p>
@@ -769,9 +798,8 @@ const AttendanceStd = () => {
                 Export Excel Template
               </button>
             </div>
-
             <div className="bg-orange-50 p-4 rounded-lg">
-              <h3 className="font-semibold text-orange-800 mb-2">Step 2: Import Filled Excel</h3>
+              <h3 className="font-semibold text-orange-800 mb-2">Import Filled Excel</h3>
               <p className="text-sm text-gray-600 mb-3">
                 Upload the Excel file after marking attendance to automatically populate the form.
               </p>
@@ -791,22 +819,37 @@ const AttendanceStd = () => {
                 </label>
               </div>
             </div>
+            <div className="bg-purple-50 p-4 rounded-lg">
+              <h3 className="font-semibold text-purple-800 mb-2">Manual Entry</h3>
+              <p className="text-sm text-gray-600 mb-3">
+                Enter attendance manually in a table format.
+              </p>
+              <button
+                onClick={() => {
+                  setShowAttendanceTable(true);
+                  setShowExcelOptions(false);
+                  setExcelData([]);
+                }}
+                className="bg-purple-600 text-white px-4 py-2 rounded-md hover:bg-purple-700 text-sm"
+              >
+                Manual Entry
+              </button>
+            </div>
           </div>
-
           <div className="text-center">
             <p className="text-sm text-gray-500 mb-2">
-              Instructions: Export template → Fill attendance manually → Import back → Save attendance
+              Instructions: Export template → Fill attendance manually → Import back or enter manually → Save attendance
             </p>
           </div>
         </div>
       )}
 
-      {/* Attendance Table (from imported Excel or manual entry) */}
+      {/* Attendance Table */}
       {canAdd && showAttendanceForm && showAttendanceTable && selectedClass && selectedSubject && (
         <div className="mt-6 bg-white p-4 sm:p-6 rounded-lg shadow-md">
           <div className="flex justify-between items-center mb-4">
             <h2 className="text-lg sm:text-xl font-semibold">
-              Review Attendance for {selectedClass.class_name} - {selectedClass.section} ({selectedSubject.subject_name})
+              Enter Attendance for {selectedClass.label || `${selectedClass.class_name} - ${selectedClass.section}`} ({selectedSubject.label || selectedSubject.subject_name})
             </h2>
             {excelData.length > 0 && (
               <span className="bg-green-100 text-green-800 px-3 py-1 rounded-full text-sm">
@@ -815,7 +858,7 @@ const AttendanceStd = () => {
             )}
           </div>
 
-          {/* Cards (mobile) */}
+          {/* Mobile Cards */}
           <div className="md:hidden space-y-3">
             {bulkAttendanceData.map((record, index) => {
               const student = record.student_info || students[index] || {};
@@ -823,7 +866,7 @@ const AttendanceStd = () => {
               const done = !!rowSubmitted[index];
               const displayName = getStudentDisplayName(student);
               const regNumber = getStudentRegNumber(student);
-              const studentUUID = record.student_uuid || getStudentUUID(student);
+              const studentUUID = record.student_uuid || record.student || getStudentUUID(student);
 
               return (
                 <div
@@ -841,9 +884,7 @@ const AttendanceStd = () => {
                       <label className="block text-xs text-gray-600 mb-1">Status</label>
                       <Select
                         value={{ value: record.status || 'Present', label: record.status || 'Present' }}
-                        onChange={(selected) => {
-                          handleBulkAttendanceChange(index, 'status', selected?.value || 'Present');
-                        }}
+                        onChange={(selected) => handleBulkAttendanceChange(index, 'status', selected?.value || 'Present')}
                         options={[
                           { value: 'Present', label: 'Present' },
                           { value: 'Late', label: 'Late' },
@@ -858,36 +899,29 @@ const AttendanceStd = () => {
                     <div>
                       <label className="block text-xs text-gray-600 mb-1">Remarks</label>
                       <Select
-                        value={{ value: record.remarks || '', label: record.remarks || 'Select Remark' }}
-                        onChange={(selected) => {
-                          handleBulkAttendanceChange(index, 'remarks', selected?.value || '');
-                        }}
-                        options={[
-                          { value: 'Present', label: 'Present' },
-                          { value: 'Absent', label: 'Absent' },
-                          { value: 'Late', label: 'Late' },
-                          { value: 'Leave', label: 'Leave' },
-                          { value: 'Half-day', label: 'Half-day' },
-                        ]}
+                        value={remarksOptions.find((opt) => opt.value === record.remarks) || null}
+                        onChange={(selected) => handleBulkAttendanceChange(index, 'remarks', selected?.value || '')}
+                        options={remarksOptions}
+                        placeholder="Select remark"
+                        isClearable
                         isSearchable={false}
                         styles={tinySelectStyles}
-                        placeholder="Select Remark"
                       />
                     </div>
                   </div>
-
                   <div className="mt-3 flex justify-end">
                     <button
                       onClick={() => handleSubmitSingle(index)}
                       disabled={rowBusy || done || !studentUUID}
-                      className={`px-4 py-2 rounded text-sm text-white ${!studentUUID
+                      className={`px-4 py-2 rounded text-sm text-white ${
+                        !studentUUID
                           ? 'bg-red-600 cursor-not-allowed'
                           : done
-                            ? 'bg-green-600 cursor-default'
-                            : rowBusy
-                              ? 'bg-blue-400 cursor-wait'
-                              : 'bg-blue-600 hover:bg-blue-700'
-                        } disabled:opacity-60 disabled:cursor-not-allowed`}
+                          ? 'bg-green-600 cursor-default'
+                          : rowBusy
+                          ? 'bg-blue-400 cursor-wait'
+                          : 'bg-blue-600 hover:bg-blue-700'
+                      } disabled:opacity-60 disabled:cursor-not-allowed`}
                       title={!studentUUID ? 'Missing UUID' : done ? 'Submitted' : 'Submit this student'}
                     >
                       {!studentUUID ? 'No UUID' : done ? 'Submitted' : rowBusy ? 'Submitting...' : 'Submit'}
@@ -898,14 +932,15 @@ const AttendanceStd = () => {
             })}
           </div>
 
-          {/* Table (desktop) */}
+          {/* Desktop Table */}
           <div className="hidden md:block overflow-x-auto">
             <table className="w-full border border-gray-200">
               <thead className="bg-gray-100">
                 <tr>
                   <th className="border border-gray-200 p-3 text-left text-sm font-medium">S.No</th>
                   <th className="border border-gray-200 p-3 text-left text-sm font-medium">Registration</th>
-                  <th className="border border-gray-200 p-3 text-left text-sm font-medium">Student Name</th>
+                  <th className="border border-gray-200 p-3 text-left text-sm font-medium">First Name</th>
+                  <th className="border border-gray-200 p-3 text-left text-sm font-medium">Last Name</th>
                   <th className="border border-gray-200 p-3 text-left text-sm font-medium">Status</th>
                   <th className="border border-gray-200 p-3 text-left text-sm font-medium">Remarks</th>
                   <th className="border border-gray-200 p-3 text-left text-sm font-medium">Action</th>
@@ -918,25 +953,18 @@ const AttendanceStd = () => {
                   const done = !!rowSubmitted[index];
                   const displayName = getStudentDisplayName(student);
                   const regNumber = getStudentRegNumber(student);
-                  const studentUUID = record.student_uuid || getStudentUUID(student);
+                  const studentUUID = record.student_uuid || record.student || getStudentUUID(student);
 
                   return (
                     <tr key={studentUUID || index} className="hover:bg-gray-50">
-                      <td className="border border-gray-200 p-3 text-sm">
-                        {index + 1}
-                      </td>
-                      <td className="border border-gray-200 p-3 text-sm">
-                        {regNumber}
-                      </td>
-                      <td className="border border-gray-200 p-3 text-sm">
-                        {displayName}
-                      </td>
+                      <td className="border border-gray-200 p-3 text-sm">{index + 1}</td>
+                      <td className="border border-gray-200 p-3 text-sm">{regNumber}</td>
+                      <td className="border border-gray-200 p-3 text-sm">{student.first_name || ''}</td>
+                      <td className="border border-gray-200 p-3 text-sm">{student.last_name || ''}</td>
                       <td className="border border-gray-200 p-3">
                         <Select
                           value={{ value: record.status || 'Present', label: record.status || 'Present' }}
-                          onChange={(selected) => {
-                            handleBulkAttendanceChange(index, 'status', selected?.value || 'Present');
-                          }}
+                          onChange={(selected) => handleBulkAttendanceChange(index, 'status', selected?.value || 'Present')}
                           options={[
                             { value: 'Present', label: 'Present' },
                             { value: 'Late', label: 'Late' },
@@ -950,34 +978,28 @@ const AttendanceStd = () => {
                       </td>
                       <td className="border border-gray-200 p-3">
                         <Select
-                          value={{ value: record.remarks || '', label: record.remarks || 'Select Remark' }}
-                          onChange={(selected) => {
-                            handleBulkAttendanceChange(index, 'remarks', selected?.value || '');
-                          }}
-                          options={[
-                            { value: 'Present', label: 'Present' },
-                            { value: 'Absent', label: 'Absent' },
-                            { value: 'Late', label: 'Late' },
-                            { value: 'Leave', label: 'Leave' },
-                            { value: 'Half-day', label: 'Half-day' },
-                          ]}
-                          styles={tinySelectStyles}
+                          value={remarksOptions.find((opt) => opt.value === record.remarks) || null}
+                          onChange={(selected) => handleBulkAttendanceChange(index, 'remarks', selected?.value || '')}
+                          options={remarksOptions}
+                          placeholder="Select remark"
+                          isClearable
                           isSearchable={false}
-                          placeholder="Select Remark"
+                          styles={tinySelectStyles}
                         />
                       </td>
                       <td className="border border-gray-200 p-3">
                         <button
                           onClick={() => handleSubmitSingle(index)}
                           disabled={rowBusy || done || !studentUUID}
-                          className={`px-3 py-1.5 rounded text-sm text-white ${!studentUUID
+                          className={`px-3 py-1.5 rounded text-sm text-white ${
+                            !studentUUID
                               ? 'bg-red-600 cursor-not-allowed'
                               : done
-                                ? 'bg-green-600 cursor-default'
-                                : rowBusy
-                                  ? 'bg-blue-400 cursor-wait'
-                                  : 'bg-blue-600 hover:bg-blue-700'
-                            } disabled:opacity-60 disabled:cursor-not-allowed`}
+                              ? 'bg-green-600 cursor-default'
+                              : rowBusy
+                              ? 'bg-blue-400 cursor-wait'
+                              : 'bg-blue-600 hover:bg-blue-700'
+                          } disabled:opacity-60 disabled:cursor-not-allowed`}
                           title={!studentUUID ? 'Missing UUID' : done ? 'Submitted' : 'Submit this row'}
                         >
                           {!studentUUID ? 'No UUID' : done ? 'Submitted' : rowBusy ? 'Submitting...' : 'Submit'}
@@ -998,8 +1020,18 @@ const AttendanceStd = () => {
               <button
                 onClick={() => {
                   setShowAttendanceTable(false);
+                  setShowExcelOptions(true);
                   setExcelData([]);
-                  setBulkAttendanceData([]);
+                  setBulkAttendanceData(
+                    students.map((student) => ({
+                      student: getStudentUUID(student),
+                      student_info: student,
+                      subject: selectedSubject?.uuid || selectedSubject?.id || selectedSubject?.subject_id,
+                      class_schedule: selectedClass.id,
+                      status: 'Present',
+                      remarks: '',
+                    }))
+                  );
                 }}
                 className="bg-gray-600 text-white px-4 py-2 rounded hover:bg-gray-700 text-sm"
               >
@@ -1064,7 +1096,6 @@ const AttendanceStd = () => {
                 isSearchable={false}
               />
             </div>
-
             {filters.type === 'Daily' && (
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Select Date</label>
@@ -1106,7 +1137,6 @@ const AttendanceStd = () => {
               </div>
             )}
           </div>
-
           <div className="mt-6 text-right">
             <button
               onClick={handleFetchAttendance}
@@ -1123,34 +1153,30 @@ const AttendanceStd = () => {
         <div className="p-4 sm:p-6">
           <Buttons
             data={attendanceData.map((rec, index) => ({
-              ...rec,
-              sequence: (currentPage - 1) * pageSize + index + 1
+              "Sequence Number": (currentPage - 1) * pageSize + index + 1,
+              Date: rec.date,
+              Status: rec.status,
             }))}
             columns={[
-              { label: "S.No", key: "sequence" },
-              { label: "Student", key: "student" },
-              { label: "Date", key: "date" },
-              { label: "Status", key: "status" },
+              { label: "Sequence Number", key: "Sequence Number" },
+              { label: "Date", key: "Date" },
+              { label: "Status", key: "Status" },
             ]}
             filename="Attendance_Report"
           />
-
-          {/* desktop table */}
           <div className="hidden md:block overflow-x-auto">
             <table className="w-full border mt-4 bg-white shadow text-sm">
               <thead className="bg-gray-200">
                 <tr>
-                  <th className="border p-3 text-left">S.No</th>
-                  <th className="border p-3 text-left">Student</th>
+                  <th className="border p-3 text-left">Sequence Number</th>
                   <th className="border p-3 text-left">Date</th>
                   <th className="border p-3 text-left">Status</th>
                 </tr>
               </thead>
               <tbody>
                 {paginatedData.map((rec, index) => (
-                  <tr key={rec.id} className="hover:bg-gray-50">
+                  <tr key={rec.id || index} className="hover:bg-gray-50">
                     <td className="border p-3">{(currentPage - 1) * pageSize + index + 1}</td>
-                    <td className="border p-3">{rec.student}</td>
                     <td className="border p-3">{rec.date}</td>
                     <td className="border p-3">{rec.status}</td>
                   </tr>
@@ -1158,14 +1184,11 @@ const AttendanceStd = () => {
               </tbody>
             </table>
           </div>
-
-          {/* mobile cards */}
           <div className="md:hidden mt-4 space-y-3">
             {paginatedData.map((rec, index) => (
               <div key={rec.id || index} className="border rounded-lg p-3 shadow-sm">
                 <div className="flex items-center justify-between">
-                  <div className="font-semibold text-gray-800">{rec.student}</div>
-                  <div className="text-xs text-gray-500">#{(currentPage - 1) * pageSize + index + 1}</div>
+                  <div className="font-semibold text-gray-800">Record #{(currentPage - 1) * pageSize + index + 1}</div>
                 </div>
                 <div className="mt-2 grid grid-cols-1 gap-1 text-sm">
                   <div><span className="font-medium">Date:</span> {rec.date}</div>
@@ -1174,8 +1197,6 @@ const AttendanceStd = () => {
               </div>
             ))}
           </div>
-
-          {/* pagination controls */}
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mt-4 gap-3 sm:gap-4">
             <div className="flex items-center gap-2 w-full sm:w-auto">
               <label className="text-xs sm:text-sm font-medium text-gray-700 whitespace-nowrap">
@@ -1194,7 +1215,6 @@ const AttendanceStd = () => {
                 />
               </div>
             </div>
-
             <div className="flex flex-wrap justify-center sm:justify-end gap-1 sm:gap-2 w-full sm:w-auto">
               <button
                 onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
@@ -1210,8 +1230,9 @@ const AttendanceStd = () => {
                 <button
                   key={p}
                   onClick={() => setCurrentPage(p)}
-                  className={`px-3 py-1.5 rounded text-xs sm:text-sm transition-colors ${currentPage === p ? "bg-blue-600 text-white hover:bg-blue-700" : "bg-gray-200 hover:bg-gray-300"
-                    }`}
+                  className={`px-3 py-1.5 rounded text-xs sm:text-sm transition-colors ${
+                    currentPage === p ? "bg-blue-600 text-white hover:bg-blue-700" : "bg-gray-200 hover:bg-gray-300"
+                  }`}
                 >
                   {p}
                 </button>

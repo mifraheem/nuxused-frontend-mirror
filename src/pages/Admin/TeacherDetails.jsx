@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
 import Cookies from "js-cookie";
-import toast, { Toaster } from "react-hot-toast";
 import { FiTrash, FiEdit, FiEye } from "react-icons/fi";
 import { Buttons } from "../../components";
 import Pagination from "../../components/Pagination";
+import Toaster from "../../components/Toaster"; // Import custom Toaster component
 
 const TeacherDetails = () => {
   const [teachers, setTeachers] = useState([]);
@@ -14,10 +14,12 @@ const TeacherDetails = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
   const [totalPages, setTotalPages] = useState(1);
+  const [toaster, setToaster] = useState({ message: "", type: "success" });
+  const [confirmResolve, setConfirmResolve] = useState(null);
 
-  const API = import.meta.env.VITE_SERVER_URL;
+  const API = import.meta.env.VITE_SERVER_URL || "http://127.0.0.1:8000/";
   const API_URL = `${API}api/auth/users/list_profiles/teacher/`;
-  const DELETE_URL = `${API}api/auth/users/delete_user/`;
+  const DELETE_URL = `${API}api/auth/users/`;
   const UPDATE_URL = `${API}api/auth/update-teacher-profile/`;
 
   // Permissions
@@ -38,6 +40,44 @@ const TeacherDetails = () => {
     if (!id) return false;
     const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
     return uuidRegex.test(String(id)) || !isNaN(id) || typeof id === "string";
+  };
+
+  const showToast = (message, type = "success") => {
+    setToaster({ message, type });
+  };
+
+  const confirmToast = (message = "Delete this teacher?") => {
+    return new Promise((resolve) => {
+      setConfirmResolve(() => resolve); // Store the resolve function
+      setToaster({
+        message: (
+          <div className="flex flex-col gap-4">
+            <p className="text-lg font-medium">{message}</p>
+            <div className="flex justify-end gap-2">
+              <button
+                onClick={() => {
+                  setToaster({ message: "", type: "success" });
+                  resolve(true);
+                }}
+                className="px-3 py-1.5 rounded-md bg-red-600 text-white text-sm hover:bg-red-700"
+              >
+                Yes
+              </button>
+              <button
+                onClick={() => {
+                  setToaster({ message: "", type: "success" });
+                  resolve(false);
+                }}
+                className="px-3 py-1.5 rounded-md border border-gray-300 text-sm hover:bg-gray-50"
+              >
+                No
+              </button>
+            </div>
+          </div>
+        ),
+        type: "confirmation",
+      });
+    });
   };
 
   const fetchTeachers = async (page = currentPage, size = pageSize) => {
@@ -69,60 +109,44 @@ const TeacherDetails = () => {
       }
     } catch (error) {
       console.error("Error fetching teachers:", error.response?.data || error.message);
-      toast.error("Failed to fetch teachers: " + (error.response?.data?.message || error.message));
+      showToast(
+        "Failed to fetch teachers: " + (error.response?.data?.message || error.message),
+        "error"
+      );
     }
   };
 
   useEffect(() => {
     fetchTeachers();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentPage, pageSize]);
 
-  const confirmDeleteTeacher = (id) => {
+  const confirmDeleteTeacher = async (id) => {
     if (!canDelete) {
-      toast.error("You do not have permission to delete teacher profiles.");
+      showToast("You do not have permission to delete teacher profiles.", "error");
       return;
     }
     if (!isValidId(id)) {
-      toast.error("Invalid teacher ID format.");
+      showToast("Invalid teacher ID format.", "error");
       return;
     }
 
-    toast(
-      (t) => (
-        <div className="text-center">
-          <p className="font-semibold">Delete this teacher?</p>
-          <div className="flex justify-center gap-2 mt-2">
-            <button
-              onClick={() => {
-                deleteTeacher(id);
-                toast.dismiss(t.id);
-              }}
-              className="bg-red-600 text-white px-3 py-1 rounded hover:bg-red-700 text-sm"
-            >
-              Yes
-            </button>
-            <button
-              onClick={() => toast.dismiss(t.id)}
-              className="bg-gray-300 text-black px-3 py-1 rounded hover:bg-gray-400 text-sm"
-            >
-              No
-            </button>
-          </div>
-        </div>
-      ),
-      { duration: 5000 }
-    );
+    const ok = await confirmToast("Delete this teacher?");
+    if (ok) {
+      deleteTeacher(id);
+    }
   };
 
   const deleteTeacher = async (id) => {
     try {
-      await axios.delete(`${DELETE_URL}${id}/`, { headers: authHeaders() });
-      toast.success("Teacher deleted successfully.");
+      await axios.delete(`${DELETE_URL}${id}/delete_user/`, { headers: authHeaders() });
+      showToast("Teacher deleted successfully.", "success");
       setTeachers((prev) => prev.filter((t) => t.user_id != id));
     } catch (error) {
       console.error("Error deleting teacher:", error.response?.data || error.message);
-      toast.error("Failed to delete teacher: " + (error.response?.data?.message || error.message));
+      showToast(
+        "Failed to delete teacher: " + (error.response?.data?.message || error.message),
+        "error"
+      );
     }
   };
 
@@ -138,27 +162,27 @@ const TeacherDetails = () => {
 
   const updateTeacher = async () => {
     if (!selectedTeacher?.user_id) {
-      toast.error("No teacher selected.");
+      showToast("No teacher selected.", "error");
       return;
     }
     if (!isValidId(selectedTeacher.user_id)) {
-      toast.error("Invalid user ID format.");
+      showToast("Invalid user ID format.", "error");
       return;
     }
     if (!selectedTeacher.first_name || !selectedTeacher.last_name) {
-      toast.error("First name and last name are required.");
+      showToast("First name and last name are required.", "error");
       return;
     }
     if (selectedTeacher.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(selectedTeacher.email)) {
-      toast.error("Invalid email format.");
+      showToast("Invalid email format.", "error");
       return;
     }
     if (selectedTeacher.phone_number && !/^\d{7,15}$/.test(selectedTeacher.phone_number)) {
-      toast.error("Invalid phone number format.");
+      showToast("Invalid phone number format.", "error");
       return;
     }
     if (selectedTeacher.salary && isNaN(selectedTeacher.salary)) {
-      toast.error("Salary must be a valid number.");
+      showToast("Salary must be a valid number.", "error");
       return;
     }
 
@@ -187,7 +211,7 @@ const TeacherDetails = () => {
       });
 
       if (response.status === 200) {
-        toast.success("Teacher profile updated successfully.");
+        showToast("Teacher profile updated successfully.", "success");
         setSelectedTeacher((prev) => ({
           ...prev,
           ...response.data.data,
@@ -196,7 +220,7 @@ const TeacherDetails = () => {
         fetchTeachers();
         setIsEditModalOpen(false);
       } else {
-        toast.error("Unexpected response status: " + response.status);
+        showToast("Unexpected response status: " + response.status, "error");
       }
     } catch (error) {
       console.error("Error updating teacher:", error.response?.data || error.message);
@@ -206,36 +230,49 @@ const TeacherDetails = () => {
         error.response?.data?.detail ||
         error.message;
       if (error.response?.status === 405) {
-        toast.error("Server does not allow PATCH requests.");
+        showToast("Server does not allow PATCH requests.", "error");
       } else if (error.response?.status === 404) {
-        toast.error("Teacher profile endpoint not found.");
+        showToast("Teacher profile endpoint not found.", "error");
       } else {
-        toast.error("Failed to update teacher: " + errMsg);
+        showToast("Failed to update teacher: " + errMsg, "error");
       }
     }
   };
 
   return (
     <div className="p-2 md:p-3">
-      <Toaster position="top-center" reverseOrder={false} />
+      <Toaster
+        message={toaster.message}
+        type={toaster.type}
+        duration={toaster.type === "confirmation" ? 5000 : 3000}
+        onClose={() => setToaster({ message: "", type: "success" })}
+      />
 
       {/* Header bar (compact) */}
       <div className="bg-blue-900 text-white rounded-md flex items-center justify-between px-2 py-2 mt-2">
         <h1 className="text-sm md:text-base font-bold">Manage Teacher Details</h1>
       </div>
 
-      <div className="mt-2  p-2">
+      <div className="mt-2 p-2">
         <Buttons
-          data={teachers}
+          data={teachers.map((t, index) => ({
+            "Sequence Number": (currentPage - 1) * pageSize + index + 1,
+            Username: t.username,
+            "First Name": t.first_name,
+            "Last Name": t.last_name,
+            Email: t.email,
+            Phone: t.phone_number,
+            Salary: t.salary,
+          }))}
           filename="Teacher_Profiles"
           columns={[
-            { label: "User ID", key: "user_id" },
-            { label: "Username", key: "username" },
-            { label: "First Name", key: "first_name" },
-            { label: "Last Name", key: "last_name" },
-            { label: "Email", key: "email" },
-            { label: "Phone", key: "phone_number" },
-            { label: "Salary", key: "salary" },
+            { label: "Sequence Number", key: "Sequence Number" },
+            { label: "Username", key: "Username" },
+            { label: "First Name", key: "First Name" },
+            { label: "Last Name", key: "Last Name" },
+            { label: "Email", key: "Email" },
+            { label: "Phone", key: "Phone" },
+            { label: "Salary", key: "Salary" },
           ]}
         />
 
@@ -244,7 +281,7 @@ const TeacherDetails = () => {
           <table className="w-full border-collapse border border-gray-300 bg-white min-w-[700px]">
             <thead className="bg-blue-900 text-white">
               <tr>
-                <th className="border border-gray-300 p-1 text-center text-xs">User ID</th>
+                <th className="border border-gray-300 p-1 text-center text-xs">No.</th>
                 <th className="border border-gray-300 p-1 text-center text-xs">First Name</th>
                 <th className="border border-gray-300 p-1 text-center text-xs">Last Name</th>
                 <th className="border border-gray-300 p-1 text-center text-xs">Email</th>
@@ -254,12 +291,10 @@ const TeacherDetails = () => {
             </thead>
             <tbody>
               {teachers.length > 0 ? (
-                teachers.map((t) => (
+                teachers.map((t, index) => (
                   <tr key={t.id} className="hover:bg-gray-50">
-                    <td className="border border-gray-300 p-1 text-xs">
-                      <span className="block max-w-[160px] truncate" title={t.user_id}>
-                        {t.user_id}
-                      </span>
+                    <td className="border border-gray-300 p-1 text-center text-xs">
+                      {(currentPage - 1) * pageSize + index + 1}
                     </td>
                     <td className="border border-gray-300 p-1 text-xs">{t.first_name}</td>
                     <td className="border border-gray-300 p-1 text-xs">{t.last_name}</td>
@@ -305,7 +340,7 @@ const TeacherDetails = () => {
                     colSpan={6}
                     className="border border-gray-300 p-2 text-center text-gray-500 text-sm"
                   >
-                    No teacher profiles available.
+                    No teacher profiles added yet.
                   </td>
                 </tr>
               )}

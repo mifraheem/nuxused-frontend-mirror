@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
 import Cookies from "js-cookie";
-import toast, { Toaster } from "react-hot-toast";
 import { MdEdit, MdDelete, MdVisibility } from "react-icons/md";
 import Select from "react-select";
 import * as XLSX from "xlsx";
 import Buttons from "../../components/Buttons";
 import Pagination from "../../components/Pagination";
+import Toaster from "../../components/Toaster"; // Import custom Toaster component
 
 const StudentResults = () => {
   const [results, setResults] = useState([]);
@@ -38,8 +38,9 @@ const StudentResults = () => {
     exam: "",
   });
   const [filterType, setFilterType] = useState(null);
+  const [toaster, setToaster] = useState({ message: "", type: "success" });
 
-  const API = import.meta.env.VITE_SERVER_URL;
+  const API = import.meta.env.VITE_SERVER_URL || "http://127.0.0.1:8000/";
   const API_URL = `${API}/student-results/`;
   const CLASSES_API = `${API}/classes/`;
   const STUDENTS_API = `${API}/api/auth/users/list_profiles/student/`;
@@ -51,6 +52,29 @@ const StudentResults = () => {
   const canEdit = permissions.includes("users.change_studentresult");
   const canDelete = permissions.includes("users.delete_studentresult");
   const canView = permissions.includes("users.view_studentresult");
+
+  // Toast helper
+  const showToast = (message, type = "success") => {
+    setToaster({ message, type });
+  };
+
+  // Confirmation toast for deletion
+  const confirmToast = (message) => {
+    return new Promise((resolve) => {
+      setToaster({
+        message,
+        type: "confirmation",
+        onConfirm: () => {
+          setToaster({ message: "", type: "success" });
+          resolve(true);
+        },
+        onCancel: () => {
+          setToaster({ message: "", type: "success" });
+          resolve(false);
+        },
+      });
+    });
+  };
 
   const [isMobile, setIsMobile] = useState(typeof window !== "undefined" ? window.innerWidth < 768 : true);
   useEffect(() => {
@@ -97,7 +121,7 @@ const StudentResults = () => {
     try {
       const token = Cookies.get("access_token");
       if (!token) {
-        toast.error("User is not authenticated.");
+        showToast("User is not authenticated.", "error");
         return;
       }
       let url = `${API_URL}?page=${page}&page_size=${size}`;
@@ -117,7 +141,7 @@ const StudentResults = () => {
       }
     } catch (error) {
       console.error("Error fetching results:", error.response || error.message);
-      toast.error("Failed to fetch results. Please try again.");
+      showToast("Failed to fetch results. Please try again.", "error");
     }
   };
 
@@ -125,7 +149,7 @@ const StudentResults = () => {
     try {
       const token = Cookies.get("access_token");
       if (!token) {
-        toast.error("User is not authenticated.");
+        showToast("User is not authenticated.", "error");
         return;
       }
       setIsLoading(true);
@@ -167,7 +191,7 @@ const StudentResults = () => {
       );
     } catch (error) {
       console.error("Error fetching dropdowns:", error.response || error.message);
-      toast.error("Failed to fetch dropdown data. Please try again.");
+      showToast("Failed to fetch dropdown data. Please try again.", "error");
     } finally {
       setIsLoading(false);
       setIsLoadingSubjects(false);
@@ -180,7 +204,7 @@ const StudentResults = () => {
       setIsLoadingStudents(true);
       const token = Cookies.get("access_token");
       if (!token) {
-        toast.error("User is not authenticated.");
+        showToast("User is not authenticated.", "error");
         return;
       }
       const response = await axios.get(STUDENTS_API, {
@@ -191,15 +215,18 @@ const StudentResults = () => {
         const validStudents = studentData.filter((student) => {
           const uuid = getStudentUUID(student);
           if (!uuid) {
-            console.warn("Student without valid UUID:", student);
+            console.warn(`Student excluded due to missing UUID:`, student);
             return false;
           }
           return true;
         });
         setStudents(validStudents);
-        if (validStudents.length < studentData.length) {
-          toast.warning(
-            `${studentData.length - validStudents.length} students excluded due to missing UUID`
+        if (validStudents.length === 0 && studentData.length > 0) {
+          showToast("No students with valid UUIDs found. Please check the student data.", "error");
+        } else if (validStudents.length < studentData.length) {
+          showToast(
+            `${studentData.length - validStudents.length} students excluded due to missing UUIDs`,
+            "warning"
           );
         }
       } else {
@@ -207,7 +234,7 @@ const StudentResults = () => {
       }
     } catch (error) {
       console.error("Error fetching students:", error.response || error.message);
-      toast.error("Failed to fetch students. Please try again.");
+      showToast("Failed to fetch students. Please try again.", "error");
     } finally {
       setIsLoadingStudents(false);
     }
@@ -215,18 +242,21 @@ const StudentResults = () => {
 
   const handleClassSubjectExamSelect = async () => {
     if (!selectedClass || !selectedSubject || !selectedExam) {
-      toast.error("Please select class, subject, and exam");
+      showToast("Please select class, subject, and exam", "error");
       return;
     }
-    setIsLoadingStudents(true);
+
     try {
+      setIsLoadingStudents(true);
       await fetchStudents();
+
       if (students.length === 0) {
-        toast.error("No valid students found");
+        showToast("No valid students found", "error");
         setBulkResultData([]);
         setShowExcelOptions(false);
         return;
       }
+
       setShowExcelOptions(true);
       setShowResultTable(false);
       setBulkResultData(
@@ -243,7 +273,7 @@ const StudentResults = () => {
       );
     } catch (error) {
       console.error("Error in class/subject/exam selection:", error);
-      toast.error("Failed to load students.");
+      showToast("Failed to load students.", "error");
     } finally {
       setIsLoadingStudents(false);
     }
@@ -251,7 +281,7 @@ const StudentResults = () => {
 
   const handleExportExcel = () => {
     if (!selectedClass || !selectedSubject || !selectedExam || students.length === 0) {
-      toast.error("Please select class, subject, and exam first");
+      showToast("Please select class, subject, and exam first", "error");
       return;
     }
     const excelData = students.map((student, index) => ({
@@ -277,7 +307,7 @@ const StudentResults = () => {
     XLSX.utils.book_append_sheet(wb, ws, "Results");
     const fileName = `Results_${selectedClass.label}_${selectedSubject.label}_${selectedExam.label}.xlsx`;
     XLSX.writeFile(wb, fileName);
-    toast.success("Excel template exported successfully");
+    showToast("Excel template exported successfully", "success");
   };
 
   const handleImportExcel = (event) => {
@@ -321,19 +351,20 @@ const StudentResults = () => {
           })
           .filter((item) => item !== null);
         if (processedData.length === 0) {
-          toast.error("No valid data found in Excel file");
+          showToast("No valid data found in Excel file", "error");
           return;
         }
         if (processedData.length < jsonData.length) {
-          toast.warning(`${jsonData.length - processedData.length} rows could not be processed`);
+          showToast(`${jsonData.length - processedData.length} rows could not be processed`, "warning");
         }
         setExcelData(processedData);
         setBulkResultData(processedData);
+        setShowExcelOptions(false);
         setShowResultTable(true);
-        toast.success(`${processedData.length} result records imported from Excel`);
+        showToast(`${processedData.length} result records imported from Excel`, "success");
       } catch (error) {
         console.error("Error importing Excel file:", error);
-        toast.error("Failed to import Excel file. Please check the format.");
+        showToast("Failed to import Excel file. Please check the format.", "error");
       }
     };
     reader.readAsArrayBuffer(file);
@@ -348,23 +379,23 @@ const StudentResults = () => {
 
   const handleSubmitSingle = async (index) => {
     const token = Cookies.get("access_token");
-    if (!token) return toast.error("Not authenticated");
+    if (!token) return showToast("Not authenticated", "error");
     const record = bulkResultData[index];
     const sourceStudent = students[index] || record.student_info || {};
     const studentUUID = record.student || getStudentUUID(sourceStudent);
     const displayName = getStudentDisplayName(sourceStudent);
     if (!studentUUID) {
-      toast.error(`Missing student UUID for ${displayName}`);
+      showToast(`Missing student UUID for ${displayName}`, "error");
       return;
     }
     if (!record.subject || !record.exam || !record.class_schedule) {
-      toast.error(`Missing required fields for ${displayName}`);
+      showToast(`Missing required fields for ${displayName}`, "error");
       return;
     }
     const marksObtained = Number(record.marks_obtained);
     const totalMarks = Number(record.total_marks);
     if (isNaN(marksObtained) || isNaN(totalMarks) || marksObtained < 0 || totalMarks <= 0) {
-      toast.error(`Invalid marks for ${displayName}`);
+      showToast(`Invalid marks for ${displayName}`, "error");
       return;
     }
     const payload = {
@@ -383,11 +414,11 @@ const StudentResults = () => {
       });
       setRowSubmitted((prev) => ({ ...prev, [index]: true }));
       setResults((prev) => [...prev, response.data.data]);
-      toast.success(`Result saved for ${displayName}`);
+      showToast(`Result saved for ${displayName}`, "success");
     } catch (err) {
       console.error("Single submit error:", err.response?.data);
       const errorMessage = err.response?.data?.message || err.response?.data?.detail || "Unknown error";
-      toast.error(`Failed to submit for ${displayName}: ${errorMessage}`);
+      showToast(`Failed to submit for ${displayName}: ${errorMessage}`, "error");
     } finally {
       setRowSubmitting((prev) => ({ ...prev, [index]: false }));
     }
@@ -395,7 +426,7 @@ const StudentResults = () => {
 
   const handleSubmitBulkResults = async () => {
     const token = Cookies.get("access_token");
-    if (!token) return toast.error("Not authenticated");
+    if (!token) return showToast("Not authenticated", "error");
     const invalidRecords = bulkResultData.filter(
       (record) =>
         !record.student ||
@@ -406,7 +437,7 @@ const StudentResults = () => {
         Number(record.total_marks) <= 0
     );
     if (invalidRecords.length > 0) {
-      toast.error("Please ensure all records have valid data");
+      showToast("Please ensure all records have valid data", "error");
       return;
     }
     try {
@@ -438,7 +469,7 @@ const StudentResults = () => {
       });
       const responses = await Promise.all(promises);
       setResults((prev) => [...prev, ...responses.map((res) => res.data.data)]);
-      toast.success("Bulk results submitted successfully");
+      showToast("Bulk results submitted successfully", "success");
       setShowForm(false);
       setShowExcelOptions(false);
       setShowResultTable(false);
@@ -452,7 +483,7 @@ const StudentResults = () => {
     } catch (err) {
       console.error("Error submitting bulk results:", err);
       const errorMessage = err.response?.data?.message || err.response?.data?.detail || err.message;
-      toast.error(`Failed to submit results: ${errorMessage}`);
+      showToast(`Failed to submit results: ${errorMessage}`, "error");
     } finally {
       setIsLoading(false);
     }
@@ -484,53 +515,27 @@ const StudentResults = () => {
 
   const handleDeleteResult = async (id) => {
     if (!canDelete) {
-      toast((t) => (
-        <div className="text-center font-semibold p-2 bg-red-100 border border-red-400 rounded shadow-md">
-          🚫 You do not have permission to delete results.
-          <div className="mt-2">
-            <button
-              onClick={() => toast.dismiss(t.id)}
-              className="mt-1 px-2 py-1 bg-red-500 text-white rounded text-xs hover:bg-red-600"
-            >
-              Close
-            </button>
-          </div>
-        </div>
-      ));
+      showToast("You do not have permission to delete results.", "error");
       return;
     }
-    toast((t) => (
-      <div>
-        <p className="text-gray-600 text-xs">Are you sure you want to delete?</p>
-        <div className="flex justify-end mt-1">
-          <button
-            onClick={async () => {
-              try {
-                const token = Cookies.get("access_token");
-                await axios.delete(`${API_URL}${id}/`, {
-                  headers: { Authorization: `Bearer ${token}` },
-                });
-                toast.success("Result deleted successfully!");
-                setResults((prev) => prev.filter((r) => r.id !== id));
-                toast.dismiss(t.id);
-              } catch (error) {
-                console.error("Error deleting result:", error.response || error.message);
-                toast.error("Failed to delete result. Please try again.");
-              }
-            }}
-            className="bg-red-500 text-white px-2 py-1 rounded shadow text-xs hover:bg-red-700 mr-1"
-          >
-            Yes
-          </button>
-          <button
-            onClick={() => toast.dismiss(t.id)}
-            className="bg-gray-500 text-white px-2 py-1 rounded shadow text-xs hover:bg-gray-700"
-          >
-            No
-          </button>
-        </div>
-      </div>
-    ), { duration: 5000 });
+    const confirmed = await confirmToast("Are you sure you want to delete this result?");
+    if (!confirmed) return;
+
+    try {
+      const token = Cookies.get("access_token");
+      if (!token) {
+        showToast("User is not authenticated.", "error");
+        return;
+      }
+      await axios.delete(`${API_URL}${id}/`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      showToast("Result deleted successfully!", "success");
+      setResults((prev) => prev.filter((r) => r.id !== id));
+    } catch (error) {
+      console.error("Error deleting result:", error.response || error.message);
+      showToast("Failed to delete result. Please try again.", "error");
+    }
   };
 
   const handleFilterChange = (field, value) => {
@@ -584,16 +589,17 @@ const StudentResults = () => {
       fontSize: compactFont,
     }),
   };
-  const pageSizeOptions = [
-    { value: 5, label: "5" },
-    { value: 10, label: "10" },
-    { value: 15, label: "15" },
-    { value: 20, label: "20" },
-  ];
 
   return (
     <div className="container mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-6">
-      <Toaster position="top-center" reverseOrder={false} />
+      <Toaster
+        message={toaster.message}
+        type={toaster.type}
+        duration={3000}
+        onClose={() => setToaster({ message: "", type: "success" })}
+        onConfirm={toaster.onConfirm}
+        onCancel={toaster.onCancel}
+      />
       <div className="bg-blue-900 text-white py-3 px-4 sm:px-6 rounded-lg shadow-md flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-6">
         <h1 className="text-lg sm:text-xl font-bold text-center md:text-left">Manage Student Results</h1>
         <div className="flex flex-col sm:flex-row gap-3">
@@ -686,10 +692,10 @@ const StudentResults = () => {
           <div className="text-right">
             <button
               onClick={handleClassSubjectExamSelect}
-              disabled={!selectedClass || !selectedSubject || !selectedExam}
+              disabled={!selectedClass || !selectedSubject || !selectedExam || isLoadingStudents}
               className="bg-blue-600 text-white px-6 py-2 rounded-md hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
             >
-              Continue
+              {isLoadingStudents ? "Loading..." : "Continue"}
             </button>
           </div>
         </div>
@@ -740,6 +746,7 @@ const StudentResults = () => {
               <button
                 onClick={() => {
                   setShowResultTable(true);
+                  setShowExcelOptions(false);
                   setExcelData([]);
                 }}
                 className="bg-purple-600 text-white px-4 py-2 rounded-md hover:bg-purple-700 text-sm"
@@ -831,15 +838,14 @@ const StudentResults = () => {
                     <button
                       onClick={() => handleSubmitSingle(index)}
                       disabled={rowBusy || done || !studentUUID}
-                      className={`px-4 py-2 rounded text-sm text-white ${
-                        !studentUUID
-                          ? "bg-red-600 cursor-not-allowed"
-                          : done
+                      className={`px-4 py-2 rounded text-sm text-white ${!studentUUID
+                        ? "bg-red-600 cursor-not-allowed"
+                        : done
                           ? "bg-green-600 cursor-default"
                           : rowBusy
-                          ? "bg-blue-400 cursor-wait"
-                          : "bg-blue-600 hover:bg-blue-700"
-                      } disabled:opacity-60 disabled:cursor-not-allowed`}
+                            ? "bg-blue-400 cursor-wait"
+                            : "bg-blue-600 hover:bg-blue-700"
+                        } disabled:opacity-60 disabled:cursor-not-allowed`}
                       title={
                         !studentUUID ? "Missing UUID" : done ? "Submitted" : "Submit this student"
                       }
@@ -847,10 +853,10 @@ const StudentResults = () => {
                       {!studentUUID
                         ? "No UUID"
                         : done
-                        ? "Submitted"
-                        : rowBusy
-                        ? "Submitting..."
-                        : "Submit"}
+                          ? "Submitted"
+                          : rowBusy
+                            ? "Submitting..."
+                            : "Submit"}
                     </button>
                   </div>
                 </div>
@@ -930,15 +936,14 @@ const StudentResults = () => {
                         <button
                           onClick={() => handleSubmitSingle(index)}
                           disabled={rowBusy || done || !studentUUID}
-                          className={`px-3 py-1.5 rounded text-sm text-white ${
-                            !studentUUID
-                              ? "bg-red-600 cursor-not-allowed"
-                              : done
+                          className={`px-3 py-1.5 rounded text-sm text-white ${!studentUUID
+                            ? "bg-red-600 cursor-not-allowed"
+                            : done
                               ? "bg-green-600 cursor-default"
                               : rowBusy
-                              ? "bg-blue-400 cursor-wait"
-                              : "bg-blue-600 hover:bg-blue-700"
-                          } disabled:opacity-60 disabled:cursor-not-allowed`}
+                                ? "bg-blue-400 cursor-wait"
+                                : "bg-blue-600 hover:bg-blue-700"
+                            } disabled:opacity-60 disabled:cursor-not-allowed`}
                           title={
                             !studentUUID ? "Missing UUID" : done ? "Submitted" : "Submit this row"
                           }
@@ -946,10 +951,10 @@ const StudentResults = () => {
                           {!studentUUID
                             ? "No UUID"
                             : done
-                            ? "Submitted"
-                            : rowBusy
-                            ? "Submitting..."
-                            : "Submit"}
+                              ? "Submitted"
+                              : rowBusy
+                                ? "Submitting..."
+                                : "Submit"}
                         </button>
                       </td>
                     </tr>
@@ -984,124 +989,9 @@ const StudentResults = () => {
         </div>
       )}
 
-      {canView && filterType && (
-        <div className="mt-6 bg-white p-4 sm:p-6 rounded-lg shadow-md max-w-full md:max-w-4xl mx-auto border border-gray-200">
-          <h2 className="text-lg sm:text-xl font-semibold text-gray-800 mb-4">
-            Filter Results
-          </h2>
-          {filterType === "menu" && (
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
-              <button
-                className="bg-blue-100 text-blue-800 px-4 py-2 rounded-md hover:bg-blue-200 text-sm"
-                onClick={() => {
-                  setFilterType(null);
-                  fetchResults();
-                }}
-              >
-                Show All
-              </button>
-              <button
-                className="bg-blue-100 text-blue-800 px-4 py-2 rounded-md hover:bg-blue-200 text-sm"
-                onClick={() => setFilterType("subject")}
-              >
-                By Subject
-              </button>
-              <button
-                className="bg-blue-100 text-blue-800 px-4 py-2 rounded-md hover:bg-blue-200 text-sm"
-                onClick={() => setFilterType("class")}
-              >
-                By Class
-              </button>
-              <button
-                className="bg-blue-100 text-blue-800 px-4 py-2 rounded-md hover:bg-blue-200 text-sm"
-                onClick={() => setFilterType("exam")}
-              >
-                By Exam
-              </button>
-            </div>
-          )}
-          {filterType === "subject" && (
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Select Subject</label>
-              <Select
-                options={subjects}
-                value={subjects.find((s) => s.value === filter.subject) || null}
-                onChange={(selected) => handleFilterChange("subject", selected ? selected.value : "")}
-                placeholder="Select Subject"
-                isClearable
-                styles={selectStyles}
-              />
-            </div>
-          )}
-          {filterType === "class" && (
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Select Class</label>
-              <Select
-                options={classes}
-                value={classes.find((c) => c.value === filter.class_schedule) || null}
-                onChange={(selected) =>
-                  handleFilterChange("class_schedule", selected ? selected.value : "")
-                }
-                placeholder="Select Class"
-                isClearable
-                styles={selectStyles}
-              />
-            </div>
-          )}
-          {filterType === "exam" && (
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Select Exam</label>
-              <Select
-                options={exams}
-                value={exams.find((e) => e.value === filter.exam) || null}
-                onChange={(selected) => handleFilterChange("exam", selected ? selected.value : "")}
-                placeholder="Select Exam"
-                isClearable
-                styles={selectStyles}
-              />
-            </div>
-          )}
-          {filterType === "subject_class" && (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Select Subject</label>
-                <Select
-                  options={subjects}
-                  value={subjects.find((s) => s.value === filter.subject) || null}
-                  onChange={(selected) => handleFilterChange("subject", selected ? selected.value : "")}
-                  placeholder="Select Subject"
-                  isClearable
-                  styles={selectStyles}
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Select Class</label>
-                <Select
-                  options={classes}
-                  value={classes.find((c) => c.value === filter.class_schedule) || null}
-                  onChange={(selected) =>
-                    handleFilterChange("class_schedule", selected ? selected.value : "")
-                  }
-                  placeholder="Select Class"
-                  isClearable
-                  styles={selectStyles}
-                />
-              </div>
-            </div>
-          )}
-          {filterType !== "menu" && (
-            <div className="mt-4 text-right">
-              <button
-                onClick={() => {
-                  handleCombinedFilter("", "");
-                  setFilterType(null);
-                }}
-                className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 text-sm"
-              >
-                Clear Filter
-              </button>
-            </div>
-          )}
+      {canView && !showForm && !showExcelOptions && !showResultTable && results.length === 0 && (
+        <div className="mt-6 p-6 bg-gray-50 rounded-lg shadow-md border border-gray-200 max-w-4xl mx-auto text-center">
+          <p className="text-gray-500 text-lg font-medium">No student results added yet.</p>
         </div>
       )}
 
@@ -1261,69 +1151,23 @@ const StudentResults = () => {
               </div>
             ))}
           </div>
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mt-4 gap-3 sm:gap-4">
-            <div className="flex items-center gap-2 w-full sm:w-auto">
-              <label className="text-xs sm:text-sm font-medium text-gray-700 whitespace-nowrap">
-                Page Size:
-              </label>
-              <div className="w-28">
-                <Select
-                  value={pageSizeOptions.find((opt) => opt.value === pageSize)}
-                  onChange={(selected) => {
-                    setPageSize(selected?.value || 10);
-                    setCurrentPage(1);
-                    fetchResults(1, selected?.value || 10);
-                  }}
-                  options={pageSizeOptions}
-                  styles={tinySelectStyles}
-                  isSearchable={false}
-                />
-              </div>
-            </div>
-            <div className="flex flex-wrap justify-center sm:justify-end gap-1 sm:gap-2 w-full sm:w-auto">
-              <button
-                onClick={() => {
-                  setCurrentPage((prev) => Math.max(prev - 1, 1));
-                  fetchResults(currentPage - 1, pageSize);
-                }}
-                disabled={currentPage === 1}
-                className="px-3 py-1.5 bg-gray-300 rounded disabled:opacity-50 disabled:cursor-not-allowed text-xs sm:text-sm hover:bg-gray-400 transition-colors"
-              >
-                Prev
-              </button>
-              {Array.from({ length: totalPages }, (_, i) => i + 1)
-                .slice(
-                  Math.max(0, Math.min(currentPage - 3, totalPages - 5)),
-                  Math.max(5, Math.min(totalPages, currentPage - 3 + 5))
-                )
-                .map((p) => (
-                  <button
-                    key={p}
-                    onClick={() => {
-                      setCurrentPage(p);
-                      fetchResults(p, pageSize);
-                    }}
-                    className={`px-3 py-1.5 rounded text-xs sm:text-sm transition-colors ${
-                      currentPage === p
-                        ? "bg-blue-600 text-white hover:bg-blue-700"
-                        : "bg-gray-200 hover:bg-gray-300"
-                    }`}
-                  >
-                    {p}
-                  </button>
-                ))}
-              <button
-                onClick={() => {
-                  setCurrentPage((prev) => Math.min(prev + 1, totalPages));
-                  fetchResults(currentPage + 1, pageSize);
-                }}
-                disabled={currentPage === totalPages}
-                className="px-3 py-1.5 bg-gray-300 rounded disabled:opacity-50 disabled:cursor-not-allowed text-xs sm:text-sm hover:bg-gray-400 transition-colors"
-              >
-                Next
-              </button>
-            </div>
-          </div>
+          <Pagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            pageSize={pageSize}
+            onPageChange={(page) => {
+              setCurrentPage(page);
+              fetchResults(page, pageSize);
+            }}
+            onPageSizeChange={(size) => {
+              setPageSize(size);
+              setCurrentPage(1);
+              fetchResults(1, size);
+            }}
+            totalItems={results.length}
+            showPageSizeSelector={true}
+            showPageInfo={true}
+          />
         </div>
       )}
 

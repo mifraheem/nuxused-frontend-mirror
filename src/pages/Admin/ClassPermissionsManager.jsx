@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Plus, Edit, Trash2, Users, GraduationCap, Search, Save, X, UserPlus, UserMinus } from 'lucide-react';
 import Cookies from 'js-cookie';
-import toast, { Toaster } from 'react-hot-toast';
+import Toaster from '../../components/Toaster'; // Import custom Toaster component
 import Select from 'react-select';
 
 const ClassPermissionsManager = () => {
@@ -17,6 +17,8 @@ const ClassPermissionsManager = () => {
   const [selectedGCPForClasses, setSelectedGCPForClasses] = useState(null);
   const [availableClasses, setAvailableClasses] = useState([]);
   const [currentClasses, setCurrentClasses] = useState([]);
+  const [toaster, setToaster] = useState({ message: "", type: "success" });
+  const [confirmResolve, setConfirmResolve] = useState(null);
 
   const [formData, setFormData] = useState({
     title: '',
@@ -31,16 +33,21 @@ const ClassPermissionsManager = () => {
     return token ? { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' } : { 'Content-Type': 'application/json' };
   };
 
-  const confirmToast = (message = 'Are you sure?') =>
-    new Promise((resolve) => {
-      const id = toast.custom(
-        (t) => (
-          <div className="max-w-sm w-full bg-white shadow-lg rounded-lg border border-gray-200 p-4">
-            <p className="text-sm text-gray-800">{message}</p>
-            <div className="mt-3 flex items-center gap-2">
+  const showToast = (message, type = "success") => {
+    setToaster({ message, type });
+  };
+
+  const confirmToast = (message = 'Are you sure?') => {
+    return new Promise((resolve) => {
+      setConfirmResolve(() => resolve); // Store the resolve function
+      setToaster({
+        message: (
+          <div className="flex flex-col gap-4">
+            <p className="text-lg font-medium">{message}</p>
+            <div className="flex justify-end gap-2">
               <button
                 onClick={() => {
-                  toast.dismiss(id);
+                  setToaster({ message: "", type: "success" });
                   resolve(true);
                 }}
                 className="px-3 py-1.5 rounded-md bg-red-600 text-white text-sm hover:bg-red-700"
@@ -49,7 +56,7 @@ const ClassPermissionsManager = () => {
               </button>
               <button
                 onClick={() => {
-                  toast.dismiss(id);
+                  setToaster({ message: "", type: "success" });
                   resolve(false);
                 }}
                 className="px-3 py-1.5 rounded-md border border-gray-300 text-sm hover:bg-gray-50"
@@ -59,9 +66,10 @@ const ClassPermissionsManager = () => {
             </div>
           </div>
         ),
-        { duration: Infinity }
-      );
+        type: "confirmation",
+      });
     });
+  };
 
   const buildPatch = (original, current) => {
     const patch = {};
@@ -105,7 +113,7 @@ const ClassPermissionsManager = () => {
     } catch (error) {
       console.error('Error fetching initial data:', error);
       if (String(error?.message || '').includes('401')) {
-        toast.error('Session expired. Please log in again.');
+        showToast('Session expired. Please log in again.', 'error');
         Cookies.remove('access_token');
         Cookies.remove('refresh_token');
         Cookies.remove('user_role');
@@ -113,7 +121,7 @@ const ClassPermissionsManager = () => {
         localStorage.removeItem('user_permissions');
         window.location.href = '/login';
       } else {
-        toast.error(`Failed to load data: ${error.message}`);
+        showToast(`Failed to load data: ${error.message}`, 'error');
       }
     } finally {
       setLoading(false);
@@ -123,7 +131,7 @@ const ClassPermissionsManager = () => {
   useEffect(() => {
     const token = Cookies.get('access_token');
     if (!token) {
-      toast.error('Please log in to access this feature');
+      showToast('Please log in to access this feature', 'error');
       window.location.href = '/login';
       return;
     }
@@ -143,11 +151,11 @@ const ClassPermissionsManager = () => {
         throw new Error(errorData.detail || 'Failed to create group class permission');
       }
       await fetchInitialData();
-      toast.success('Permission created successfully');
+      showToast('Permission created successfully', 'success');
       return await response.json();
     } catch (error) {
       console.error('Error creating GCP:', error);
-      toast.error(`Failed to create permission: ${error.message}`);
+      showToast(`Failed to create permission: ${error.message}`, 'error');
       throw error;
     } finally {
       setLoading(false);
@@ -167,11 +175,11 @@ const ClassPermissionsManager = () => {
         throw new Error(errorData.detail || 'Failed to partially update group class permission');
       }
       await fetchInitialData();
-      toast.success('Permission updated (partial)');
+      showToast('Permission updated (partial)', 'success');
       return await response.json();
     } catch (error) {
       console.error('Error PATCH GCP:', error);
-      toast.error(`Failed to update (partial): ${error.message}`);
+      showToast(`Failed to update (partial): ${error.message}`, 'error');
       throw error;
     } finally {
       setLoading(false);
@@ -191,11 +199,11 @@ const ClassPermissionsManager = () => {
         throw new Error(errorData.detail || 'Failed to fully update group class permission');
       }
       await fetchInitialData();
-      toast.success('Permission updated (full)');
+      showToast('Permission updated (full)', 'success');
       return await response.json();
     } catch (error) {
       console.error('Error PUT GCP:', error);
-      toast.error(`Failed to update (full): ${error.message}`);
+      showToast(`Failed to update (full): ${error.message}`, 'error');
       throw error;
     } finally {
       setLoading(false);
@@ -214,10 +222,10 @@ const ClassPermissionsManager = () => {
         throw new Error(errorData.detail || 'Failed to delete group class permission');
       }
       await fetchInitialData();
-      toast.success('Permission deleted successfully');
+      showToast('Permission deleted successfully', 'success');
     } catch (error) {
       console.error('Error deleting GCP:', error);
-      toast.error(`Failed to delete permission: ${error.message}`);
+      showToast(`Failed to delete permission: ${error.message}`, 'error');
       throw error;
     } finally {
       setLoading(false);
@@ -237,7 +245,7 @@ const ClassPermissionsManager = () => {
       return data.data;
     } catch (error) {
       console.error('Error fetching GCP:', error);
-      toast.error(`Failed to load permission: ${error.message}`);
+      showToast(`Failed to load permission: ${error.message}`, 'error');
       return null;
     }
   };
@@ -253,14 +261,13 @@ const ClassPermissionsManager = () => {
         throw new Error(errorData.detail || 'Failed to fetch available classes');
       }
       const data = await response.json();
-      // Ensure availableClasses is always an array
       const availableClassesData = Array.isArray(data.data) ? data.data : data.data?.results || [];
       setAvailableClasses(availableClassesData);
       return availableClassesData;
     } catch (error) {
       console.error('Error fetching available classes:', error);
-      toast.error(`Failed to fetch available classes: ${error.message}`);
-      setAvailableClasses([]); // Set to empty array on error
+      showToast(`Failed to fetch available classes: ${error.message}`, 'error');
+      setAvailableClasses([]);
       return [];
     } finally {
       setLoading(false);
@@ -282,7 +289,7 @@ const ClassPermissionsManager = () => {
       return classesData;
     } catch (error) {
       console.error('Error fetching current classes:', error);
-      toast.error(`Failed to fetch current classes: ${error.message}`);
+      showToast(`Failed to fetch current classes: ${error.message}`, 'error');
       setCurrentClasses([]);
       return [];
     }
@@ -301,10 +308,10 @@ const ClassPermissionsManager = () => {
         throw new Error(errorData.detail || 'Failed to add classes');
       }
       await Promise.all([fetchInitialData(), getAvailableClasses(gcpId), getCurrentClasses(gcpId)]);
-      toast.success('Class added');
+      showToast('Class added', 'success');
     } catch (error) {
       console.error('Error adding classes:', error);
-      toast.error(`Failed to add classes: ${error.message}`);
+      showToast(`Failed to add classes: ${error.message}`, 'error');
       throw error;
     } finally {
       setLoading(false);
@@ -324,10 +331,10 @@ const ClassPermissionsManager = () => {
         throw new Error(errorData.detail || 'Failed to remove classes');
       }
       await Promise.all([fetchInitialData(), getAvailableClasses(gcpId), getCurrentClasses(gcpId)]);
-      toast.success('Class removed');
+      showToast('Class removed', 'success');
     } catch (error) {
       console.error('Error removing classes:', error);
-      toast.error(`Failed to remove classes: ${error.message}`);
+      showToast(`Failed to remove classes: ${error.message}`, 'error');
       throw error;
     } finally {
       setLoading(false);
@@ -350,7 +357,7 @@ const ClassPermissionsManager = () => {
 
   const handleSubmit = async () => {
     if (!formData.title || !formData.group || !formData.school) {
-      toast.error('Please fill in Title, Group, and School');
+      showToast('Please fill in Title, Group, and School', 'error');
       return;
     }
 
@@ -362,7 +369,7 @@ const ClassPermissionsManager = () => {
         );
 
         if (Object.keys(patch).length === 0) {
-          toast('No changes to save', { icon: 'ℹ️' });
+          showToast('No changes to save', 'confirmation');
         } else if (Object.keys(patch).length < 3) {
           await patchGroupClassPermission(editingGCP.id, patch);
         } else {
@@ -386,7 +393,7 @@ const ClassPermissionsManager = () => {
       setEditingGCP(null);
       setFormData({ title: '', group: '', class_ids: [], school: selectedSchool || '' });
     } catch {
-      // errors are already toasted
+      // Errors are already toasted
     }
   };
 
@@ -395,7 +402,7 @@ const ClassPermissionsManager = () => {
     if (ok) {
       await deleteGroupClassPermission(id);
     } else {
-      toast('Deletion cancelled', { icon: '🟰' });
+      showToast('Deletion cancelled', 'confirmation');
     }
   };
 
@@ -412,7 +419,12 @@ const ClassPermissionsManager = () => {
 
   return (
     <div className="min-h-screen bg-gray-50 px-2 sm:px-4 md:px-6 lg:px-8">
-      <Toaster position="top-center" />
+      <Toaster
+        message={toaster.message}
+        type={toaster.type}
+        duration={3000}
+        onClose={() => setToaster({ message: "", type: "success" })}
+      />
       <div className="max-w-7xl mx-auto py-4 sm:py-6">
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 sm:p-6 mb-6">
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">

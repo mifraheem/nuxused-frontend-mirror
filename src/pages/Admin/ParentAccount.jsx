@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
 import Cookies from "js-cookie";
-import toast, { Toaster } from "react-hot-toast";
 import { FiTrash, FiEdit, FiEye } from "react-icons/fi";
 import { Buttons } from "../../components";
 import Pagination from "../../components/Pagination";
+import Toaster from "../../components/Toaster"; // Import custom Toaster component
 
 const ParentAccount = () => {
   const [parents, setParents] = useState([]);
@@ -15,14 +15,17 @@ const ParentAccount = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
   const [totalPages, setTotalPages] = useState(1);
+  const [toaster, setToaster] = useState({ message: "", type: "success" });
+  const [confirmResolve, setConfirmResolve] = useState(null);
 
-  const API = import.meta.env.VITE_SERVER_URL;
+  // ✅ safe API base with fallback
+  const API = import.meta.env.VITE_SERVER_URL || "http://127.0.0.1:8000/";
   const API_URL = `${API}api/auth/users/list_profiles/parent/`;
   const UPDATE_URL = `${API}api/auth/update-parent-profile/`;
   const DELETE_URL = `${API}api/auth/users/delete_user/`;
   const STUDENT_LIST_URL = `${API}api/auth/users/list_profiles/student/`;
 
-  // Permissions (same pattern as other pages)
+  // Permissions
   const permissions = JSON.parse(localStorage.getItem("user_permissions") || "[]");
   const canView = permissions.includes("users.view_parentprofile");
   const canEdit = permissions.includes("users.change_parentprofile");
@@ -30,10 +33,9 @@ const ParentAccount = () => {
     permissions.includes("users.delete_parentprofile") &&
     permissions.includes("users.delete_user");
 
-  // ------ Helpers ------
+  // Helpers
   const isValidId = (id) => {
     if (!id) return false;
-    // Accept UUIDs, integers, and numeric strings.
     const uuidRegex =
       /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
     return uuidRegex.test(String(id)) || !isNaN(id) || typeof id === "string";
@@ -45,7 +47,45 @@ const ParentAccount = () => {
     return { Authorization: `Bearer ${token}` };
   };
 
-  // ------ Data Fetch ------
+  const showToast = (message, type = "success") => {
+    setToaster({ message, type });
+  };
+
+  const confirmToast = (message = "Delete this parent?") => {
+    return new Promise((resolve) => {
+      setConfirmResolve(() => resolve); // Store the resolve function
+      setToaster({
+        message: (
+          <div className="flex flex-col gap-4">
+            <p className="text-lg font-medium">{message}</p>
+            <div className="flex justify-end gap-2">
+              <button
+                onClick={() => {
+                  setToaster({ message: "", type: "success" });
+                  resolve(true);
+                }}
+                className="px-3 py-1.5 rounded-md bg-red-600 text-white text-sm hover:bg-red-700"
+              >
+                Yes
+              </button>
+              <button
+                onClick={() => {
+                  setToaster({ message: "", type: "success" });
+                  resolve(false);
+                }}
+                className="px-3 py-1.5 rounded-md border border-gray-300 text-sm hover:bg-gray-50"
+              >
+                No
+              </button>
+            </div>
+          </div>
+        ),
+        type: "confirmation",
+      });
+    });
+  };
+
+  // Fetch parents
   const fetchParents = async (page = currentPage, size = pageSize) => {
     try {
       const res = await axios.get(`${API_URL}?page=${page}&page_size=${size}`, {
@@ -60,13 +100,15 @@ const ParentAccount = () => {
       }
     } catch (error) {
       console.error("Error fetching parents:", error.response?.data || error.message);
-      toast.error(
+      showToast(
         "Failed to fetch parent accounts: " +
-          (error.response?.data?.message || error.message)
+          (error.response?.data?.message || error.message),
+        "error"
       );
     }
   };
 
+  // Fetch students
   const fetchStudents = async () => {
     try {
       const res = await axios.get(STUDENT_LIST_URL, { headers: authHeaders() });
@@ -78,9 +120,10 @@ const ParentAccount = () => {
       }
     } catch (error) {
       console.error("Error fetching students:", error.response?.data || error.message);
-      toast.error(
+      showToast(
         "Failed to fetch students: " +
-          (error.response?.data?.message || error.message)
+          (error.response?.data?.message || error.message),
+        "error"
       );
     }
   };
@@ -88,17 +131,15 @@ const ParentAccount = () => {
   useEffect(() => {
     fetchParents();
     fetchStudents();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentPage, pageSize]);
 
-  // ------ Actions ------
+  // Actions
   const openViewModal = (parent) => {
     setSelectedParent(parent);
     setIsViewModalOpen(true);
   };
 
   const openEditModal = (parent) => {
-    // Map names -> user_ids for children so the multiselect holds ids
     const matchedChildren = (parent.linked_students || [])
       .map((name) => {
         const match = students.find(
@@ -108,89 +149,49 @@ const ParentAccount = () => {
       })
       .filter(Boolean);
 
-    setSelectedParent({ ...parent, user_id: parent.user_id, children: matchedChildren });
+    setSelectedParent({
+      ...parent,
+      children: matchedChildren,
+    });
     setIsEditModalOpen(true);
   };
 
   const closeViewModal = () => setIsViewModalOpen(false);
 
-  const confirmDeleteParent = (id) => {
+  const confirmDeleteParent = async (id) => {
     if (!canDelete) {
-      toast.error("You do not have permission to delete parent profiles.");
+      showToast("You do not have permission to delete parent profiles.", "error");
       return;
     }
     if (!isValidId(id)) {
-      toast.error("Invalid parent ID format.");
+      showToast("Invalid parent ID format.", "error");
       return;
     }
 
-    toast(
-      (t) => (
-        <div className="text-center">
-          <p className="font-semibold">Delete this parent?</p>
-          <div className="flex justify-center mt-2 gap-2">
-            <button
-              onClick={() => {
-                deleteParent(id);
-                toast.dismiss(t.id);
-              }}
-              className="bg-red-600 text-white px-3 py-1 rounded hover:bg-red-700 text-sm"
-            >
-              Yes
-            </button>
-            <button
-              onClick={() => toast.dismiss(t.id)}
-              className="bg-gray-300 text-black px-3 py-1 rounded hover:bg-gray-400 text-sm"
-            >
-              No
-            </button>
-          </div>
-        </div>
-      ),
-      { duration: 5000 }
-    );
+    const ok = await confirmToast("Delete this parent?");
+    if (ok) {
+      deleteParent(id);
+    }
   };
 
   const deleteParent = async (id) => {
     try {
       await axios.delete(`${DELETE_URL}${id}/`, { headers: authHeaders() });
-      setParents((prev) => prev.filter((p) => p.user_id != id));
-      toast.success("Parent deleted successfully.");
+      setParents((prev) => prev.filter((p) => p.user_id !== id));
+      showToast("Parent deleted successfully.", "success");
     } catch (error) {
       console.error("Error deleting parent:", error.response?.data || error.message);
-      toast.error(
+      showToast(
         "Failed to delete parent: " +
-          (error.response?.data?.message || error.message)
+          (error.response?.data?.message || error.message),
+        "error"
       );
     }
   };
 
   const updateParent = async () => {
     if (!selectedParent?.user_id) {
-      toast.error("No parent selected.");
-      return;
-    }
-    if (!isValidId(selectedParent.user_id)) {
-      toast.error("Invalid user ID format.");
-      return;
-    }
-    if (!selectedParent.first_name || !selectedParent.last_name) {
-      toast.error("First name and last name are required.");
-      return;
-    }
-    if (
-      selectedParent.email &&
-      !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(selectedParent.email)
-    ) {
-      toast.error("Invalid email format.");
-      return;
-    }
-    if (selectedParent.phone_number && !/^\d{7,15}$/.test(selectedParent.phone_number)) {
-      toast.error("Invalid phone number format.");
-      return;
-    }
-    if (selectedParent.children?.some((id) => !isValidId(id))) {
-      toast.error("One or more child IDs are invalid.");
+      showToast("No parent selected.", "error");
       return;
     }
 
@@ -203,9 +204,9 @@ const ParentAccount = () => {
         phone_number: selectedParent.phone_number || "",
         address: selectedParent.address || "",
         email: selectedParent.email || "",
-        dob: selectedParent.dob || "2000-01-01",
+        dob: selectedParent.dob || null,
         gender: selectedParent.gender || "",
-        children: selectedParent.children || [],
+        linked_students: selectedParent.children || [],
       };
 
       const response = await axios.patch(apiUrl, payload, {
@@ -213,106 +214,103 @@ const ParentAccount = () => {
       });
 
       if (response.status === 200) {
-        toast.success("Parent updated successfully.");
-        setSelectedParent((prev) => ({
-          ...prev,
-          ...payload,
-          linked_students:
-            response.data?.data?.linked_students ||
-            prev?.linked_students ||
-            [],
-        }));
+        showToast("Parent updated successfully.", "success");
         fetchParents();
         setIsEditModalOpen(false);
-      } else {
-        toast.error("Unexpected response status: " + response.status);
       }
     } catch (error) {
       console.error("Error updating parent:", error.response?.data || error.message);
-      const errMsg =
-        error.response?.data?.message ||
-        error.response?.data?.error ||
-        error.response?.data?.detail ||
-        error.message;
-      if (error.response?.status === 405) {
-        toast.error(
-          "Server does not allow PATCH requests. Contact backend team to enable PATCH or use another method."
-        );
-      } else if (error.response?.status === 404) {
-        toast.error(
-          "Parent profile endpoint not found. Please check the user ID or API configuration."
-        );
-      } else {
-        toast.error("Failed to update parent: " + errMsg);
-      }
+      showToast(
+        "Failed to update parent: " +
+          (error.response?.data?.message ||
+            error.response?.data?.detail ||
+            error.message),
+        "error"
+      );
     }
   };
 
-  // ------ UI ------
   return (
-    <div className="p-2 md:p-3">
-      <Toaster position="top-center" reverseOrder={false} />
+    <div className="p-2 md:p-3 min-h-screen flex-1">
+      <Toaster
+        message={toaster.message}
+        type={toaster.type}
+        duration={toaster.type === "confirmation" ? 5000 : 3000}
+        onClose={() => setToaster({ message: "", type: "success" })}
+      />
 
-      {/* Header bar (compact, survives narrow widths when sidebar is open) */}
+      {/* Header */}
       <div className="bg-blue-900 text-white rounded-md flex items-center justify-between px-2 py-2 mt-2">
         <h1 className="text-sm md:text-base font-bold">Manage Parent Accounts</h1>
-        {/* Right area left intentionally blank for future actions to align with WeeklyTaskManager header */}
       </div>
 
-      {/* Export Buttons + Table */}
+      {/* Table + Export */}
       <div className="mt-2">
-        <div className="  rounded-md  p-2">
+        <div className="rounded-md p-2">
           <Buttons
-            data={parents.map((p) => ({
-              "User ID": p.user_id,
+            data={parents.map((p, index) => ({
+              "Sequence Number": (currentPage - 1) * pageSize + index + 1,
               Username: p.username,
               "First Name": p.first_name,
               "Last Name": p.last_name,
               Email: p.email,
+              "Phone Number": p.phone_number,
+              Address: p.address,
+              "Date of Birth": p.dob,
+              Gender: p.gender,
+              "Linked Students": p.linked_students?.join(", ") || "None",
             }))}
             filename="Parent_Accounts"
             columns={[
-              { label: "User ID", key: "User ID" },
+              { label: "Sequence Number", key: "Sequence Number" },
               { label: "Username", key: "Username" },
               { label: "First Name", key: "First Name" },
               { label: "Last Name", key: "Last Name" },
               { label: "Email", key: "Email" },
+              { label: "Phone Number", key: "Phone Number" },
+              { label: "Address", key: "Address" },
+              { label: "Date of Birth", key: "Date of Birth" },
+              { label: "Gender", key: "Gender" },
+              { label: "Linked Students", key: "Linked Students" },
             ]}
           />
 
-          {/* Scroll container ensures layout stays intact even with sidebar open */}
-          <div className="overflow-x-auto mt-2">
-            <table className="w-full border-collapse border border-gray-300 bg-white min-w-[600px]">
-              <thead className="bg-blue-900 text-white">
+          <div className="overflow-x-auto mt-2 max-w-full">
+            <table className="w-full border-collapse border border-gray-300 bg-white min-w-[1000px] shadow-lg">
+              <thead className="bg-blue-900 text-white sticky top-0 z-10">
                 <tr>
-                  <th className="border border-gray-300 p-1 text-center text-xs">ID</th>
+                  <th className="border border-gray-300 p-1 text-center text-xs">No.</th>
                   <th className="border border-gray-300 p-1 text-center text-xs">Username</th>
                   <th className="border border-gray-300 p-1 text-center text-xs">First Name</th>
                   <th className="border border-gray-300 p-1 text-center text-xs">Last Name</th>
                   <th className="border border-gray-300 p-1 text-center text-xs">Email</th>
+                  <th className="border border-gray-300 p-1 text-center text-xs">Phone Number</th>
+                  <th className="border border-gray-300 p-1 text-center text-xs">Address</th>
+                  <th className="border border-gray-300 p-1 text-center text-xs">Date of Birth</th>
+                  <th className="border border-gray-300 p-1 text-center text-xs">Gender</th>
+                  <th className="border border-gray-300 p-1 text-center text-xs">Linked Students</th>
                   <th className="border border-gray-300 p-1 text-center text-xs">Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {parents.length > 0 ? (
-                  parents.map((parent) => (
+                  parents.map((parent, index) => (
                     <tr key={parent.user_id} className="hover:bg-gray-50">
                       <td className="border border-gray-300 p-1 text-center text-xs">
-                        <span className="inline-block max-w-[120px] truncate" title={parent.user_id}>
-                          {parent.user_id}
-                        </span>
+                        {(currentPage - 1) * pageSize + index + 1}
                       </td>
+                      <td className="border border-gray-300 p-1 text-xs">{parent.username || "N/A"}</td>
+                      <td className="border border-gray-300 p-1 text-xs">{parent.first_name || "N/A"}</td>
+                      <td className="border border-gray-300 p-1 text-xs">{parent.last_name || "N/A"}</td>
+                      <td className="border border-gray-300 p-1 text-xs">{parent.email || "N/A"}</td>
+                      <td className="border border-gray-300 p-1 text-xs">{parent.phone_number || "N/A"}</td>
+                      <td className="border border-gray-300 p-1 text-xs">{parent.address || "N/A"}</td>
+                      <td className="border border-gray-300 p-1 text-xs">{parent.dob || "N/A"}</td>
+                      <td className="border border-gray-300 p-1 text-xs">{parent.gender || "N/A"}</td>
                       <td className="border border-gray-300 p-1 text-xs">
-                        <span className="block max-w-[160px] truncate" title={parent.username}>
-                          {parent.username}
-                        </span>
-                      </td>
-                      <td className="border border-gray-300 p-1 text-xs">{parent.first_name}</td>
-                      <td className="border border-gray-300 p-1 text-xs">{parent.last_name}</td>
-                      <td className="border border-gray-300 p-1 text-xs">
-                        <span className="block max-w-[200px] truncate" title={parent.email}>
-                          {parent.email}
-                        </span>
+                        {parent.linked_students?.length
+                          ? parent.linked_students.join(", ")
+                          : "None"}
                       </td>
                       <td className="border border-gray-300 p-1">
                         <div className="flex items-center justify-center gap-2">
@@ -321,7 +319,6 @@ const ParentAccount = () => {
                               className="text-blue-500 cursor-pointer hover:text-blue-700"
                               size={18}
                               onClick={() => openViewModal(parent)}
-                              title="View"
                             />
                           )}
                           {canEdit && (
@@ -329,7 +326,6 @@ const ParentAccount = () => {
                               className="text-yellow-500 cursor-pointer hover:text-yellow-700"
                               size={18}
                               onClick={() => openEditModal(parent)}
-                              title="Edit"
                             />
                           )}
                           {canDelete && (
@@ -337,7 +333,6 @@ const ParentAccount = () => {
                               className="text-red-500 cursor-pointer hover:text-red-700"
                               size={18}
                               onClick={() => confirmDeleteParent(parent.user_id)}
-                              title="Delete"
                             />
                           )}
                         </div>
@@ -346,11 +341,8 @@ const ParentAccount = () => {
                   ))
                 ) : (
                   <tr>
-                    <td
-                      colSpan={6}
-                      className="border border-gray-300 p-2 text-center text-gray-500 text-sm"
-                    >
-                      No parent accounts available.
+                    <td colSpan={11} className="border border-gray-300 p-2 text-center text-gray-500 text-sm">
+                      No parent accounts added yet.
                     </td>
                   </tr>
                 )}
@@ -383,45 +375,73 @@ const ParentAccount = () => {
             <div className="px-3 py-2 bg-blue-600 text-white">
               <h2 className="text-sm md:text-base font-bold">Parent Details</h2>
             </div>
-            <div className="px-3 py-2 overflow-y-auto max-h-[55vh]">
+            <div className="px-3 py-2 overflow-y-auto max-h-[65vh]">
               <table className="w-full text-xs border border-gray-200">
                 <tbody className="divide-y divide-gray-100">
+                  <tr>
+                    <th className="px-2 py-1 text-gray-700 text-left w-1/3">Profile ID</th>
+                    <td className="px-2 py-1">{selectedParent.profile_id || "N/A"}</td>
+                  </tr>
+                  <tr>
+                    <th className="px-2 py-1 text-gray-700 text-left w-1/3">User ID</th>
+                    <td className="px-2 py-1">{selectedParent.user_id || "N/A"}</td>
+                  </tr>
+                  <tr>
+                    <th className="px-2 py-1 text-gray-700 text-left w-1/3">Username</th>
+                    <td className="px-2 py-1">{selectedParent.username || "N/A"}</td>
+                  </tr>
                   <tr>
                     <th className="px-2 py-1 text-gray-700 text-left w-1/3">First Name</th>
                     <td className="px-2 py-1">{selectedParent.first_name || "N/A"}</td>
                   </tr>
                   <tr>
-                    <th className="px-2 py-1 text-gray-700 text-left">Last Name</th>
+                    <th className="px-2 py-1 text-gray-700 text-left w-1/3">Last Name</th>
                     <td className="px-2 py-1">{selectedParent.last_name || "N/A"}</td>
                   </tr>
                   <tr>
-                    <th className="px-2 py-1 text-gray-700 text-left">Phone</th>
+                    <th className="px-2 py-1 text-gray-700 text-left w-1/3">Phone</th>
                     <td className="px-2 py-1">{selectedParent.phone_number || "N/A"}</td>
                   </tr>
                   <tr>
-                    <th className="px-2 py-1 text-gray-700 text-left">Email</th>
+                    <th className="px-2 py-1 text-gray-700 text-left w-1/3">Email</th>
                     <td className="px-2 py-1">{selectedParent.email || "N/A"}</td>
                   </tr>
                   <tr>
-                    <th className="px-2 py-1 text-gray-700 text-left">Address</th>
+                    <th className="px-2 py-1 text-gray-700 text-left w-1/3">Address</th>
                     <td className="px-2 py-1">{selectedParent.address || "N/A"}</td>
                   </tr>
                   <tr>
-                    <th className="px-2 py-1 text-gray-700 text-left">Gender</th>
+                    <th className="px-2 py-1 text-gray-700 text-left w-1/3">Gender</th>
                     <td className="px-2 py-1 capitalize">{selectedParent.gender || "N/A"}</td>
                   </tr>
                   <tr>
-                    <th className="px-2 py-1 text-gray-700 text-left">DOB</th>
+                    <th className="px-2 py-1 text-gray-700 text-left w-1/3">DOB</th>
                     <td className="px-2 py-1">{selectedParent.dob || "N/A"}</td>
                   </tr>
                   <tr>
-                    <th className="px-2 py-1 text-gray-700 text-left">Children</th>
+                    <th className="px-2 py-1 text-gray-700 text-left w-1/3">Children</th>
                     <td className="px-2 py-1">
                       {selectedParent.linked_students?.length
                         ? selectedParent.linked_students.join(", ")
                         : "None"}
                     </td>
                   </tr>
+                  {selectedParent.profile_picture && (
+                    <tr>
+                      <th className="px-2 py-1 text-gray-700 text-left w-1/3">Profile Picture</th>
+                      <td className="px-2 py-1">
+                        <img
+                          src={
+                            selectedParent.profile_picture
+                              ? `${API}${selectedParent.profile_picture}`
+                              : ""
+                          }
+                          alt="Profile"
+                          className="w-20 h-20 object-cover rounded border"
+                        />
+                      </td>
+                    </tr>
+                  )}
                 </tbody>
               </table>
             </div>

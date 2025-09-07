@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
 import Cookies from "js-cookie";
-import toast, { Toaster } from "react-hot-toast";
 import { MdEdit, MdDelete } from "react-icons/md";
-import { Buttons } from '../../components';
+import { Buttons } from "../../components";
 import Pagination from "../../components/Pagination";
+import Toaster from "../../components/Toaster"; // Import custom Toaster component
 
 const GradeCriteria = () => {
   const [gradeCriteria, setGradeCriteria] = useState([]);
@@ -24,15 +24,39 @@ const GradeCriteria = () => {
   const [showSchoolDropdown, setShowSchoolDropdown] = useState(false);
   const [gradeSearch, setGradeSearch] = useState("");
   const [showGradeDropdown, setShowGradeDropdown] = useState(false);
+  const [toaster, setToaster] = useState({ message: "", type: "success" });
 
-  const API = import.meta.env.VITE_SERVER_URL;
+  const API = import.meta.env.VITE_SERVER_URL || "http://127.0.0.1:8000/";
   const API_URL = `${API}grade-criteria/`;
+
+  // Toast helper
+  const showToast = (message, type = "success") => {
+    setToaster({ message, type });
+  };
+
+  // Confirmation toast for deletion
+  const confirmToast = (message) => {
+    return new Promise((resolve) => {
+      setToaster({
+        message,
+        type: "confirmation",
+        onConfirm: () => {
+          setToaster({ message: "", type: "success" });
+          resolve(true);
+        },
+        onCancel: () => {
+          setToaster({ message: "", type: "success" });
+          resolve(false);
+        },
+      });
+    });
+  };
 
   const fetchGradeCriteria = async (page = 1, size = pageSize) => {
     try {
       const token = Cookies.get("access_token");
       if (!token) {
-        toast.error("User is not authenticated.");
+        showToast("User is not authenticated.", "error");
         return;
       }
 
@@ -51,7 +75,7 @@ const GradeCriteria = () => {
       }
     } catch (error) {
       console.error("Error fetching grade criteria:", error.response || error.message);
-      toast.error("Failed to fetch grade criteria. Please try again.");
+      showToast("Failed to fetch grade criteria. Please try again.", "error");
     }
   };
 
@@ -59,17 +83,15 @@ const GradeCriteria = () => {
     try {
       const token = Cookies.get("access_token");
       if (!token) {
-        toast.error("User is not authenticated.");
+        showToast("User is not authenticated.", "error");
         return;
       }
 
-      // Fetch from classes API and extract unique school names
       const response = await axios.get(`${API}classes/`, {
         headers: { Authorization: `Bearer ${token}` },
       });
 
       const classesData = response.data.data?.results || [];
-      // Extract unique school names
       const uniqueSchools = [...new Set(classesData.map(cls => cls.school))];
       const schoolsArray = uniqueSchools.map((school, index) => ({
         id: index + 1,
@@ -79,34 +101,34 @@ const GradeCriteria = () => {
       setSchools(schoolsArray);
     } catch (error) {
       console.error("Error fetching schools:", error.response || error.message);
+      showToast("Failed to fetch schools. Please try again.", "error");
       setSchools([]);
     }
   };
 
   const handleSaveGradeCriteria = async () => {
     if (!newGradeCriteria.school_name || !newGradeCriteria.grade || !newGradeCriteria.min_percentage || !newGradeCriteria.max_percentage) {
-      toast.error("All fields are required!");
+      showToast("All fields are required!", "error");
       return;
     }
 
-    // Validate percentage range
     const minPerc = parseFloat(newGradeCriteria.min_percentage);
     const maxPerc = parseFloat(newGradeCriteria.max_percentage);
 
     if (minPerc >= maxPerc) {
-      toast.error("Minimum percentage must be less than maximum percentage!");
+      showToast("Minimum percentage must be less than maximum percentage!", "error");
       return;
     }
 
     if (minPerc < 0 || maxPerc > 100) {
-      toast.error("Percentage must be between 0 and 100!");
+      showToast("Percentage must be between 0 and 100!", "error");
       return;
     }
 
     try {
       const token = Cookies.get("access_token");
       if (!token) {
-        toast.error("User is not authenticated.");
+        showToast("User is not authenticated.", "error");
         return;
       }
 
@@ -116,7 +138,7 @@ const GradeCriteria = () => {
         });
 
         if (response.status === 200) {
-          toast.success("Grade criteria updated successfully!");
+          showToast("Grade criteria updated successfully!", "success");
           setGradeCriteria((prev) => prev.map((g) => (g.id === editingGradeCriteria.id ? response.data.data : g)));
           setEditingGradeCriteria(null);
         } else {
@@ -128,7 +150,7 @@ const GradeCriteria = () => {
         });
 
         if (response.status === 201) {
-          toast.success("Grade criteria created successfully!");
+          showToast("Grade criteria created successfully!", "success");
           setGradeCriteria((prev) => [...prev, response.data.data]);
         } else {
           throw new Error("Failed to create grade criteria.");
@@ -141,66 +163,36 @@ const GradeCriteria = () => {
       setGradeSearch("");
     } catch (error) {
       console.error("Error saving grade criteria:", error.response || error.message);
-      toast.error(error.response?.data?.message || "Failed to save grade criteria. Please try again.");
+      showToast(error.response?.data?.message || "Failed to save grade criteria. Please try again.", "error");
     }
   };
 
   const handleDeleteGradeCriteria = async (id) => {
     if (!canDelete) {
-      toast((t) => (
-        <div className="text-center font-semibold p-4 bg-red-100 border border-red-400 rounded shadow-md">
-          🚫 You do not have permission to delete grade criteria.
-          <div className="mt-3">
-            <button
-              onClick={() => toast.dismiss(t.id)}
-              className="mt-2 px-4 py-1 bg-red-500 text-white rounded hover:bg-red-600"
-            >
-              Close
-            </button>
-          </div>
-        </div>
-      ));
+      showToast("You do not have permission to delete grade criteria.", "error");
       return;
     }
 
-    toast((t) => (
-      <div>
-        <p className="text-gray-600">Are you sure you want to delete?</p>
-        <div className="flex justify-end mt-2">
-          <button
-            onClick={async () => {
-              try {
-                const token = Cookies.get("access_token");
-                if (!token) {
-                  toast.error("User is not authenticated.");
-                  return;
-                }
+    const confirmed = await confirmToast("Are you sure you want to delete this grade criteria?");
+    if (!confirmed) return;
 
-                await axios.delete(`${API_URL}${id}/`, {
-                  headers: { Authorization: `Bearer ${token}` },
-                });
+    try {
+      const token = Cookies.get("access_token");
+      if (!token) {
+        showToast("User is not authenticated.", "error");
+        return;
+      }
 
-                toast.success("Grade criteria deleted successfully!");
-                setGradeCriteria((prev) => prev.filter((g) => g.id !== id));
-                toast.dismiss(t.id);
-              } catch (error) {
-                console.error("Error deleting grade criteria:", error.response || error.message);
-                toast.error("Failed to delete grade criteria. Please try again.");
-              }
-            }}
-            className="bg-red-500 text-white px-3 py-1 rounded shadow hover:bg-red-700 mr-2"
-          >
-            Yes
-          </button>
-          <button
-            onClick={() => toast.dismiss(t.id)}
-            className="bg-gray-500 text-white px-3 py-1 rounded shadow hover:bg-gray-700"
-          >
-            No
-          </button>
-        </div>
-      </div>
-    ), { duration: 5000 });
+      await axios.delete(`${API_URL}${id}/`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      showToast("Grade criteria deleted successfully!", "success");
+      setGradeCriteria((prev) => prev.filter((g) => g.id !== id));
+    } catch (error) {
+      console.error("Error deleting grade criteria:", error.response || error.message);
+      showToast("Failed to delete grade criteria. Please try again.", "error");
+    }
   };
 
   const handleEditGradeCriteria = (gradeCriteria) => {
@@ -241,22 +233,29 @@ const GradeCriteria = () => {
     fetchSchools();
   }, [pageSize]);
 
+  const permissions = JSON.parse(localStorage.getItem("user_permissions") || "[]");
+  const canAdd = permissions.includes("users.add_gradecriteria");
+  const canEdit = permissions.includes("users.change_gradecriteria");
+  const canDelete = permissions.includes("users.delete_gradecriteria");
+
   const columns = [
+    { label: "Sequence Number", key: "sequence_number" },
     { label: "School Name", key: "school_name" },
     { label: "Grade", key: "grade" },
     { label: "Min Percentage", key: "min_percentage" },
     { label: "Max Percentage", key: "max_percentage" },
   ];
 
-  // Add this near the top (after useState)
-  const permissions = JSON.parse(localStorage.getItem("user_permissions") || "[]");
-  const canAdd = permissions.includes("users.add_gradecriteria");
-  const canEdit = permissions.includes("users.change_gradecriteria");
-  const canDelete = permissions.includes("users.delete_gradecriteria");
-
   return (
     <div>
-      <Toaster position="top-center" reverseOrder={false} />
+      <Toaster
+        message={toaster.message}
+        type={toaster.type}
+        duration={3000}
+        onClose={() => setToaster({ message: "", type: "success" })}
+        onConfirm={toaster.onConfirm}
+        onCancel={toaster.onCancel}
+      />
       <div className="bg-blue-900 text-white py-2 px-6 rounded-md flex justify-between items-center mt-5">
         <h1 className="text-xl font-bold">Manage Grade Criteria</h1>
         {canAdd && (
@@ -392,12 +391,22 @@ const GradeCriteria = () => {
 
         {gradeCriteria.length > 0 ? (
           <div className="mt-6">
-            <Buttons data={gradeCriteria} columns={columns} filename="Grade_Criteria" />
+            <Buttons
+              data={gradeCriteria.map((item, index) => ({
+                "Sequence Number": (currentPage - 1) * pageSize + index + 1,
+                "School Name": item.school_name,
+                "Grade": item.grade,
+                "Min Percentage": item.min_percentage,
+                "Max Percentage": item.max_percentage,
+              }))}
+              columns={columns}
+              filename="Grade_Criteria"
+            />
             <h2 className="text-lg font-semibold text-white bg-blue-900 px-4 py-2 rounded-t-md">Grade Criteria</h2>
             <table className="w-full border-collapse border border-gray-300 bg-white">
               <thead className="bg-gray-200">
                 <tr>
-                  <th className="border border-gray-300 p-2">#ID</th>
+                  <th className="border border-gray-300 p-2">No.</th>
                   <th className="border border-gray-300 p-2">School Name</th>
                   <th className="border border-gray-300 p-2">Grade</th>
                   <th className="border border-gray-300 p-2">Min Percentage</th>
@@ -410,7 +419,6 @@ const GradeCriteria = () => {
               <tbody>
                 {gradeCriteria.map((criteria, index) => (
                   <tr key={criteria.id}>
-                    {/* Sequence Number */}
                     <td className="border border-gray-300 p-2 text-center">
                       {(currentPage - 1) * pageSize + index + 1}
                     </td>
@@ -440,7 +448,9 @@ const GradeCriteria = () => {
             </table>
           </div>
         ) : (
-          <p className="text-center text-gray-500">No grade criteria available.</p>
+          <div className="mt-6 p-6 bg-gray-50 rounded-lg shadow-md border border-gray-200 max-w-4xl mx-auto text-center">
+            <p className="text-gray-500 text-lg font-medium">No grade criteria added yet.</p>
+          </div>
         )}
         <Pagination
           currentPage={currentPage}
@@ -453,55 +463,14 @@ const GradeCriteria = () => {
           onPageSizeChange={(size) => {
             setPageSize(size);
             setCurrentPage(1);
-            fetchParents(1, size);
+            fetchGradeCriteria(1, size);
           }}
           totalItems={gradeCriteria.length}
           showPageSizeSelector={true}
           showPageInfo={true}
         />
-
-        {/* <div className="flex justify-between items-center mt-4">
-          <div className="flex items-center gap-2">
-            <label className="text-sm font-medium text-gray-700">Page Size:</label>
-            <select
-              value={pageSize}
-              onChange={(e) => setPageSize(Number(e.target.value))}
-              className="border rounded px-2 py-1"
-            >
-              {[5, 10, 25, 50].map((size) => (
-                <option key={size} value={size}>{size}</option>
-              ))}
-            </select>
-          </div>
-          <div className="flex gap-2">
-            <button
-              onClick={() => goToPage(currentPage - 1)}
-              disabled={currentPage === 1}
-              className="px-3 py-1 bg-gray-300 rounded disabled:opacity-50"
-            >
-              Prev
-            </button>
-            {[...Array(totalPages)].map((_, index) => (
-              <button
-                key={index}
-                onClick={() => goToPage(index + 1)}
-                className={`px-3 py-1 rounded ${currentPage === index + 1 ? "bg-blue-600 text-white" : "bg-gray-200"}`}
-              >
-                {index + 1}
-              </button>
-            ))}
-            <button
-              onClick={() => goToPage(currentPage + 1)}
-              disabled={currentPage === totalPages}
-              className="px-3 py-1 bg-gray-300 rounded disabled:opacity-50"
-            >
-              Next
-            </button>
-          </div>
-        </div> */}
       </div>
 
-      {/* Click outside to close dropdown */}
       {(showSchoolDropdown || showGradeDropdown) && (
         <div
           className="fixed inset-0 z-5"

@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
-import toast, { Toaster } from "react-hot-toast";
 import Cookies from "js-cookie";
 import Select from "react-select";
+import Toaster from "../../components/Toaster"; // Import the custom Toaster component
 
 export function AdminRegistration() {
   const [formData, setFormData] = useState({
@@ -14,7 +14,15 @@ export function AdminRegistration() {
     role: "",
     class_id: "",
     parent_email: "",
+    profile_picture: null,
   });
+
+  // State for toaster
+  const [toaster, setToaster] = useState({ message: "", type: "success" });
+
+  const showToast = (message, type = "success") => {
+    setToaster({ message, type });
+  };
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -40,59 +48,59 @@ export function AdminRegistration() {
   const customSelectStyles = {
     control: (provided, state) => ({
       ...provided,
-      minHeight: '40px',
-      fontSize: '14px',
-      borderColor: state.isFocused ? '#3b82f6' : '#d1d5db',
-      boxShadow: state.isFocused ? '0 0 0 1px #3b82f6' : 'none',
-      '&:hover': {
-        borderColor: '#9ca3af'
+      minHeight: "40px",
+      fontSize: "14px",
+      borderColor: state.isFocused ? "#3b82f6" : "#d1d5db",
+      boxShadow: state.isFocused ? "0 0 0 1px #3b82f6" : "none",
+      "&:hover": {
+        borderColor: "#9ca3af",
       },
-      '@media (max-width: 640px)': {
-        fontSize: '16px', // Prevents zoom on iOS
-        minHeight: '44px',
-      }
+      "@media (max-width: 640px)": {
+        fontSize: "16px", // Prevents zoom on iOS
+        minHeight: "44px",
+      },
     }),
     placeholder: (provided) => ({
       ...provided,
-      fontSize: '14px',
-      '@media (max-width: 640px)': {
-        fontSize: '14px',
-      }
+      fontSize: "14px",
+      "@media (max-width: 640px)": {
+        fontSize: "14px",
+      },
     }),
     singleValue: (provided) => ({
       ...provided,
-      fontSize: '14px',
-      '@media (max-width: 640px)': {
-        fontSize: '14px',
-      }
+      fontSize: "14px",
+      "@media (max-width: 640px)": {
+        fontSize: "14px",
+      },
     }),
     option: (provided, state) => ({
       ...provided,
-      fontSize: '14px',
-      padding: '8px 12px',
-      '@media (max-width: 640px)': {
-        fontSize: '14px',
-        padding: '10px 12px',
-      }
+      fontSize: "14px",
+      padding: "8px 12px",
+      "@media (max-width: 640px)": {
+        fontSize: "14px",
+        padding: "10px 12px",
+      },
     }),
     menu: (provided) => ({
       ...provided,
       zIndex: 9999,
-      '@media (max-width: 640px)': {
-        fontSize: '14px',
-      }
+      "@media (max-width: 640px)": {
+        fontSize: "14px",
+      },
     }),
     menuPortal: (provided) => ({
       ...provided,
       zIndex: 9999,
-    })
+    }),
   };
 
   const handleRegistration = async (e) => {
     e.preventDefault();
 
     if (!formData.username || !formData.email || !formData.password || !formData.role) {
-      toast.error("All fields are required!");
+      showToast("All fields are required!", "error");
       return;
     }
 
@@ -145,7 +153,7 @@ export function AdminRegistration() {
       const response = await axios.post(API_URL, requestData, { headers });
 
       if (response.status === 201 || response.status === 200) {
-        toast.success("User registered successfully!");
+        showToast("User registered successfully!", "success");
         setFormData({
           username: "",
           first_name: "",
@@ -160,7 +168,7 @@ export function AdminRegistration() {
         window.dispatchEvent(new Event("update_data"));
       }
     } catch (error) {
-      toast.error(error.response?.data?.detail || "Registration failed!");
+      showToast(error.response?.data?.detail || "Registration failed!", "error");
     }
   };
 
@@ -172,7 +180,6 @@ export function AdminRegistration() {
       try {
         const token = Cookies.get("access_token");
         if (!token) {
-          // Only show authentication error if user tries to register
           console.warn("User is not authenticated.");
           return;
         }
@@ -182,17 +189,17 @@ export function AdminRegistration() {
         });
 
         setClassOptions(response.data?.data?.results || []);
-
       } catch (error) {
         console.error("Failed to fetch classes:", error);
-        // Only show error if it's not a 404 or empty result
+        // Suppress toast for non-action errors (e.g., no classes found)
         if (error.response?.status !== 404 && error.response?.status !== 204) {
-          // Check if the error is due to no classes existing
           const errorMessage = error.response?.data?.detail || error.message;
-          if (!errorMessage.toLowerCase().includes('not found') && 
-              !errorMessage.toLowerCase().includes('no classes') &&
-              !errorMessage.toLowerCase().includes('empty')) {
-            toast.error("Failed to load classes.");
+          if (
+            !errorMessage.toLowerCase().includes("not found") &&
+            !errorMessage.toLowerCase().includes("no classes") &&
+            !errorMessage.toLowerCase().includes("empty")
+          ) {
+            showToast("Failed to load classes.", "error");
           }
         }
       }
@@ -202,7 +209,6 @@ export function AdminRegistration() {
       try {
         const token = Cookies.get("access_token");
         if (!token) {
-          // Only show authentication error if user tries to register
           console.warn("User is not authenticated.");
           return;
         }
@@ -213,14 +219,15 @@ export function AdminRegistration() {
         setParentOptions(response.data?.data?.results || []);
       } catch (error) {
         console.error("Failed to fetch parents:", error);
-        // Only show error if it's not a 404 or empty result
+        // Suppress toast for non-action errors (e.g., no parents found)
         if (error.response?.status !== 404 && error.response?.status !== 204) {
-          // Check if the error is due to no parents existing
           const errorMessage = error.response?.data?.detail || error.message;
-          if (!errorMessage.toLowerCase().includes('not found') && 
-              !errorMessage.toLowerCase().includes('no parents') &&
-              !errorMessage.toLowerCase().includes('empty')) {
-            toast.error("Failed to load parents.");
+          if (
+            !errorMessage.toLowerCase().includes("not found") &&
+            !errorMessage.toLowerCase().includes("no parents") &&
+            !errorMessage.toLowerCase().includes("empty")
+          ) {
+            showToast("Failed to load parents.", "error");
           }
         }
       }
@@ -228,21 +235,26 @@ export function AdminRegistration() {
 
     fetchClassOptions();
     fetchParentOptions();
-  }, [formData.role]);
+  }, [formData.role, API]);
 
   const parentOptionsMapped = parentOptions.map((parent) => ({
     value: parent.email,
     label: parent.email,
   }));
 
-  const classOptionsFormatted = (Array.isArray(classOptions) ? classOptions : []).map(cls => ({
+  const classOptionsFormatted = (Array.isArray(classOptions) ? classOptions : []).map((cls) => ({
     value: cls.id,
-    label: `${cls.class_name} - ${cls.section} - ${cls.session}`
+    label: `${cls.class_name} - ${cls.section} - ${cls.session}`,
   }));
 
   return (
-    <div className="min-h-screen ">
-      <Toaster position="top-right" reverseOrder={false} />
+    <div className="min-h-screen">
+      <Toaster
+        message={toaster.message}
+        type={toaster.type}
+        duration={3000}
+        onClose={() => setToaster({ message: "", type: "success" })}
+      />
       <h1 className="bg-blue-900 text-white py-3 px-4 sm:py-4 sm:px-6 text-lg sm:text-xl font-bold mt-7 rounded-lg">
         Register New User
       </h1>
@@ -257,8 +269,8 @@ export function AdminRegistration() {
               <div className="md:col-span-2 lg:col-span-1">
                 <label className="block text-gray-700 font-semibold mb-2">Select Role:</label>
                 <Select
-                  options={roleOptions.filter(option => option.value !== "")}
-                  value={roleOptions.find(opt => opt.value === formData.role) || null}
+                  options={roleOptions.filter((option) => option.value !== "")}
+                  value={roleOptions.find((opt) => opt.value === formData.role) || null}
                   onChange={(selectedOption) => {
                     setFormData({ ...formData, role: selectedOption?.value || "" });
                   }}
@@ -276,28 +288,28 @@ export function AdminRegistration() {
               {/* Username */}
               <div>
                 <label className="block text-gray-700 font-semibold mb-2">Username:</label>
-                <input 
-                  type="text" 
-                  name="username" 
-                  value={formData.username} 
-                  onChange={handleChange} 
-                  required 
-                  className="w-full p-2 sm:p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm sm:text-base" 
-                  placeholder="Enter username" 
+                <input
+                  type="text"
+                  name="username"
+                  value={formData.username}
+                  onChange={handleChange}
+                  required
+                  className="w-full p-2 sm:p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm sm:text-base"
+                  placeholder="Enter username"
                 />
               </div>
 
               {/* Email */}
               <div>
                 <label className="block text-gray-700 font-semibold mb-2">Email:</label>
-                <input 
-                  type="email" 
-                  name="email" 
-                  value={formData.email} 
-                  onChange={handleChange} 
-                  required 
-                  className="w-full p-2 sm:p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm sm:text-base" 
-                  placeholder="Enter email" 
+                <input
+                  type="email"
+                  name="email"
+                  value={formData.email}
+                  onChange={handleChange}
+                  required
+                  className="w-full p-2 sm:p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm sm:text-base"
+                  placeholder="Enter email"
                 />
               </div>
 
@@ -305,14 +317,14 @@ export function AdminRegistration() {
               {(formData.role === "staff" || formData.role === "teacher" || formData.role === "parent" || formData.role === "student") && (
                 <div>
                   <label className="block text-gray-700 font-semibold mb-2">First Name:</label>
-                  <input 
-                    type="text" 
-                    name="first_name" 
-                    value={formData.first_name} 
-                    onChange={handleChange} 
-                    required 
-                    className="w-full p-2 sm:p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm sm:text-base" 
-                    placeholder="Enter first name" 
+                  <input
+                    type="text"
+                    name="first_name"
+                    value={formData.first_name}
+                    onChange={handleChange}
+                    required
+                    className="w-full p-2 sm:p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm sm:text-base"
+                    placeholder="Enter first name"
                   />
                 </div>
               )}
@@ -321,14 +333,14 @@ export function AdminRegistration() {
               {(formData.role === "staff" || formData.role === "teacher" || formData.role === "parent" || formData.role === "student") && (
                 <div>
                   <label className="block text-gray-700 font-semibold mb-2">Last Name:</label>
-                  <input 
-                    type="text" 
-                    name="last_name" 
-                    value={formData.last_name} 
-                    onChange={handleChange} 
-                    required 
-                    className="w-full p-2 sm:p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm sm:text-base" 
-                    placeholder="Enter last name" 
+                  <input
+                    type="text"
+                    name="last_name"
+                    value={formData.last_name}
+                    onChange={handleChange}
+                    required
+                    className="w-full p-2 sm:p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm sm:text-base"
+                    placeholder="Enter last name"
                   />
                 </div>
               )}
@@ -336,14 +348,14 @@ export function AdminRegistration() {
               {/* Password */}
               <div>
                 <label className="block text-gray-700 font-semibold mb-2">Password:</label>
-                <input 
-                  type="password" 
-                  name="password" 
-                  value={formData.password} 
-                  onChange={handleChange} 
-                  required 
-                  className="w-full p-2 sm:p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm sm:text-base" 
-                  placeholder="Enter password" 
+                <input
+                  type="password"
+                  name="password"
+                  value={formData.password}
+                  onChange={handleChange}
+                  required
+                  className="w-full p-2 sm:p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm sm:text-base"
+                  placeholder="Enter password"
                 />
               </div>
 
@@ -369,7 +381,7 @@ export function AdminRegistration() {
                   <label className="block text-gray-700 font-semibold mb-2">Class:</label>
                   <Select
                     options={classOptionsFormatted}
-                    value={classOptionsFormatted.find(opt => opt.value === formData.class_id) || null}
+                    value={classOptionsFormatted.find((opt) => opt.value === formData.class_id) || null}
                     onChange={(selectedOption) => {
                       setFormData({ ...formData, class_id: selectedOption?.value || "" });
                     }}
@@ -393,7 +405,7 @@ export function AdminRegistration() {
                   <label className="block text-gray-700 font-semibold mb-2">Parent Email:</label>
                   <Select
                     options={parentOptionsMapped}
-                    value={parentOptionsMapped.find(opt => opt.value === formData.parent_email) || null}
+                    value={parentOptionsMapped.find((opt) => opt.value === formData.parent_email) || null}
                     onChange={(selectedOption) =>
                       setFormData({ ...formData, parent_email: selectedOption ? selectedOption.value : "" })
                     }
@@ -413,8 +425,8 @@ export function AdminRegistration() {
             </div>
 
             {/* Submit Button */}
-            <button 
-              type="submit" 
+            <button
+              type="submit"
               className="w-full bg-blue-600 text-white py-2 sm:py-3 px-4 rounded-md shadow-md hover:bg-blue-700 transition-colors duration-200 mt-6 sm:mt-8 text-sm sm:text-base font-semibold"
             >
               Register {formData.role || "User"}

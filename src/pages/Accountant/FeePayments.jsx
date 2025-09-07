@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
 import Cookies from "js-cookie";
-import toast, { Toaster } from "react-hot-toast";
 import { MdDelete, MdVisibility } from "react-icons/md";
 import { Buttons } from "../../components";
 import Select from "react-select";
 import Pagination from "../../components/Pagination";
+import Toaster from "../../components/Toaster";
 
 const FeePayments = () => {
     const [students, setStudents] = useState([]);
@@ -29,10 +29,15 @@ const FeePayments = () => {
     const [totalPages, setTotalPages] = useState(1);
     const [isLoadingStudents, setIsLoadingStudents] = useState(false);
     const [isLoadingFees, setIsLoadingFees] = useState(false);
+    const [toaster, setToaster] = useState({ message: '', type: 'success' });
 
     const API = import.meta.env.VITE_SERVER_URL;
     const API_URL = `${API}fee-payments/`;
     const STUDENT_FEES_URL = `${API}student-fees/`;
+
+    const showToast = (message, type = 'success') => {
+        setToaster({ message, type });
+    };
 
     const isValidUUID = (str) => {
         const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -53,7 +58,7 @@ const FeePayments = () => {
             const studentData = res.data?.data?.results || res.data.results || [];
             setStudents(studentData);
             if (studentData.length === 0) {
-                toast.error("No students found. Using default data.");
+                showToast("No students found. Using default data.", "error");
                 setStudents([
                     { uuid: "123e4567-e89b-12d3-a456-426614174000", first_name: "John", last_name: "Doe" },
                     { uuid: "987fcdeb-12ab-34cd-56ef-426614174001", first_name: "Jane", last_name: "Smith" }
@@ -62,15 +67,15 @@ const FeePayments = () => {
         } catch (error) {
             console.error("Error fetching students:", error);
             if (error.response?.status === 404) {
-                toast.error("Student endpoint not found. Using default data.");
+                showToast("Student endpoint not found. Using default data.", "error");
                 setStudents([
                     { uuid: "123e4567-e89b-12d3-a456-426614174000", first_name: "John", last_name: "Doe" },
                     { uuid: "987fcdeb-12ab-34cd-56ef-426614174001", first_name: "Jane", last_name: "Smith" }
                 ]);
             } else if (error.response?.status === 401) {
-                toast.error("Unauthorized. Please log in again.");
+                showToast("Unauthorized. Please log in again.", "error");
             } else {
-                toast.error("Failed to fetch students.");
+                showToast("Failed to fetch students.", "error");
             }
         } finally {
             setIsLoadingStudents(false);
@@ -92,7 +97,7 @@ const FeePayments = () => {
             const result = Array.isArray(res.data.data) ? res.data.data : res.data.results || [];
             setStudentFees(result);
             if (result.length === 0) {
-                toast.error("No fees found for selected student. Using default data.");
+                showToast("No fees found for selected student. Using default data.", "error");
                 setStudentFees([
                     { uuid: "c5214007-a286-4a65-bdf9-9cf7b7aa8fb9", fee_type: "Registration Fee", net_payable: 1000, is_paid: false },
                     { uuid: "d6225118-b397-4b76-ce0a-ad08c9bb9fc0", fee_type: "Tuition", net_payable: 5000, is_paid: false }
@@ -101,15 +106,15 @@ const FeePayments = () => {
         } catch (error) {
             console.error("Error fetching fees:", error.response?.data);
             if (error.response?.status === 404) {
-                toast.error("Student fee endpoint not found. Using default data.");
+                showToast("Student fee endpoint not found. Using default data.", "error");
                 setStudentFees([
                     { uuid: "c5214007-a286-4a65-bdf9-9cf7b7aa8fb9", fee_type: "Registration Fee", net_payable: 1000, is_paid: false },
                     { uuid: "d6225118-b397-4b76-ce0a-ad08c9bb9fc0", fee_type: "Tuition", net_payable: 5000, is_paid: false }
                 ]);
             } else if (error.response?.status === 401) {
-                toast.error("Unauthorized. Please log in again.");
+                showToast("Unauthorized. Please log in again.", "error");
             } else {
-                toast.error(error.response?.data?.message || "Failed to fetch selected student's fee types.");
+                showToast(error.response?.data?.message || "Failed to fetch selected student's fee types.", "error");
                 setStudentFees([]);
             }
         } finally {
@@ -137,9 +142,9 @@ const FeePayments = () => {
         } catch (error) {
             console.error("Error fetching payments:", error);
             if (error.response?.status === 404) {
-                toast.error("Payment records endpoint not found.");
+                showToast("Payment records endpoint not found.", "error");
             } else {
-                toast.error("Failed to fetch payment records.");
+                showToast("Failed to fetch payment records.", "error");
             }
         }
     };
@@ -173,12 +178,12 @@ const FeePayments = () => {
         } = formData;
 
         if (!student_id || !student_fee_id || !amount_paid || !payment_date || !payment_method) {
-            toast.error("All required fields are required.");
+            showToast("All required fields are required.", "error");
             return;
         }
 
         if (!isValidUUID(student_id) || !isValidUUID(student_fee_id)) {
-            toast.error("Invalid UUID format for student or fee.");
+            showToast("Invalid UUID format for student or fee.", "error");
             return;
         }
 
@@ -204,12 +209,12 @@ const FeePayments = () => {
                 const res = await axios.put(`${API_URL}${editingPaymentId}/`, payload, {
                     headers: { Authorization: `Bearer ${token}` },
                 });
-                toast.success(res.data.message || "Payment updated successfully!");
+                showToast(res.data.message || "Payment updated successfully!", "success");
             } else {
                 const res = await axios.post(API_URL, payload, {
                     headers: { Authorization: `Bearer ${token}` },
                 });
-                toast.success(res.data.message || "Payment created successfully!");
+                showToast(res.data.message || "Payment created successfully!", "success");
             }
             fetchPayments();
             if (formData.student_id) getStudentFeeById(formData.student_id);
@@ -217,48 +222,42 @@ const FeePayments = () => {
         } catch (error) {
             console.error("Error saving payment:", error.response?.data);
             if (error.response?.status === 404) {
-                toast.error("Payment endpoint not found or student/fee ID is invalid.");
+                showToast("Payment endpoint not found or student/fee ID is invalid.", "error");
             } else if (error.response?.status === 400 && error.response?.data?.message) {
-                toast.error(error.response.data.message);
+                showToast(error.response.data.message, "error");
             } else {
-                toast.error(error.response?.data?.message || "Failed to save payment.");
+                showToast(error.response?.data?.message || "Failed to save payment.", "error");
             }
         }
     };
 
     const handleDelete = (id) => {
-        toast.custom((t) => (
-            <div className="bg-white p-2 rounded shadow-lg border w-72">
-                <p className="text-gray-800 mb-1 text-xs">Are you sure you want to delete?</p>
-                <div className="flex justify-end gap-1">
-                    <button
-                        onClick={async () => {
-                            try {
-                                const token = Cookies.get("access_token");
-                                await axios.delete(`${API_URL}${id}/`, {
-                                    headers: { Authorization: `Bearer ${token}` },
-                                });
-                                toast.dismiss(t.id);
-                                toast.success("Payment deleted.");
-                                fetchPayments();
-                            } catch (error) {
-                                console.error("Error deleting payment:", error.response?.data);
-                                toast.error("Delete failed.");
-                            }
-                        }}
-                        className="px-2 py-1 bg-red-600 text-white rounded text-xs hover:bg-red-700"
-                    >
-                        Yes
-                    </button>
-                    <button
-                        onClick={() => toast.dismiss(t.id)}
-                        className="px-2 py-1 bg-gray-300 text-gray-800 rounded text-xs hover:bg-gray-400"
-                    >
-                        No
-                    </button>
-                </div>
-            </div>
-        ));
+        if (!canDelete) {
+            showToast("You do not have permission to delete fee payments.", "error");
+            return;
+        }
+
+        showToast(
+            {
+                message: "Are you sure you want to delete?",
+                type: "confirm",
+                onConfirm: async () => {
+                    try {
+                        const token = Cookies.get("access_token");
+                        await axios.delete(`${API_URL}${id}/`, {
+                            headers: { Authorization: `Bearer ${token}` },
+                        });
+                        showToast("Payment deleted.", "success");
+                        fetchPayments();
+                    } catch (error) {
+                        console.error("Error deleting payment:", error.response?.data);
+                        showToast("Delete failed.", "error");
+                    }
+                },
+                onCancel: () => setToaster({ message: "", type: "success" })
+            },
+            "confirm"
+        );
     };
 
     useEffect(() => {
@@ -292,7 +291,14 @@ const FeePayments = () => {
 
     return (
         <div className="p-2">
-            <Toaster position="top-center" />
+            <Toaster
+                message={toaster.message}
+                type={toaster.type}
+                duration={3000}
+                onClose={() => setToaster({ message: "", type: "success" })}
+                onConfirm={toaster.onConfirm}
+                onCancel={toaster.onCancel}
+            />
             <div className="bg-blue-900 text-white py-1 px-2 rounded-md flex justify-between items-center mt-2">
                 <h1 className="text-lg font-bold">Manage Fee Payments</h1>
                 {canAdd && (

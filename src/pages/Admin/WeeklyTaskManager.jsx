@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from "react";
 import Cookies from "js-cookie";
 import axios from "axios";
-import toast, { Toaster } from "react-hot-toast";
 import { MdEdit, MdDelete, MdVisibility } from "react-icons/md";
 import { Buttons } from '../../components';
 import Select from "react-select";
 import Pagination from "../../components/Pagination";
+import Toaster from "../../components/Toaster";
 
 const WeeklyTaskManager = () => {
   const [showModal, setShowModal] = useState(false);
@@ -26,6 +26,8 @@ const WeeklyTaskManager = () => {
     teacher: "",
   });
   const [isTeachersLoaded, setIsTeachersLoaded] = useState(false);
+  const [toaster, setToaster] = useState({ message: '', type: 'success' });
+  const [isLoading, setIsLoading] = useState(true);
 
   const API = import.meta.env.VITE_SERVER_URL;
   const API_URL = `${API}faculty-tasks/`;
@@ -38,6 +40,10 @@ const WeeklyTaskManager = () => {
     };
   };
 
+  const showToast = (message, type = 'success') => {
+    setToaster({ message, type });
+  };
+
   const fetchTeachers = async () => {
     try {
       const res = await axios.get(TEACHER_API_URL, { headers: authHeaders() });
@@ -46,7 +52,6 @@ const WeeklyTaskManager = () => {
 
       const normalized = list
         .map(t => {
-          // Use profile_id as the UUID, as per the API response
           const teacherUUID = t.profile_id;
           const teacherLabel =
             `${t.first_name || ''} ${t.last_name || ''}`.trim() ||
@@ -68,24 +73,25 @@ const WeeklyTaskManager = () => {
             originalData: t,
           };
         })
-        .filter(t => t.value && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(t.value)); // Only include valid UUIDs
+        .filter(t => t.value && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(t.value));
 
       console.log("Normalized teachers:", normalized);
       setTeachers(normalized);
       setIsTeachersLoaded(true);
       if (normalized.length === 0) {
-        toast.error("No valid teachers found with UUIDs.");
+        showToast("No valid teachers found with UUIDs.", "error");
       }
       return normalized;
     } catch (e) {
       console.error("Error fetching teachers:", e.response?.data || e.message);
-      toast.error(e.response?.data?.message || "Failed to load teachers.");
+      showToast(e.response?.data?.message || "Failed to load teachers.", "error");
       setIsTeachersLoaded(true);
       return [];
     }
   };
 
   const fetchTasks = async () => {
+    setIsLoading(true);
     try {
       const response = await axios.get(`${API_URL}?page=${page}&page_size=${pageSize}`, {
         headers: authHeaders(),
@@ -96,11 +102,13 @@ const WeeklyTaskManager = () => {
         setTasks(Array.isArray(results) ? results : []);
         setTotalPages(total_pages || 1);
       } else {
-        toast.error("Unexpected API response format.");
+        showToast("Unexpected API response format.", "error");
       }
     } catch (error) {
       console.error("Task fetch error:", error.response?.data || error.message);
-      toast.error(error.response?.data?.message || "Failed to fetch tasks.");
+      showToast(error.response?.data?.message || "Failed to fetch tasks.", "error");
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -115,7 +123,7 @@ const WeeklyTaskManager = () => {
 
   const handleSaveTask = async () => {
     if (!newTask.title || !newTask.description || !newTask.start_date || !newTask.due_date || !newTask.teacher) {
-      toast.error("All fields are required!");
+      showToast("All fields are required!", "error");
       return;
     }
 
@@ -132,14 +140,14 @@ const WeeklyTaskManager = () => {
 
       const selectedTeacher = teachers.find(t => t.value === newTask.teacher);
       if (!selectedTeacher?.value) {
-        toast.error("Please select a valid teacher.");
+        showToast("Please select a valid teacher.", "error");
         return;
       }
       const teacherUUID = selectedTeacher.value;
 
       const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
       if (!uuidRegex.test(teacherUUID)) {
-        toast.error("Selected teacher ID is not a valid UUID.");
+        showToast("Selected teacher ID is not a valid UUID.", "error");
         console.error("Invalid teacher UUID:", teacherUUID, selectedTeacher);
         return;
       }
@@ -200,10 +208,10 @@ const WeeklyTaskManager = () => {
           setTasks((prev) =>
             prev.map((task) => (task.id === updatedTask.id ? updatedTask : task))
           );
-          toast.success("Task updated successfully!");
+          showToast("Task updated successfully!", "success");
         } else {
           setTasks((prev) => [updatedTask, ...prev]);
-          toast.success("Task created successfully!");
+          showToast("Task created successfully!", "success");
         }
         await fetchTasks();
       }
@@ -232,50 +240,36 @@ const WeeklyTaskManager = () => {
         error.response?.data?.message ||
         error.response?.data?.error ||
         "Failed to save task.";
-      toast.error(errorMessage);
+      showToast(errorMessage, "error");
     }
   };
 
   const handleDeleteTask = (id) => {
     if (!canDelete) {
-      toast.error("You do not have permission to delete faculty tasks.");
+      showToast("You do not have permission to delete faculty tasks.", "error");
       return;
     }
 
-    toast(
-      (t) => (
-        <div>
-          <p className="text-gray-800">Are you sure you want to delete this task?</p>
-          <div className="flex justify-end mt-2 gap-2">
-            <button
-              onClick={async () => {
-                try {
-                  await axios.delete(`${API_URL}${id}/`, {
-                    headers: authHeaders(),
-                  });
-                  toast.success("Task deleted successfully!");
-                  setTasks((prevTasks) =>
-                    prevTasks.filter((task) => task.id !== id)
-                  );
-                } catch (error) {
-                  toast.error(error.response?.data?.message || "Failed to delete task.");
-                }
-                toast.dismiss(t.id);
-              }}
-              className="bg-red-500 text-white px-4 py-2 rounded-md hover:bg-red-700"
-            >
-              Yes
-            </button>
-            <button
-              onClick={() => toast.dismiss(t.id)}
-              className="bg-gray-300 text-black px-4 py-2 rounded-md hover:bg-gray-400"
-            >
-              No
-            </button>
-          </div>
-        </div>
-      ),
-      { duration: 5000 }
+    showToast(
+      {
+        message: "Are you sure you want to delete this task?",
+        type: "confirm",
+        onConfirm: async () => {
+          try {
+            await axios.delete(`${API_URL}${id}/`, {
+              headers: authHeaders(),
+            });
+            showToast("Task deleted successfully!", "success");
+            setTasks((prevTasks) =>
+              prevTasks.filter((task) => task.id !== id)
+            );
+          } catch (error) {
+            showToast(error.response?.data?.message || "Failed to delete task.", "error");
+          }
+        },
+        onCancel: () => setToaster({ message: "", type: "success" })
+      },
+      "confirm"
     );
   };
 
@@ -337,9 +331,48 @@ const WeeklyTaskManager = () => {
   const canEdit = permissions.includes("users.change_facultytask");
   const canDelete = permissions.includes("users.delete_facultytask");
 
+  // No Tasks Empty State Component
+  const NoTasksMessage = () => (
+    <div className="flex flex-col items-center justify-center py-16 px-4 text-center bg-gradient-to-br from-blue-50 to-indigo-100 rounded-lg border-2 border-dashed border-blue-300 mx-2 mt-4">
+      <div className="w-24 h-24 mb-6 text-blue-300">
+        <svg viewBox="0 0 24 24" fill="currentColor" className="w-full h-full">
+          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6z"/>
+          <polyline points="14,2 14,8 20,8"/>
+          <line x1="16" y1="13" x2="8" y2="13"/>
+          <line x1="16" y1="17" x2="8" y2="17"/>
+          <polyline points="10,9 9,9 8,9"/>
+        </svg>
+      </div>
+      
+      <h3 className="text-xl font-bold text-blue-800 mb-2">No Tasks Yet</h3>
+      <p className="text-blue-600 mb-4 max-w-md">
+        You haven't created any weekly tasks yet. Start by adding your first task to get organized!
+      </p>
+      
+      {canAdd && (
+        <button
+          onClick={handleToggleForm}
+          className="flex items-center px-4 py-2 bg-blue-600 text-white font-semibold rounded-lg shadow-md hover:bg-blue-700 transition-colors duration-200"
+        >
+          <div className="flex items-center justify-center w-6 h-6 bg-white/20 rounded-full mr-2">
+            <span className="text-white text-base font-bold">+</span>
+          </div>
+          Create Your First Task
+        </button>
+      )}
+    </div>
+  );
+
   return (
     <div className="p-2">
-      <Toaster position="top-center" reverseOrder={false} />
+      <Toaster
+        message={toaster.message}
+        type={toaster.type}
+        duration={3000}
+        onClose={() => setToaster({ message: "", type: "success" })}
+        onConfirm={toaster.onConfirm}
+        onCancel={toaster.onCancel}
+      />
       <div className="bg-blue-900 text-white py-1 px-2 rounded-md flex justify-between items-center mt-2">
         <h1 className="text-lg font-bold">Weekly Task Manager</h1>
         {canAdd && (
@@ -468,114 +501,134 @@ const WeeklyTaskManager = () => {
         </div>
       )}
 
-      <div className="p-2">
-        <Buttons
-          data={tasks.map((task) => ({
-            ID: task.id,
-            Title: task.title,
-            Description: task.description,
-            Teacher: getTeacherNames(task.teachers),
-            "Start Date": task.start_date?.split("T")[0] || "—",
-            "Due Date": task.due_date?.split("T")[0] || "—",
-            File: task.file ? "Attached" : "No File",
-          }))}
-          columns={[
-            { label: "ID", key: "ID" },
-            { label: "Title", key: "Title" },
-            { label: "Description", key: "Description" },
-            { label: "Teacher", key: "Teacher" },
-            { label: "Start Date", key: "Start Date" },
-            { label: "Due Date", key: "Due Date" },
-            { label: "File", key: "File" },
-          ]}
-          filename="Weekly_Tasks_Report"
-        />
-
-        <div className="overflow-x-auto">
-          <table className="w-full border-collapse border border-gray-300 bg-white mt-2 min-w-[400px]">
-            <thead className="bg-blue-900 text-white">
-              <tr>
-                <th className="border border-gray-300 p-0.5 text-center text-xs">#</th>
-                <th className="border border-gray-300 p-0.5 text-center text-xs">Title</th>
-                <th className="border border-gray-300 p-0.5 text-center text-xs">Teacher</th>
-                <th className="border border-gray-300 p-0.5 text-center text-xs">Start</th>
-                <th className="border border-gray-300 p-0.5 text-center text-xs">Due</th>
-                <th className="border border-gray-300 p-0.5 text-center text-xs">File</th>
-                {(canEdit || canDelete) && <th className="border border-gray-300 p-0.5 text-center text-xs">Actions</th>}
-              </tr>
-            </thead>
-            <tbody>
-              {tasks.map((task, index) => (
-                <tr key={task.id}>
-                  <td className="border border-gray-300 p-0.5 text-center text-xs">
-                    {(page - 1) * pageSize + index + 1}
-                  </td>
-                  <td className="border border-gray-300 p-0.5 text-xs">
-                    <span className="block max-w-[150px] truncate" title={task.title}>
-                      {task.title}
-                    </span>
-                  </td>
-                  <td className="border border-gray-300 p-0.5 text-xs">{getTeacherNames(task.teachers)}</td>
-                  <td className="border border-gray-300 p-0.5 text-center text-xs">
-                    {task.start_date?.split("T")[0] || "N/A"}
-                  </td>
-                  <td className="border border-gray-300 p-0.5 text-center text-xs">
-                    {task.due_date?.split("T")[0] || "N/A"}
-                  </td>
-                  <td className="border border-gray-300 p-0.5 text-xs">
-                    {task.file ? (
-                      <a
-                        href={task.file}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-blue-500 hover:underline text-xs"
-                      >
-                        Download
-                      </a>
-                    ) : "No File"}
-                  </td>
-                  {(canEdit || canDelete) && (
-                    <td className="border border-gray-300 p-0.5 flex justify-center gap-1 text-xs">
-                      <MdVisibility
-                        onClick={() => handleViewTask(task)}
-                        className="text-blue-500 cursor-pointer hover:text-blue-700"
-                        size={18}
-                      />
-                      {canEdit && (
-                        <MdEdit
-                          onClick={() => handleEditTask(task)}
-                          className="text-yellow-500 cursor-pointer hover:text-yellow-700"
-                          size={18}
-                        />
-                      )}
-                      {canDelete && (
-                        <MdDelete
-                          onClick={() => handleDeleteTask(task.id)}
-                          className="text-red-500 cursor-pointer hover:text-red-700"
-                          size={18}
-                        />
-                      )}
-                    </td>
-                  )}
-                </tr>
-              ))}
-            </tbody>
-          </table>
+      {/* Show loading state */}
+      {isLoading ? (
+        <div className="flex items-center justify-center py-16">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+          <span className="ml-3 text-gray-600">Loading tasks...</span>
         </div>
-        <Pagination
-          currentPage={page}
-          totalPages={totalPages}
-          pageSize={pageSize}
-          onPageChange={(newPage) => setPage(newPage)}
-          onPageSizeChange={(size) => {
-            setPageSize(size);
-            setPage(1);
-          }}
-          totalItems={tasks.length}
-          showPageSizeSelector={true}
-          showPageInfo={true}
-        />
-      </div>
+      ) : (
+        <div className="p-2">
+          {/* Show no tasks message if tasks array is empty */}
+          {tasks.length === 0 ? (
+            <NoTasksMessage />
+          ) : (
+            <>
+              <Buttons
+                data={tasks.map((task) => ({
+                  ID: task.id,
+                  Title: task.title,
+                  Description: task.description,
+                  Teacher: getTeacherNames(task.teachers),
+                  "Start Date": task.start_date?.split("T")[0] || "—",
+                  "Due Date": task.due_date?.split("T")[0] || "—",
+                  File: task.file ? "Attached" : "No File",
+                }))}
+                columns={[
+                  { label: "ID", key: "ID" },
+                  { label: "Title", key: "Title" },
+                  { label: "Description", key: "Description" },
+                  { label: "Teacher", key: "Teacher" },
+                  { label: "Start Date", key: "Start Date" },
+                  { label: "Due Date", key: "Due Date" },
+                  { label: "File", key: "File" },
+                ]}
+                filename="Weekly_Tasks_Report"
+              />
+
+              <div className="overflow-x-auto">
+                <table className="w-full border-collapse border border-gray-300 bg-white mt-2 min-w-[400px]">
+                  <thead className="bg-blue-900 text-white">
+                    <tr>
+                      <th className="border border-gray-300 p-0.5 text-center text-xs">#</th>
+                      <th className="border border-gray-300 p-0.5 text-center text-xs">Title</th>
+                      <th className="border border-gray-300 p-0.5 text-center text-xs">Teacher</th>
+                      <th className="border border-gray-300 p-0.5 text-center text-xs">Start</th>
+                      <th className="border border-gray-300 p-0.5 text-center text-xs">Due</th>
+                      <th className="border border-gray-300 p-0.5 text-center text-xs">File</th>
+                      {(canEdit || canDelete) && <th className="border border-gray-300 p-0.5 text-center text-xs">Actions</th>}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {tasks.map((task, index) => (
+                      <tr key={task.id}>
+                        <td className="border border-gray-300 p-0.5 text-center text-xs">
+                          {(page - 1) * pageSize + index + 1}
+                        </td>
+                        <td className="border border-gray-300 p-0.5 text-xs">
+                          <span className="block max-w-[150px] truncate" title={task.title}>
+                            {task.title}
+                          </span>
+                        </td>
+                        <td className="border border-gray-300 p-0.5 text-xs">{getTeacherNames(task.teachers)}</td>
+                        <td className="border border-gray-300 p-0.5 text-center text-xs">
+                          {task.start_date?.split("T")[0] || "N/A"}
+                        </td>
+                        <td className="border border-gray-300 p-0.5 text-center text-xs">
+                          {task.due_date?.split("T")[0] || "N/A"}
+                        </td>
+                        <td className="border border-gray-300 p-0.5 text-xs">
+                          {task.file ? (
+                            <a
+                              href={task.file}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-blue-500 hover:underline text-xs"
+                            >
+                              Download
+                            </a>
+                          ) : "No File"}
+                        </td>
+                        {(canEdit || canDelete) && (
+                          <td className="border border-gray-300 p-0.5 flex justify-center gap-1 text-xs">
+                            <MdVisibility
+                              onClick={() => handleViewTask(task)}
+                              className="text-blue-500 cursor-pointer hover:text-blue-700"
+                              size={18}
+                            />
+                            {canEdit && (
+                              <MdEdit
+                                onClick={() => handleEditTask(task)}
+                                className="text-yellow-500 cursor-pointer hover:text-yellow-700"
+                                size={18}
+                              />
+                            )}
+                            {canDelete && (
+                              <MdDelete
+                                onClick={() => handleDeleteTask(task.id)}
+                                className="text-red-500 cursor-pointer hover:text-red-700"
+                                size={18}
+                              />
+                            )}
+                          </td>
+                        )}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              
+              <Pagination
+                currentPage={page}
+                totalPages={totalPages}
+                pageSize={pageSize}
+                onPageChange={(newPage) => {
+                  setPage(newPage);
+                  fetchTasks();
+                }}
+                onPageSizeChange={(size) => {
+                  setPageSize(size);
+                  setPage(1);
+                  fetchTasks();
+                }}
+                totalItems={tasks.length}
+                showPageSizeSelector={true}
+                showPageInfo={true}
+              />
+            </>
+          )}
+        </div>
+      )}
 
       {selectedTask && (
         <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 px-2">

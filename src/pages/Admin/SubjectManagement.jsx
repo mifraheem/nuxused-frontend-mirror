@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
 import Cookies from "js-cookie";
-import toast, { Toaster } from "react-hot-toast";
 import { MdEdit, MdDelete } from "react-icons/md";
 import { Buttons } from '../../components';
 import Pagination from "../../components/Pagination";
+import Toaster from "../../components/Toaster"; // Import custom Toaster component
 
 const SubjectManagement = () => {
   const [subjects, setSubjects] = useState([]);
@@ -16,17 +16,59 @@ const SubjectManagement = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [pageSize, setPageSize] = useState(10);
+  const [toaster, setToaster] = useState({ message: "", type: "success" });
+  const [confirmResolve, setConfirmResolve] = useState(null);
 
   const API = import.meta.env.VITE_SERVER_URL;
-
   const API_URL = `${API}subjects/`;
+
+  const showToast = (message, type = "success") => {
+    setToaster({ message, type });
+  };
+
+  const confirmToast = (message = "Are you sure you want to delete this subject?") => {
+    return new Promise((resolve) => {
+      setConfirmResolve(() => resolve); // Store the resolve function
+      setToaster({
+        message: (
+          <div className="flex flex-col gap-4">
+            <p className="text-lg font-medium">{message}</p>
+            <div className="flex justify-end gap-2">
+              <button
+                onClick={() => {
+                  setToaster({ message: "", type: "success" });
+                  resolve(true);
+                }}
+                className="px-3 py-1.5 rounded-md bg-red-600 text-white text-sm hover:bg-red-700"
+              >
+                Yes
+              </button>
+              <button
+                onClick={() => {
+                  setToaster({ message: "", type: "success" });
+                  resolve(false);
+                }}
+                className="px-3 py-1.5 rounded-md border border-gray-300 text-sm hover:bg-gray-50"
+              >
+                No
+              </button>
+            </div>
+          </div>
+        ),
+        type: "confirmation",
+      });
+    });
+  };
 
   const fetchSubjects = async (page = 1, size = pageSize) => {
     setLoading(true);
     setError(null);
     try {
       const token = Cookies.get("access_token");
-      if (!token) throw new Error("User is not authenticated.");
+      if (!token) {
+        showToast("User is not authenticated.", "error");
+        return;
+      }
       const response = await axios.get(`${API_URL}?page=${page}&page_size=${size}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -40,7 +82,7 @@ const SubjectManagement = () => {
     } catch (error) {
       console.error("Error fetching subjects:", error.response || error.message);
       setError("Failed to fetch subjects. Please try again later.");
-      toast.error("Failed to fetch subjects.");
+      showToast("Failed to fetch subjects.", "error");
     } finally {
       setLoading(false);
     }
@@ -48,19 +90,22 @@ const SubjectManagement = () => {
 
   const handleSaveSubject = async () => {
     if (!newSubject.subject_name || !newSubject.course_code) {
-      toast.error("All fields are required!");
+      showToast("All fields are required!", "error");
       return;
     }
     try {
       const token = Cookies.get("access_token");
-      if (!token) throw new Error("User is not authenticated.");
+      if (!token) {
+        showToast("User is not authenticated.", "error");
+        return;
+      }
       const url = editSubject ? `${API_URL}${editSubject.id}/` : API_URL;
       const method = editSubject ? "put" : "post";
       const response = await axios[method](url, newSubject, {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (response.status === 201 || response.status === 200) {
-        toast.success(`Subject ${editSubject ? "updated" : "created"} successfully!`);
+        showToast(`Subject ${editSubject ? "updated" : "created"} successfully!`, "success");
         fetchSubjects();
         setNewSubject({ subject_name: "", course_code: "" });
         setEditSubject(null);
@@ -70,53 +115,39 @@ const SubjectManagement = () => {
       }
     } catch (error) {
       console.error("Error saving subject:", error.response || error.message);
-      toast.error("Failed to save subject. Please try again.");
+      showToast("Failed to save subject. Please try again.", "error");
     }
   };
 
-  const handleDeleteSubject = (id) => {
+  const handleDeleteSubject = async (id) => {
     if (!canDelete) {
-      toast.error("You do not have permission to delete subjects.");
+      showToast("You do not have permission to delete subjects.", "error");
       return;
     }
 
-    toast((t) => (
-      <div>
-        <p className="text-gray-600">Are you sure you want to delete this subject?</p>
-        <div className="flex justify-end mt-2">
-          <button
-            onClick={async () => {
-              try {
-                const token = Cookies.get("access_token");
-                if (!token) return toast.error("User is not authenticated.");
-                await axios.delete(`${API_URL}${id}/`, {
-                  headers: { Authorization: `Bearer ${token}` },
-                });
-                toast.success("Subject deleted successfully!");
-                fetchSubjects(currentPage);
-                toast.dismiss(t.id);
-              } catch (error) {
-                console.error("Error deleting subject:", error.response || error.message);
-                toast.error("Failed to delete subject.");
-              }
-            }}
-            className="bg-red-500 text-white px-3 py-1 rounded shadow hover:bg-red-700 mr-2"
-          >
-            Yes
-          </button>
-          <button
-            onClick={() => toast.dismiss(t.id)}
-            className="bg-gray-500 text-white px-3 py-1 rounded shadow hover:bg-gray-700"
-          >
-            No
-          </button>
-        </div>
-      </div>
-    ));
+    const ok = await confirmToast("Are you sure you want to delete this subject?");
+    if (ok) {
+      try {
+        const token = Cookies.get("access_token");
+        if (!token) {
+          showToast("User is not authenticated.", "error");
+          return;
+        }
+        await axios.delete(`${API_URL}${id}/`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        showToast("Subject deleted successfully!", "success");
+        fetchSubjects(currentPage);
+      } catch (error) {
+        console.error("Error deleting subject:", error.response || error.message);
+        showToast("Failed to delete subject.", "error");
+      }
+    }
   };
 
-
-  useEffect(() => { fetchSubjects(1, pageSize); }, [pageSize]);
+  useEffect(() => {
+    fetchSubjects(1, pageSize);
+  }, [pageSize]);
 
   const goToPage = (page) => {
     if (page >= 1 && page <= totalPages) fetchSubjects(page, pageSize);
@@ -128,15 +159,18 @@ const SubjectManagement = () => {
   ];
 
   const permissions = JSON.parse(localStorage.getItem("user_permissions") || "[]");
-
   const canAdd = permissions.includes("users.add_subject");
   const canEdit = permissions.includes("users.change_subject");
   const canDelete = permissions.includes("users.delete_subject");
 
-
   return (
     <div>
-      <Toaster position="top-center" reverseOrder={false} />
+      <Toaster
+        message={toaster.message}
+        type={toaster.type}
+        duration={3000}
+        onClose={() => setToaster({ message: "", type: "success" })}
+      />
       <div className="bg-blue-900 text-white py-2 px-6 rounded-md flex justify-between items-center mt-5">
         <h1 className="text-xl font-bold">Subject Management</h1>
         {canAdd && (
@@ -156,7 +190,6 @@ const SubjectManagement = () => {
             {showForm ? "Close Form" : "Add Subject"}
           </button>
         )}
-
       </div>
 
       <div className="p-6">
@@ -201,8 +234,11 @@ const SubjectManagement = () => {
           </div>
         )}
 
-
-        {loading ? <p className="text-center text-gray-500">Loading...</p> : error ? <p className="text-center text-red-500">{error}</p> : subjects.length > 0 ? (
+        {loading ? (
+          <p className="text-center text-gray-500">Loading...</p>
+        ) : error ? (
+          <p className="text-center text-red-500">{error}</p>
+        ) : subjects.length > 0 ? (
           <div className="mt-6">
             <Buttons data={subjects} columns={columns} filename="Subjects" />
             <h2 className="text-lg font-semibold text-white bg-blue-900 px-4 py-2 rounded-t-md">Subjects</h2>
@@ -212,20 +248,20 @@ const SubjectManagement = () => {
                   <th className="border border-gray-300 p-2">#ID</th>
                   <th className="border border-gray-300 p-2">Subject Name</th>
                   <th className="border border-gray-300 p-2">Course Code</th>
-                  {(canEdit || canDelete) && <th className="border border-gray-300 p-2">Actions</th>}
-
+                  {(canEdit || canDelete) && (
+                    <th className="border border-gray-300 p-2">Actions</th>
+                  )}
                 </tr>
               </thead>
               <tbody>
                 {subjects.map((subject, index) => (
                   <tr className="text-center" key={subject.id}>
-                    {/* Sequence Number */}
                     <td className="border border-gray-300 p-2">
                       {(currentPage - 1) * pageSize + index + 1}
                     </td>
                     <td className="border border-gray-300 p-2">{subject.subject_name}</td>
                     <td className="border border-gray-300 p-2">{subject.course_code}</td>
-                    {(canEdit || canDelete) &&
+                    {(canEdit || canDelete) && (
                       <td className="border border-gray-300 p-2 flex justify-center">
                         {canEdit && (
                           <MdEdit
@@ -244,7 +280,7 @@ const SubjectManagement = () => {
                           />
                         )}
                       </td>
-                    }
+                    )}
                   </tr>
                 ))}
               </tbody>
@@ -263,12 +299,12 @@ const SubjectManagement = () => {
               showPageSizeSelector={true}
               showPageInfo={true}
             />
-
-
           </div>
-        ) : <p className="text-center text-gray-500">No subjects available.</p>}
+        ) : (
+          <p className="text-center text-gray-500">No subjects added yet.</p>
+        )}
       </div>
-    </div >
+    </div>
   );
 };
 

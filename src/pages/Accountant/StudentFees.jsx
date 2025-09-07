@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
 import Cookies from "js-cookie";
-import toast, { Toaster } from "react-hot-toast";
 import { MdEdit, MdDelete, MdVisibility } from "react-icons/md";
 import Select from "react-select";
 import Pagination from "../../components/Pagination";
+import Toaster from "../../components/Toaster";
 
 const StudentFees = () => {
     const [fees, setFees] = useState([]);
@@ -23,12 +23,15 @@ const StudentFees = () => {
     const [studentFeeDetails, setStudentFeeDetails] = useState([]);
     const [editModal, setEditModal] = useState(false);
     const [editData, setEditData] = useState({ id: null, is_paid: false, payment_date: "" });
-
-
+    const [toaster, setToaster] = useState({ message: '', type: 'success' });
 
     const API = import.meta.env.VITE_SERVER_URL;
 
     const getToken = () => Cookies.get("access_token");
+
+    const showToast = (message, type = 'success') => {
+        setToaster({ message, type });
+    };
 
     const fetchFees = async (query = "") => {
         try {
@@ -41,7 +44,7 @@ const StudentFees = () => {
             setFees(Array.isArray(data.results) ? data.results : []);
             setTotalPages(data.total_pages || 1);
         } catch {
-            toast.error("Failed to fetch student fees");
+            showToast("Failed to fetch student fees", "error");
         } finally {
             setLoading(false);
         }
@@ -55,7 +58,7 @@ const StudentFees = () => {
             const data = res.data?.data?.results || res.data?.data || [];
             setClasses(data);
         } catch {
-            toast.error("Failed to load classes");
+            showToast("Failed to load classes", "error");
         }
     };
 
@@ -67,16 +70,14 @@ const StudentFees = () => {
             const data = res.data?.data?.results || [];
             setStudents(data);
         } catch {
-            toast.error("Failed to load students");
+            showToast("Failed to load students", "error");
         }
     };
 
     const handleFilter = () => {
         let query = "";
         if (filterType === "id" && selectedStudentId) {
-            query = `?student_id=${selectedStudentId}`; // ✅ This is now correct
-            // ✅ Use std_id
-
+            query = `?student_id=${selectedStudentId}`;
         } else if (filterType === "class" && selectedClass) {
             query = `?class=${selectedClass.id}`;
         } else if (filterType === "class_status" && selectedClass && selectedStatus !== "") {
@@ -92,12 +93,11 @@ const StudentFees = () => {
             const res = await axios.get(`${API}student-fees/${id}`, {
                 headers: { Authorization: `Bearer ${token}` },
             });
-
             const dataArray = res.data?.data || [];
             setStudentFeeDetails(Array.isArray(dataArray) ? dataArray : []);
         } catch (err) {
             console.error("Failed to fetch:", err);
-            toast.error("Could not fetch student fee records");
+            showToast("Could not fetch student fee records", "error");
             setStudentFeeDetails([]);
         }
     };
@@ -120,15 +120,14 @@ const StudentFees = () => {
             }, {
                 headers: { Authorization: `Bearer ${token}` }
             });
-            toast.success("Fee updated successfully");
+            showToast("Fee updated successfully", "success");
             setEditModal(false);
-            // Refresh list
             filterType === "id"
                 ? fetchStudentFeeDetails(selectedStudentId)
                 : fetchFees();
         } catch (err) {
             console.error(err);
-            toast.error("Failed to update fee");
+            showToast("Failed to update fee", "error");
         }
     };
 
@@ -140,15 +139,22 @@ const StudentFees = () => {
     useEffect(() => {
         fetchFees();
     }, [page, pageSize]);
+
     const permissions = JSON.parse(localStorage.getItem("user_permissions") || "[]");
     const canView = permissions.includes("users.view_studentfee");
     const canEdit = permissions.includes("users.change_studentfee");
     const canDelete = permissions.includes("users.delete_studentfee");
 
-
     return (
         <div className="p-4">
-            <Toaster position="top-center" />
+            <Toaster
+                message={toaster.message}
+                type={toaster.type}
+                duration={3000}
+                onClose={() => setToaster({ message: "", type: "success" })}
+                onConfirm={toaster.onConfirm}
+                onCancel={toaster.onCancel}
+            />
             <div className="bg-blue-900 text-white py-3 px-6 rounded-md flex justify-between items-center">
                 <h1 className="text-xl font-bold">Manage Student Fee</h1>
                 <div className="relative">
@@ -171,7 +177,7 @@ const StudentFees = () => {
 
             {/* Filter forms */}
             <div className="flex justify-center">
-                <div className="p-6   w-full max-w-xl ">
+                <div className="p-6 w-full max-w-xl">
                     {filterType === "id" && (
                         <div className="mt-6 p-4 border rounded-lg bg-white shadow-md max-w-xl">
                             <h3 className="text-lg font-semibold text-blue-800 mb-4">🎓 Filter by Student</h3>
@@ -180,12 +186,12 @@ const StudentFees = () => {
                                 options={students}
                                 getOptionLabel={(s) => `${s.first_name} ${s.last_name} (ID: ${s.profile_id})`}
                                 getOptionValue={(s) => s.profile_id}
-                                value={students.find(s => s.profile_id === selectedStudentId) || null}  // ✅ sync with selected ID
+                                value={students.find(s => s.profile_id === selectedStudentId) || null}
                                 onChange={(selected) => {
                                     if (selected) {
                                         setSelectedStudentId(selected.profile_id);
-                                        setSelectedStudent(selected); // Optional
-                                        fetchStudentFeeDetails(selected.profile_id); // ✅ correct ID here
+                                        setSelectedStudent(selected);
+                                        fetchStudentFeeDetails(selected.profile_id);
                                     } else {
                                         setSelectedStudentId(null);
                                         setStudentFeeDetails([]);
@@ -194,7 +200,6 @@ const StudentFees = () => {
                                 placeholder="Search or select student"
                                 isClearable
                             />
-
                             <div className="mt-4 text-right">
                                 <button
                                     onClick={handleFilter}
@@ -205,7 +210,6 @@ const StudentFees = () => {
                             </div>
                         </div>
                     )}
-
 
                     {filterType === "class" && (
                         <div className="mt-6 p-4 border rounded-lg bg-white shadow-sm max-w-xl">
@@ -242,7 +246,6 @@ const StudentFees = () => {
                                         isClearable
                                     />
                                 </div>
-
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-1">Select Status</label>
                                     <select
@@ -255,7 +258,6 @@ const StudentFees = () => {
                                         <option value="false">❌ Pending</option>
                                     </select>
                                 </div>
-
                                 <div className="md:col-span-2 text-right mt-4">
                                     <button onClick={handleFilter} className="bg-blue-600 hover:bg-blue-800 text-white px-6 py-2 rounded-md shadow-sm">
                                         Apply Filter
@@ -281,7 +283,6 @@ const StudentFees = () => {
                                 <th className="border p-2">Status</th>
                                 <th className="border p-2">Payment Date</th>
                                 {(canView || canEdit || canDelete) && <th className="border p-2">Actions</th>}
-
                             </tr>
                         </thead>
                         <tbody>
@@ -322,42 +323,31 @@ const StudentFees = () => {
                                 </tr>
                             )}
                         </tbody>
-
-
                     </table>
                 )}
                 <Pagination
                     currentPage={page}
                     totalPages={totalPages}
                     pageSize={pageSize}
-                    onPageChange={(newPage) => {
-                        setPage(newPage);
-                        fetchData(newPage, pageSize);
-                    }}
+                    onPageChange={(newPage) => setPage(newPage)}
                     onPageSizeChange={(size) => {
                         setPageSize(size);
                         setPage(1);
-                        fetchData(1, size);
                     }}
-                    totalItems={StudentFees.length}
+                    totalItems={(filterType === "id" ? studentFeeDetails : fees).length}
                     showPageSizeSelector={true}
                     showPageInfo={true}
                 />
             </div>
-           
 
             {/* Edit Modal */}
             {editModal && (
                 <div className="fixed inset-0 bg-black bg-opacity-40 backdrop-blur-sm flex items-center justify-center z-50 px-4">
                     <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg p-6 border border-gray-200">
-                        {/* Header */}
                         <div className="mb-6 border-b pb-3">
                             <h2 className="text-2xl font-bold text-center text-blue-800">📝 Edit Fee Record</h2>
                         </div>
-
-                        {/* Form */}
                         <div className="space-y-5">
-                            {/* Paid Status */}
                             <div>
                                 <label className="block text-gray-700 font-medium mb-1">Paid Status</label>
                                 <select
@@ -369,8 +359,6 @@ const StudentFees = () => {
                                     <option value="true">✅ Paid</option>
                                 </select>
                             </div>
-
-                            {/* Payment Date */}
                             <div>
                                 <label className="block text-gray-700 font-medium mb-1">Payment Date</label>
                                 <input
@@ -381,8 +369,6 @@ const StudentFees = () => {
                                 />
                             </div>
                         </div>
-
-                        {/* Actions */}
                         <div className="mt-6 flex justify-end gap-3">
                             <button
                                 onClick={() => setEditModal(false)}
@@ -401,7 +387,7 @@ const StudentFees = () => {
                 </div>
             )}
 
-
+            {/* View Modal */}
             {viewModalData && (
                 <div className="fixed inset-0 bg-black bg-opacity-50 backdrop-blur-sm flex items-center justify-center z-50 px-4">
                     <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] border border-gray-200 p-6 overflow-hidden">
@@ -409,23 +395,17 @@ const StudentFees = () => {
                             <div className="mb-6 border-b pb-3">
                                 <h3 className="text-2xl font-bold text-blue-800 text-center">📄 Student Fee Details</h3>
                             </div>
-
                             <div className="grid grid-cols-2 gap-4 text-sm text-gray-700">
-                                {/* Student Info */}
                                 <div className="col-span-2 font-semibold text-blue-900 border-b pb-1">👤 Student Information</div>
                                 <div><span className="font-semibold">Name:</span> {viewModalData.student_name}</div>
                                 <div><span className="font-semibold">Class:</span> {viewModalData.class_name}</div>
                                 <div><span className="font-semibold">Section:</span> {viewModalData.section}</div>
                                 <div><span className="font-semibold">Session:</span> {viewModalData.session}</div>
-
-                                {/* Fee Info */}
                                 <div className="col-span-2 font-semibold text-blue-900 border-b pt-4 pb-1">💰 Fee Details</div>
                                 <div><span className="font-semibold">Fee Type:</span> {viewModalData.fee_type}</div>
                                 <div><span className="font-semibold">Net Payable:</span> {viewModalData.net_payable} PKR</div>
                                 <div><span className="font-semibold">Discount:</span> {viewModalData.total_discount || 0} PKR</div>
                                 <div><span className="font-semibold">Late Fine:</span> {viewModalData.late_fine || 0} PKR</div>
-
-                                {/* Payment Info */}
                                 <div className="col-span-2 font-semibold text-blue-900 border-b pt-4 pb-1">📆 Payment Information</div>
                                 <div><span className="font-semibold">Status:</span> {
                                     viewModalData.is_paid
@@ -435,7 +415,6 @@ const StudentFees = () => {
                                 <div><span className="font-semibold">Payment Date:</span> {viewModalData.payment_date || "—"}</div>
                             </div>
                         </div>
-
                         <div className="mt-6 text-center">
                             <button
                                 onClick={() => setViewModalData(null)}
@@ -447,11 +426,7 @@ const StudentFees = () => {
                     </div>
                 </div>
             )}
-
-
-
         </div>
-
     );
 };
 

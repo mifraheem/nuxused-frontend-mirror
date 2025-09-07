@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
 import Cookies from "js-cookie";
-import toast, { Toaster } from "react-hot-toast";
 import { MdEdit, MdDelete } from "react-icons/md";
 import { Buttons } from "../../components";
 import Pagination from "../../components/Pagination";
+import Toaster from "../../components/Toaster"; // Import custom Toaster component
 
 const ClassManagement = () => {
   const [classes, setClasses] = useState([]);
@@ -19,17 +19,56 @@ const ClassManagement = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [pageSize, setPageSize] = useState(10);
+  const [toaster, setToaster] = useState({ message: "", type: "success" });
+  const [confirmResolve, setConfirmResolve] = useState(null);
 
   const API = import.meta.env.VITE_SERVER_URL;
   const API_URL = `${API}classes/`;
 
-  // Fetch classes from the API
+  const showToast = (message, type = "success") => {
+    setToaster({ message, type });
+  };
+
+  const confirmToast = (message = "Are you sure you want to delete this class?") => {
+    return new Promise((resolve) => {
+      setConfirmResolve(() => resolve); // Store the resolve function
+      setToaster({
+        message: (
+          <div className="flex flex-col gap-4">
+            <p className="text-lg font-medium">{message}</p>
+            <div className="flex justify-end gap-2">
+              <button
+                onClick={() => {
+                  setToaster({ message: "", type: "success" });
+                  resolve(true);
+                }}
+                className="px-3 py-1.5 rounded-md bg-red-600 text-white text-sm hover:bg-red-700"
+              >
+                Yes
+              </button>
+              <button
+                onClick={() => {
+                  setToaster({ message: "", type: "success" });
+                  resolve(false);
+                }}
+                className="px-3 py-1.5 rounded-md border border-gray-300 text-sm hover:bg-gray-50"
+              >
+                No
+              </button>
+            </div>
+          </div>
+        ),
+        type: "confirmation",
+      });
+    });
+  };
+
   const fetchClasses = async (page = 1, size = pageSize) => {
     setLoading(true);
     try {
       const token = Cookies.get("access_token");
       if (!token) {
-        toast.error("User is not authenticated.");
+        showToast("User is not authenticated.", "error");
         return;
       }
 
@@ -46,7 +85,7 @@ const ClassManagement = () => {
       }
     } catch (error) {
       console.error("Error fetching classes:", error.response || error.message);
-      toast.error("Failed to fetch classes. Please try again.");
+      showToast("Failed to fetch classes. Please try again.", "error");
     } finally {
       setLoading(false);
     }
@@ -58,17 +97,16 @@ const ClassManagement = () => {
     }
   };
 
-  // Create or Update Class
   const handleSaveClass = async () => {
     if (!newClass.class_name || !newClass.section || !newClass.session) {
-      toast.error("All fields are required!");
+      showToast("All fields are required!", "error");
       return;
     }
 
     try {
       const token = Cookies.get("access_token");
       if (!token) {
-        toast.error("User is not authenticated.");
+        showToast("User is not authenticated.", "error");
         return;
       }
 
@@ -88,7 +126,7 @@ const ClassManagement = () => {
       });
 
       if (response.status === 201 || response.status === 200) {
-        toast.success(`Class ${editClass ? "updated" : "created"} successfully!`);
+        showToast(`Class ${editClass ? "updated" : "created"} successfully!`, "success");
         fetchClasses();
         setNewClass({ class_name: "", section: "", session: "" });
         setEditClass(null);
@@ -98,68 +136,50 @@ const ClassManagement = () => {
       }
     } catch (error) {
       console.error("Error saving class:", error.response || error.message);
-      toast.error("Failed to save class. Please check your input.");
+      showToast("Failed to save class. Please check your input.", "error");
     }
   };
 
-  const handleDeleteClass = (id) => {
+  const handleDeleteClass = async (id) => {
     if (!canDelete) {
-      toast((t) => (
+      showToast(
         <div className="text-center font-semibold p-4 bg-red-100 border border-red-400 rounded shadow-md">
           🚫 You do not have permission to delete classes.
           <div className="mt-3">
             <button
-              onClick={() => toast.dismiss(t.id)}
+              onClick={() => setToaster({ message: "", type: "success" })}
               className="mt-2 px-4 py-1 bg-red-500 text-white rounded hover:bg-red-600"
             >
               Close
             </button>
           </div>
-        </div>
-      ));
+        </div>,
+        "error"
+      );
       return;
     }
 
-    toast((t) => (
-      <div>
-        <p className="text-gray-600">Are you sure you want to delete this class?</p>
-        <div className="flex justify-end mt-2">
-          <button
-            onClick={async () => {
-              try {
-                const token = Cookies.get("access_token");
-                if (!token) {
-                  toast.error("User is not authenticated.");
-                  return;
-                }
+    const ok = await confirmToast("Are you sure you want to delete this class?");
+    if (ok) {
+      try {
+        const token = Cookies.get("access_token");
+        if (!token) {
+          showToast("User is not authenticated.", "error");
+          return;
+        }
 
-                await axios.delete(`${API_URL}${id}/`, {
-                  headers: { Authorization: `Bearer ${token}` },
-                });
+        await axios.delete(`${API_URL}${id}/`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
 
-                toast.success("Class deleted successfully!");
-                fetchClasses(currentPage, pageSize);
-                toast.dismiss(t.id);
-              } catch (error) {
-                console.error("Error deleting class:", error.response || error.message);
-                toast.error("Failed to delete class.");
-              }
-            }}
-            className="bg-red-500 text-white px-3 py-1 rounded shadow hover:bg-red-700 mr-2"
-          >
-            Yes
-          </button>
-          <button
-            onClick={() => toast.dismiss(t.id)}
-            className="bg-gray-500 text-white px-3 py-1 rounded shadow hover:bg-gray-700"
-          >
-            No
-          </button>
-        </div>
-      </div>
-    ));
+        showToast("Class deleted successfully!", "success");
+        fetchClasses(currentPage, pageSize);
+      } catch (error) {
+        console.error("Error deleting class:", error.response || error.message);
+        showToast("Failed to delete class.", "error");
+      }
+    }
   };
-
 
   useEffect(() => {
     fetchClasses(1, pageSize);
@@ -172,7 +192,6 @@ const ClassManagement = () => {
   ];
 
   const permissions = JSON.parse(localStorage.getItem("user_permissions") || "[]");
-
   const canAdd = permissions.includes("users.add_classname");
   const canEdit = permissions.includes("users.change_classname");
   const canDelete = permissions.includes("users.delete_classname");
@@ -180,7 +199,12 @@ const ClassManagement = () => {
 
   return (
     <div>
-      <Toaster position="top-center" reverseOrder={false} />
+      <Toaster
+        message={toaster.message}
+        type={toaster.type}
+        duration={3000}
+        onClose={() => setToaster({ message: "", type: "success" })}
+      />
       <div className="bg-blue-900 text-white py-2 px-6 rounded-md flex justify-between items-center mt-5">
         <h1 className="text-xl font-bold">Class Management</h1>
         {canAdd && (
@@ -200,7 +224,6 @@ const ClassManagement = () => {
             {showForm ? "Close Form" : "Add New Class"}
           </button>
         )}
-
       </div>
 
       <div className="p-6">
@@ -256,7 +279,6 @@ const ClassManagement = () => {
           </div>
         )}
 
-
         {loading ? (
           <p className="text-center text-gray-500">Loading...</p>
         ) : canView && classes.length > 0 ? (
@@ -273,13 +295,11 @@ const ClassManagement = () => {
                   {(canEdit || canDelete) && (
                     <th className="border border-gray-300 p-2">Actions</th>
                   )}
-
                 </tr>
               </thead>
               <tbody>
                 {classes.map((cls, index) => (
                   <tr className="text-center" key={cls.id}>
-                    {/* Sequence Number */}
                     <td className="border border-gray-300 p-2">
                       {(currentPage - 1) * pageSize + index + 1}
                     </td>
@@ -310,8 +330,6 @@ const ClassManagement = () => {
                         )}
                       </td>
                     )}
-
-
                   </tr>
                 ))}
               </tbody>
@@ -325,20 +343,18 @@ const ClassManagement = () => {
               onPageSizeChange={(size) => {
                 setPageSize(size);
                 setCurrentPage(1);
-                fetchSubjects(1, size);
+                fetchClasses(1, size);
               }}
               totalItems={classes.length}
               showPageSizeSelector={true}
               showPageInfo={true}
             />
-
           </div>
         ) : canView ? (
-          <p className="text-center text-gray-500">No classes available.</p>
+          <p className="text-center text-gray-500">No classes added yet.</p>
         ) : (
           <p className="text-center text-red-500">You do not have permission to view classes.</p>
         )}
-
       </div>
     </div>
   );

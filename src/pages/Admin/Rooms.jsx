@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
 import Cookies from "js-cookie";
-import toast, { Toaster } from "react-hot-toast";
 import { MdEdit, MdDelete } from "react-icons/md";
 import Select from "react-select";
+import Toaster from "../../components/Toaster"; // Import custom Toaster component
 import { Buttons } from '../../components';
 import Pagination from "../../components/Pagination";
 
@@ -15,16 +15,55 @@ const Rooms = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [pageSize, setPageSize] = useState(10);
+  const [toaster, setToaster] = useState({ message: "", type: "success" });
+  const [confirmResolve, setConfirmResolve] = useState(null);
 
   const API = import.meta.env.VITE_SERVER_URL;
-
   const API_URL = `${API}rooms/`;
+
+  const showToast = (message, type = "success") => {
+    setToaster({ message, type });
+  };
+
+  const confirmToast = (message = "Are you sure you want to delete?") => {
+    return new Promise((resolve) => {
+      setConfirmResolve(() => resolve); // Store the resolve function
+      setToaster({
+        message: (
+          <div className="flex flex-col gap-4">
+            <p className="text-lg font-medium">{message}</p>
+            <div className="flex justify-end gap-2">
+              <button
+                onClick={() => {
+                  setToaster({ message: "", type: "success" });
+                  resolve(true);
+                }}
+                className="px-3 py-1.5 rounded-md bg-red-600 text-white text-sm hover:bg-red-700"
+              >
+                Yes
+              </button>
+              <button
+                onClick={() => {
+                  setToaster({ message: "", type: "success" });
+                  resolve(false);
+                }}
+                className="px-3 py-1.5 rounded-md border border-gray-300 text-sm hover:bg-gray-50"
+              >
+                No
+              </button>
+            </div>
+          </div>
+        ),
+        type: "confirmation",
+      });
+    });
+  };
 
   const fetchRooms = async (page = 1, size = pageSize) => {
     try {
       const token = Cookies.get("access_token");
       if (!token) {
-        toast.error("User is not authenticated.");
+        showToast("User is not authenticated.", "error");
         return;
       }
 
@@ -43,20 +82,20 @@ const Rooms = () => {
       }
     } catch (error) {
       console.error("Error fetching rooms:", error.response || error.message);
-      toast.error("Failed to fetch rooms. Please try again.");
+      showToast("Failed to fetch rooms. Please try again.", "error");
     }
   };
 
   const handleSaveRoom = async () => {
     if (!newRoom.room_name) {
-      toast.error("Room name is required!");
+      showToast("Room name is required!", "error");
       return;
     }
 
     try {
       const token = Cookies.get("access_token");
       if (!token) {
-        toast.error("User is not authenticated.");
+        showToast("User is not authenticated.", "error");
         return;
       }
 
@@ -66,7 +105,7 @@ const Rooms = () => {
         });
 
         if (response.status === 200) {
-          toast.success("Room updated successfully!");
+          showToast("Room updated successfully!", "success");
           setRooms((prev) => prev.map((r) => (r.id === editingRoom.id ? response.data.data : r)));
           setEditingRoom(null);
         } else {
@@ -78,7 +117,7 @@ const Rooms = () => {
         });
 
         if (response.status === 201) {
-          toast.success("Room created successfully!");
+          showToast("Room created successfully!", "success");
           setRooms((prev) => [...prev, response.data.data]);
         } else {
           throw new Error("Failed to create room.");
@@ -89,66 +128,49 @@ const Rooms = () => {
       setShowForm(false);
     } catch (error) {
       console.error("Error saving room:", error.response || error.message);
-      toast.error(error.response?.data?.message || "Failed to save room. Please try again.");
+      showToast(error.response?.data?.message || "Failed to save room. Please try again.", "error");
     }
   };
 
   const handleDeleteRoom = async (id) => {
     if (!canDelete) {
-      toast((t) => (
+      showToast(
         <div className="text-center font-semibold p-4 bg-red-100 border border-red-400 rounded shadow-md">
           🚫 You do not have permission to delete rooms.
           <div className="mt-3">
             <button
-              onClick={() => toast.dismiss(t.id)}
+              onClick={() => setToaster({ message: "", type: "success" })}
               className="mt-2 px-4 py-1 bg-red-500 text-white rounded hover:bg-red-600"
             >
               Close
             </button>
           </div>
-        </div>
-      ));
+        </div>,
+        "error"
+      );
       return;
     }
 
-    toast((t) => (
-      <div>
-        <p className="text-gray-600">Are you sure you want to delete?</p>
-        <div className="flex justify-end mt-2">
-          <button
-            onClick={async () => {
-              try {
-                const token = Cookies.get("access_token");
-                if (!token) {
-                  toast.error("User is not authenticated.");
-                  return;
-                }
+    const ok = await confirmToast("Are you sure you want to delete?");
+    if (ok) {
+      try {
+        const token = Cookies.get("access_token");
+        if (!token) {
+          showToast("User is not authenticated.", "error");
+          return;
+        }
 
-                await axios.delete(`${API_URL}${id}/`, {
-                  headers: { Authorization: `Bearer ${token}` },
-                });
+        await axios.delete(`${API_URL}${id}/`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
 
-                toast.success("Room deleted successfully!");
-                setRooms((prev) => prev.filter((r) => r.id !== id));
-                toast.dismiss(t.id);
-              } catch (error) {
-                console.error("Error deleting room:", error.response || error.message);
-                toast.error("Failed to delete room. Please try again.");
-              }
-            }}
-            className="bg-red-500 text-white px-3 py-1 rounded shadow hover:bg-red-700 mr-2"
-          >
-            Yes
-          </button>
-          <button
-            onClick={() => toast.dismiss(t.id)}
-            className="bg-gray-500 text-white px-3 py-1 rounded shadow hover:bg-gray-700"
-          >
-            No
-          </button>
-        </div>
-      </div>
-    ), { duration: 5000 });
+        showToast("Room deleted successfully!", "success");
+        setRooms((prev) => prev.filter((r) => r.id !== id));
+      } catch (error) {
+        console.error("Error deleting room:", error.response || error.message);
+        showToast("Failed to delete room. Please try again.", "error");
+      }
+    }
   };
 
   const handleEditRoom = (room) => {
@@ -165,25 +187,22 @@ const Rooms = () => {
     fetchRooms(currentPage, pageSize);
   }, [pageSize]);
 
-  const columns = [
-    { label: "Room Name", key: "room_name" },
-    { label: "Room Type", key: "room_type" },
-  ];
-
-  // Add this near the top (after useState)
   const permissions = JSON.parse(localStorage.getItem("user_permissions") || "[]");
   const canAdd = permissions.includes("users.add_room");
   const canEdit = permissions.includes("users.change_room");
   const canDelete = permissions.includes("users.delete_room");
 
-  // Room type options for react-select
+  const columns = [
+    { label: "Room Name", key: "room_name" },
+    { label: "Room Type", key: "room_type" },
+  ];
+
   const roomTypeOptions = [
     { value: 'room', label: 'Room' },
     { value: 'lab', label: 'Lab' },
     { value: 'hall', label: 'Hall' },
   ];
 
-  // Page size options for react-select
   const pageSizeOptions = [
     { value: 5, label: '5' },
     { value: 10, label: '10' },
@@ -191,7 +210,6 @@ const Rooms = () => {
     { value: 50, label: '50' },
   ];
 
-  // Custom styles for react-select
   const selectStyles = {
     control: (provided) => ({
       ...provided,
@@ -221,7 +239,6 @@ const Rooms = () => {
     }),
   };
 
-  // Compact styles for pagination dropdown
   const paginationSelectStyles = {
     control: (provided) => ({
       ...provided,
@@ -251,7 +268,12 @@ const Rooms = () => {
 
   return (
     <div>
-      <Toaster position="top-center" reverseOrder={false} />
+      <Toaster
+        message={toaster.message}
+        type={toaster.type}
+        duration={3000}
+        onClose={() => setToaster({ message: "", type: "success" })}
+      />
       <div className="bg-blue-900 text-white py-2 px-6 rounded-md flex justify-between items-center mt-5">
         <h1 className="text-xl font-bold">Manage Rooms</h1>
         {canAdd && (
@@ -332,7 +354,6 @@ const Rooms = () => {
               <tbody>
                 {rooms.map((room, index) => (
                   <tr key={room.id}>
-                    {/* Sequence Number */}
                     <td className="border border-gray-300 p-2 text-center">
                       {(currentPage - 1) * pageSize + index + 1}
                     </td>
@@ -360,7 +381,7 @@ const Rooms = () => {
             </table>
           </div>
         ) : (
-          <p className="text-center text-gray-500">No rooms available.</p>
+          <p className="text-center text-gray-500">No rooms added yet.</p>
         )}
         <Pagination
           currentPage={currentPage}
@@ -370,14 +391,12 @@ const Rooms = () => {
           onPageSizeChange={(size) => {
             setPageSize(size);
             setCurrentPage(1);
-            fetchSubjects(1, size);
+            fetchRooms(1, size);
           }}
           totalItems={rooms.length}
           showPageSizeSelector={true}
           showPageInfo={true}
         />
-
-
       </div>
     </div>
   );

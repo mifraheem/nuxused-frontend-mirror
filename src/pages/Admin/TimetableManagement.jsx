@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
 import Cookies from "js-cookie";
-import toast, { Toaster } from "react-hot-toast";
 import { MdEdit, MdDelete, MdVisibility } from "react-icons/md";
 import { Buttons } from "../../components";
 import Select from "react-select";
 import Pagination from "../../components/Pagination";
+import Toaster from "../../components/Toaster";
 
 const TimetableManagement = () => {
   const [timetables, setTimetables] = useState([]);
@@ -23,6 +23,7 @@ const TimetableManagement = () => {
   const [totalPages, setTotalPages] = useState(1);
   const [userProfile, setUserProfile] = useState(null);
   const [schoolId, setSchoolId] = useState(null);
+  const [toaster, setToaster] = useState({ message: '', type: 'success' });
 
   const [formData, setFormData] = useState({
     teacher: "",
@@ -38,6 +39,10 @@ const TimetableManagement = () => {
   const API_URL = `${API}timetables/`;
   const token = Cookies.get("access_token");
   const headers = token ? { Authorization: `Bearer ${token}` } : {};
+
+  const showToast = (message, type = 'success') => {
+    setToaster({ message, type });
+  };
 
   // Fetch current user's profile and school information
   const fetchUserProfile = async () => {
@@ -68,10 +73,12 @@ const TimetableManagement = () => {
       } else {
         console.warn("⚠️ No valid school UUID found");
         setSchoolId(null);
+        showToast("No valid school ID found", "error");
       }
       
     } catch (err) {
       console.error("❌ Failed to fetch user profile:", err.response?.data || err.message);
+      showToast("Failed to fetch user profile", "error");
     }
   };
 
@@ -137,7 +144,7 @@ const TimetableManagement = () => {
 
     } catch (error) {
       console.error("❌ Error fetching data:", error);
-      toast.error("Failed to fetch data");
+      showToast("Failed to fetch data", "error");
     } finally {
       setLoading(false);
     }
@@ -148,7 +155,7 @@ const TimetableManagement = () => {
     if (token) {
       fetchUserProfile();
     } else {
-      toast.error("Authentication token not found");
+      showToast("Authentication token not found", "error");
     }
   }, [token]);
 
@@ -191,10 +198,10 @@ const TimetableManagement = () => {
       let response;
       if (editingId) {
         response = await axios.put(`${API_URL}${editingId}/`, requestData, { headers });
-        toast.success("Timetable updated successfully");
+        showToast("Timetable updated successfully", "success");
       } else {
         response = await axios.post(API_URL, requestData, { headers });
-        toast.success("Timetable created successfully");
+        showToast("Timetable created successfully", "success");
       }
 
       fetchData();
@@ -202,7 +209,7 @@ const TimetableManagement = () => {
       setShowForm(false);
     } catch (error) {
       console.error("API Error:", error.response?.data || error.message);
-      toast.error(`Failed to save timetable: ${error.response?.data?.message || "Invalid input"}`);
+      showToast(`Failed to save timetable: ${error.response?.data?.message || "Invalid input"}`, "error");
     }
   };
 
@@ -238,40 +245,30 @@ const TimetableManagement = () => {
   };
 
   // ✅ Delete with Confirmation
-  const handleDelete = async (id) => {
+  const handleDelete = (id) => {
     if (!canDelete) {
-      toast.error("You do not have permission to delete timetables.");
+      showToast("You do not have permission to delete timetables.", "error");
       return;
     }
 
-    toast((t) => (
-      <div>
-        <p className="text-gray-600">Are you sure you want to delete this timetable?</p>
-        <div className="flex justify-end mt-2">
-          <button
-            onClick={async () => {
-              try {
-                await axios.delete(`${API_URL}${id}/`, { headers });
-                toast.success("Timetable deleted successfully");
-                fetchData();
-                toast.dismiss(t.id);
-              } catch (error) {
-                toast.error("Failed to delete timetable");
-              }
-            }}
-            className="bg-red-500 text-white px-3 py-1 rounded shadow hover:bg-red-700 mr-2"
-          >
-            Yes
-          </button>
-          <button
-            onClick={() => toast.dismiss(t.id)}
-            className="bg-gray-500 text-white px-3 py-1 rounded shadow hover:bg-gray-700"
-          >
-            No
-          </button>
-        </div>
-      </div>
-    ));
+    showToast(
+      {
+        message: "Are you sure you want to delete this timetable?",
+        type: "confirm",
+        onConfirm: async () => {
+          try {
+            await axios.delete(`${API_URL}${id}/`, { headers });
+            showToast("Timetable deleted successfully", "success");
+            fetchData();
+          } catch (error) {
+            showToast("Failed to delete timetable", "error");
+            console.error("❌ Error deleting timetable:", error);
+          }
+        },
+        onCancel: () => setToaster({ message: "", type: "success" })
+      },
+      "confirm"
+    );
   };
 
   // ✅ View Details in Modal
@@ -321,7 +318,14 @@ const TimetableManagement = () => {
 
   return (
     <div>
-      <Toaster position="top-center" />
+      <Toaster
+        message={toaster.message}
+        type={toaster.type}
+        duration={3000}
+        onClose={() => setToaster({ message: "", type: "success" })}
+        onConfirm={toaster.onConfirm}
+        onCancel={toaster.onCancel}
+      />
 
       {/* Header */}
       <div className="bg-blue-900 text-white py-2 px-8 rounded-lg shadow-md flex justify-between items-center mt-5">
@@ -478,7 +482,7 @@ const TimetableManagement = () => {
                   <option value="Wednesday">Wednesday</option>
                   <option value="Thursday">Thursday</option>
                   <option value="Friday">Friday</option>
-                  <option value="Friday">Saturday</option>
+                  <option value="Saturday">Saturday</option>
                 </select>
                 <p className="text-gray-500 text-xs mt-1">
                   Hold <strong>Ctrl</strong> (or <strong>Cmd</strong> on Mac) to select multiple days.

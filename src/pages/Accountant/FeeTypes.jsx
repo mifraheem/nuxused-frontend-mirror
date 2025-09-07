@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
 import Cookies from "js-cookie";
-import toast, { Toaster } from "react-hot-toast";
 import { MdEdit, MdDelete } from "react-icons/md";
 import { Buttons } from "../../components";
 import Pagination from "../../components/Pagination";
+import Toaster from "../../components/Toaster";
 
 const FeeTypes = () => {
   const [feeTypes, setFeeTypes] = useState([]);
@@ -14,10 +14,14 @@ const FeeTypes = () => {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
   const [totalPages, setTotalPages] = useState(1);
+  const [toaster, setToaster] = useState({ message: '', type: 'success' });
 
   const API = import.meta.env.VITE_SERVER_URL;
-
   const API_URL = `${API}fee-types/`;
+
+  const showToast = (message, type = 'success') => {
+    setToaster({ message, type });
+  };
 
   const fetchFeeTypes = async () => {
     try {
@@ -35,13 +39,13 @@ const FeeTypes = () => {
         throw new Error("Unexpected API response format.");
       }
     } catch (error) {
-      toast.error("Failed to fetch fee types.");
+      showToast("Failed to fetch fee types.", "error");
     }
   };
 
   const handleSaveFeeType = async () => {
     if (!newFeeType.name || !newFeeType.description) {
-      toast.error("Name and Description are required.");
+      showToast("Name and Description are required.", "error");
       return;
     }
 
@@ -56,7 +60,7 @@ const FeeTypes = () => {
             headers: { Authorization: `Bearer ${token}` },
           }
         );
-        toast.success("Fee Type updated!");
+        showToast("Fee Type updated!", "success");
         setFeeTypes((prev) =>
           prev.map((f) =>
             f.id === editingFeeType.id ? response.data.data : f
@@ -66,7 +70,7 @@ const FeeTypes = () => {
         const response = await axios.post(API_URL, newFeeType, {
           headers: { Authorization: `Bearer ${token}` },
         });
-        toast.success("Fee Type created!");
+        showToast("Fee Type created!", "success");
         setFeeTypes((prev) => [...prev, response.data.data]);
       }
 
@@ -74,49 +78,37 @@ const FeeTypes = () => {
       setEditingFeeType(null);
       setShowForm(false);
     } catch (error) {
-      toast.error("Failed to save fee type.");
+      showToast("Failed to save fee type.", "error");
     }
   };
 
   const handleDeleteFeeType = async (id) => {
     if (!canDelete) {
-      toast.error("You do not have permission to delete fee types.");
+      showToast("You do not have permission to delete fee types.", "error");
       return;
     }
 
-    toast((t) => (
-      <div>
-        <p>Delete this Fee Type?</p>
-        <div className="flex justify-end mt-2">
-          <button
-            onClick={async () => {
-              try {
-                const token = Cookies.get("access_token");
-                await axios.delete(`${API_URL}${id}/`, {
-                  headers: { Authorization: `Bearer ${token}` },
-                });
-                toast.success("Deleted!");
-                setFeeTypes((prev) => prev.filter((f) => f.id !== id));
-                toast.dismiss(t.id);
-              } catch {
-                toast.error("Failed to delete.");
-              }
-            }}
-            className="bg-red-500 text-white px-3 py-1 rounded shadow mr-2"
-          >
-            Yes
-          </button>
-          <button
-            onClick={() => toast.dismiss(t.id)}
-            className="bg-gray-500 text-white px-3 py-1 rounded shadow"
-          >
-            No
-          </button>
-        </div>
-      </div>
-    ));
+    showToast(
+      {
+        message: "Delete this Fee Type?",
+        type: "confirm",
+        onConfirm: async () => {
+          try {
+            const token = Cookies.get("access_token");
+            await axios.delete(`${API_URL}${id}/`, {
+              headers: { Authorization: `Bearer ${token}` },
+            });
+            showToast("Deleted!", "success");
+            setFeeTypes((prev) => prev.filter((f) => f.id !== id));
+          } catch (error) {
+            showToast("Failed to delete.", "error");
+          }
+        },
+        onCancel: () => setToaster({ message: "", type: "success" })
+      },
+      "confirm"
+    );
   };
-
 
   const handleEditFeeType = (feeType) => {
     setEditingFeeType(feeType);
@@ -134,8 +126,6 @@ const FeeTypes = () => {
     }
   }, [page, pageSize]);
 
-
-
   const columns = [
     { label: "Name", key: "name" },
     { label: "Description", key: "description" },
@@ -147,10 +137,16 @@ const FeeTypes = () => {
   const canDelete = permissions.includes("users.delete_feetype");
   const canPerformActions = canEdit || canDelete;
 
-
   return (
     <div>
-      <Toaster position="top-center" />
+      <Toaster
+        message={toaster.message}
+        type={toaster.type}
+        duration={3000}
+        onClose={() => setToaster({ message: "", type: "success" })}
+        onConfirm={toaster.onConfirm}
+        onCancel={toaster.onCancel}
+      />
       <div className="bg-blue-900 text-white py-2 px-6 rounded-md flex justify-between items-center mt-5">
         <h1 className="text-xl font-bold">Manage Fee Types</h1>
         {canAdd && (
@@ -170,7 +166,6 @@ const FeeTypes = () => {
             {showForm ? "Close Form" : "Add Fee Type"}
           </button>
         )}
-
       </div>
 
       <div className="p-6">
@@ -216,7 +211,6 @@ const FeeTypes = () => {
             ) : null}
           </div>
         )}
-
 
         {feeTypes.length > 0 ? (
           <div className="mt-6">
@@ -270,12 +264,12 @@ const FeeTypes = () => {
               pageSize={pageSize}
               onPageChange={(newPage) => {
                 setPage(newPage);
-                fetchData(newPage, pageSize);
+                fetchFeeTypes();
               }}
               onPageSizeChange={(size) => {
                 setPageSize(size);
                 setPage(1);
-                fetchData(1, size);
+                fetchFeeTypes();
               }}
               totalItems={feeTypes.length}
               showPageSizeSelector={true}

@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
 import Cookies from "js-cookie";
-import toast, { Toaster } from "react-hot-toast";
 import { MdVisibility } from "react-icons/md";
 import Select from "react-select";
-import { Buttons } from "../../components";
+import Buttons from "../../components/Buttons";
+import Pagination from "../../components/Pagination";
+import Toaster from "../../components/Toaster"; // Import custom Toaster component
 
 const FinalResults = () => {
   const [results, setResults] = useState([]);
@@ -18,19 +19,25 @@ const FinalResults = () => {
   const [filter, setFilter] = useState({ student: "", class_name: "", exam: "" });
   const [isLoading, setIsLoading] = useState(true);
   const [viewModalData, setViewModalData] = useState(null);
+  const [toaster, setToaster] = useState({ message: "", type: "success" });
 
-  const API = import.meta.env.VITE_SERVER_URL;
+  const API = import.meta.env.VITE_SERVER_URL || "http://127.0.0.1:8000/";
   const API_URL = `${API}/final-results/`;
 
   const permissions = JSON.parse(localStorage.getItem("user_permissions") || "[]");
   const canView = permissions.includes("users.view_finalresult");
+
+  // Toast helper
+  const showToast = (message, type = "success") => {
+    setToaster({ message, type });
+  };
 
   const fetchResults = async (page = 1, size = pageSize, filters = {}) => {
     try {
       setIsLoading(true);
       const token = Cookies.get("access_token");
       if (!token) {
-        toast.error("User is not authenticated.");
+        showToast("User is not authenticated.", "error");
         return;
       }
 
@@ -53,7 +60,7 @@ const FinalResults = () => {
       }
     } catch (error) {
       console.error("Error fetching results:", error.response || error.message);
-      toast.error("Failed to fetch final results. Please try again.");
+      showToast("Failed to fetch final results. Please try again.", "error");
     } finally {
       setIsLoading(false);
     }
@@ -63,7 +70,7 @@ const FinalResults = () => {
     try {
       const token = Cookies.get("access_token");
       if (!token) {
-        toast.error("User is not authenticated.");
+        showToast("User is not authenticated.", "error");
         return;
       }
       const response = await axios.get(`${API}/api/auth/users/list_profiles/student/`, {
@@ -73,7 +80,7 @@ const FinalResults = () => {
       setStudents(data.map(s => ({ value: s.profile_id, label: `${s.first_name} ${s.last_name} (ID: ${s.profile_id})` })));
     } catch (error) {
       console.error("Error fetching students:", error.response || error.message);
-      toast.error("Failed to fetch students. Please try again.");
+      showToast("Failed to fetch students. Please try again.", "error");
     }
   };
 
@@ -81,7 +88,7 @@ const FinalResults = () => {
     try {
       const token = Cookies.get("access_token");
       if (!token) {
-        toast.error("User is not authenticated.");
+        showToast("User is not authenticated.", "error");
         return;
       }
       const response = await axios.get(`${API}/classes/`, {
@@ -91,7 +98,7 @@ const FinalResults = () => {
       setClasses(data.map(c => ({ value: c.id, label: `${c.class_name} - ${c.section} (${c.session})` })));
     } catch (error) {
       console.error("Error fetching classes:", error.response || error.message);
-      toast.error("Failed to fetch classes. Please try again.");
+      showToast("Failed to fetch classes. Please try again.", "error");
     }
   };
 
@@ -99,7 +106,7 @@ const FinalResults = () => {
     try {
       const token = Cookies.get("access_token");
       if (!token) {
-        toast.error("User is not authenticated.");
+        showToast("User is not authenticated.", "error");
         return;
       }
       const response = await axios.get(`${API}/exams/`, {
@@ -109,7 +116,7 @@ const FinalResults = () => {
       setExams(data.map(e => ({ value: e.exam_id, label: e.term_name })));
     } catch (error) {
       console.error("Error fetching exams:", error.response || error.message);
-      toast.error("Failed to fetch exams. Please try again.");
+      showToast("Failed to fetch exams. Please try again.", "error");
     }
   };
 
@@ -122,8 +129,28 @@ const FinalResults = () => {
     });
   };
 
-  const goToPage = (page) => {
-    if (page >= 1 && page <= totalPages) fetchResults(page, pageSize, filter);
+  const handleFilterSubmit = () => {
+    fetchResults(1, pageSize, filter);
+    setFilterType(null);
+  };
+
+  const selectStyles = {
+    control: (provided) => ({
+      ...provided,
+      minHeight: "2rem",
+      fontSize: "0.85rem",
+    }),
+    menu: (provided) => ({
+      ...provided,
+      fontSize: "0.85rem",
+      maxHeight: "200px",
+      overflowY: "auto",
+    }),
+    option: (provided) => ({
+      ...provided,
+      fontSize: "0.85rem",
+      padding: "0.5rem",
+    }),
   };
 
   useEffect(() => {
@@ -136,21 +163,92 @@ const FinalResults = () => {
   }, [pageSize]);
 
   return (
-    <div className="p-2">
-      <Toaster position="top-center" />
-      <div className="bg-blue-900 text-white py-1 px-2 rounded-md flex justify-between items-center">
-        <h1 className="text-lg font-bold">Manage Final Results</h1>
-        <div className="relative">
-        </div>
+    <div className="p-2 sm:p-4">
+      <Toaster
+        message={toaster.message}
+        type={toaster.type}
+        duration={3000}
+        onClose={() => setToaster({ message: "", type: "success" })}
+      />
+      <div className="bg-blue-900 text-white py-2 px-3 sm:px-4 rounded-md flex flex-col sm:flex-row justify-between items-center gap-2">
+        <h1 className="text-lg sm:text-xl font-bold">Manage Final Results</h1>
+        {canView && (
+          <button
+            onClick={() => setFilterType(filterType ? null : "menu")}
+            className="bg-green-500 text-white px-4 py-2 rounded-md shadow hover:bg-green-700 text-sm sm:text-base"
+          >
+            {filterType ? "Close Filter" : "Filter Data"}
+          </button>
+        )}
       </div>
 
-      <div className="p-2">
+      {canView && filterType === "menu" && (
+        <div className="mt-4 bg-white p-4 sm:p-6 rounded-lg shadow-md max-w-full md:max-w-4xl mx-auto">
+          <h2 className="text-lg sm:text-xl font-semibold mb-4">Filter Final Results</h2>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Select Student</label>
+              <Select
+                name="student"
+                value={students.find(s => s.value === filter.student) || null}
+                onChange={(selected) => handleFilterChange("student", selected?.value || "")}
+                options={students}
+                placeholder="Select Student"
+                isClearable
+                styles={selectStyles}
+                isLoading={isLoading}
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Select Class</label>
+              <Select
+                name="class_name"
+                value={classes.find(c => c.value === filter.class_name) || null}
+                onChange={(selected) => handleFilterChange("class_name", selected?.value || "")}
+                options={classes}
+                placeholder="Select Class"
+                isClearable
+                styles={selectStyles}
+                isLoading={isLoading}
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Select Exam</label>
+              <Select
+                name="exam"
+                value={exams.find(e => e.value === filter.exam) || null}
+                onChange={(selected) => handleFilterChange("exam", selected?.value || "")}
+                options={exams}
+                placeholder="Select Exam"
+                isClearable
+                styles={selectStyles}
+                isLoading={isLoading}
+              />
+            </div>
+          </div>
+          <div className="text-right">
+            <button
+              onClick={handleFilterSubmit}
+              className="bg-blue-600 text-white px-6 py-2 rounded-md hover:bg-blue-700"
+            >
+              Apply Filters
+            </button>
+          </div>
+        </div>
+      )}
+
+      <div className="p-2 sm:p-4">
         {isLoading ? (
           <p className="text-center text-gray-600 mt-8">Loading...</p>
+        ) : results.length === 0 && !filterType ? (
+          <div className="mt-6 p-6 bg-gray-50 rounded-lg shadow-md border border-gray-200 max-w-4xl mx-auto text-center">
+            <p className="text-gray-500 text-lg font-medium">No final results added yet.</p>
+          </div>
         ) : (
           <div>
             <Buttons
-              data={results.map((res) => ({
+              data={results.map((res, index) => ({
+                Sequence: (currentPage - 1) * pageSize + index + 1,
                 ID: res.id,
                 Student: res.student_name,
                 Class: res.class_name,
@@ -163,6 +261,7 @@ const FinalResults = () => {
                 Status: res.is_complete ? "Complete" : "Incomplete",
               }))}
               columns={[
+                { label: "S.No", key: "Sequence" },
                 { label: "ID", key: "ID" },
                 { label: "Student", key: "Student" },
                 { label: "Class", key: "Class" },
@@ -177,108 +276,84 @@ const FinalResults = () => {
               filename="Final_Results_Report"
             />
 
-            <h2 className="text-base font-semibold text-white bg-blue-900 px-2 py-0.5 rounded-t-md">Final Results</h2>
+            <h2 className="text-base font-semibold text-white bg-blue-900 px-2 py-1 rounded-t-md">Final Results</h2>
             <div className="overflow-x-auto">
               <table className="w-full border border-gray-300 text-xs bg-white min-w-[400px]">
                 <thead className="bg-gray-200">
                   <tr>
-                    <th className="border p-0.5 whitespace-nowrap text-center">ID</th>
-                    <th className="border p-0.5 whitespace-nowrap text-center">Student</th>
-                    <th className="border p-0.5 whitespace-nowrap text-center">Class</th>
-                    <th className="border p-0.5 whitespace-nowrap text-center">Term</th>
-                    <th className="border p-0.5 whitespace-nowrap text-center">Marks</th>
-                    <th className="border p-0.5 whitespace-nowrap text-center">Total</th>
-                    <th className="border p-0.5 whitespace-nowrap text-center">%</th>
-                    <th className="border p-0.5 whitespace-nowrap text-center">Grade</th>
-                    <th className="border p-0.5 whitespace-nowrap text-center">Pending</th>
-                    <th className="border p-0.5 whitespace-nowrap text-center">Status</th>
-                    {canView && <th className="border p-0.5 whitespace-nowrap text-center">Actions</th>}
+                    <th className="border p-1 whitespace-nowrap text-center">S.No</th>
+                    <th className="border p-1 whitespace-nowrap text-center">ID</th>
+                    <th className="border p-1 whitespace-nowrap text-center">Student</th>
+                    <th className="border p-1 whitespace-nowrap text-center">Class</th>
+                    <th className="border p-1 whitespace-nowrap text-center">Term</th>
+                    <th className="border p-1 whitespace-nowrap text-center">Marks</th>
+                    <th className="border p-1 whitespace-nowrap text-center">Total</th>
+                    <th className="border p-1 whitespace-nowrap text-center">%</th>
+                    <th className="border p-1 whitespace-nowrap text-center">Grade</th>
+                    <th className="border p-1 whitespace-nowrap text-center">Pending</th>
+                    <th className="border p-1 whitespace-nowrap text-center">Status</th>
+                    {canView && <th className="border p-1 whitespace-nowrap text-center">Actions</th>}
                   </tr>
                 </thead>
                 <tbody>
-                  {results.length > 0 ? (
-                    results.map((result, index) => (
-                      <tr key={result.id}>
-                        {/* Sequence number */}
-                        <td className="border p-0.5 text-center whitespace-nowrap">
-                          {(currentPage - 1) * pageSize + index + 1}
-                        </td>
-                        <td className="border p-0.5 whitespace-nowrap">{result.student_name}</td>
-                        <td className="border p-0.5 whitespace-nowrap">{result.class_name}</td>
-                        <td className="border p-0.5 whitespace-nowrap">{result.exam_term}</td>
-                        <td className="border p-0.5 text-center whitespace-nowrap">{result.total_marks_obtained}</td>
-                        <td className="border p-0.5 text-center whitespace-nowrap">{result.total_marks}</td>
-                        <td className="border p-0.5 text-center whitespace-nowrap">{result.percentage}%</td>
-                        <td className="border p-0.5 text-center whitespace-nowrap">{result.grade}</td>
-                        <td className="border p-0.5 text-center whitespace-nowrap">{result.pending_subjects}</td>
-                        <td className="border p-0.5 text-center whitespace-nowrap">
-                          <span className={`px-0.5 py-0 text-xs font-semibold ${result.is_complete
-                            ? "bg-green-100 text-green-800"
-                            : "bg-yellow-100 text-yellow-800"
-                            }`}>
-                            {result.is_complete ? "Complete" : "Incomplete"}
-                          </span>
-                        </td>
-                        {canView && (
-                          <td className="border p-0.5 flex justify-center whitespace-nowrap">
-                            <button onClick={() => setViewModalData(result)} className="text-blue-600">
-                              <MdVisibility />
-                            </button>
-                          </td>
-                        )}
-                      </tr>
-                    ))
-                  ) : (
-                    <tr>
-                      <td colSpan="12" className="text-center text-gray-500 py-1 whitespace-nowrap">
-                        No records found.
+                  {results.map((result, index) => (
+                    <tr key={result.id}>
+                      <td className="border p-1 text-center whitespace-nowrap">
+                        {(currentPage - 1) * pageSize + index + 1}
                       </td>
+                      <td className="border p-1 text-center whitespace-nowrap">{result.id}</td>
+                      <td className="border p-1 whitespace-nowrap">{result.student_name}</td>
+                      <td className="border p-1 whitespace-nowrap">{result.class_name}</td>
+                      <td className="border p-1 whitespace-nowrap">{result.exam_term}</td>
+                      <td className="border p-1 text-center whitespace-nowrap">{result.total_marks_obtained}</td>
+                      <td className="border p-1 text-center whitespace-nowrap">{result.total_marks}</td>
+                      <td className="border p-1 text-center whitespace-nowrap">{result.percentage}%</td>
+                      <td className="border p-1 text-center whitespace-nowrap">{result.grade}</td>
+                      <td className="border p-1 text-center whitespace-nowrap">{result.pending_subjects}</td>
+                      <td className="border p-1 text-center whitespace-nowrap">
+                        <span className={`px-1 py-0.5 text-xs font-semibold ${result.is_complete
+                          ? "bg-green-100 text-green-800"
+                          : "bg-yellow-100 text-yellow-800"
+                          }`}>
+                          {result.is_complete ? "Complete" : "Incomplete"}
+                        </span>
+                      </td>
+                      {canView && (
+                        <td className="border p-1 flex justify-center whitespace-nowrap">
+                          <button onClick={() => setViewModalData(result)} className="text-blue-600 hover:text-blue-800">
+                            <MdVisibility size={16} />
+                          </button>
+                        </td>
+                      )}
                     </tr>
-                  )}
+                  ))}
                 </tbody>
               </table>
             </div>
-            <div className="flex flex-col sm:flex-row justify-between items-center bg-blue-50 p-1 rounded-b-md mt-1">
-              <div className="flex items-center gap-1 mb-1 sm:mb-0">
-                <label className="text-gray-700 font-semibold text-xs">Page Size:</label>
-                <select
-                  value={pageSize}
-                  onChange={(e) => {
-                    setPageSize(Number(e.target.value));
-                    setCurrentPage(1);
-                  }}
-                  className="border rounded-md px-1 py-0 text-xs"
-                >
-                  <option value={5}>5</option>
-                  <option value={10}>10</option>
-                  <option value={20}>20</option>
-                </select>
-              </div>
-              <div className="flex items-center gap-0.5">
-                <button
-                  onClick={() => goToPage(currentPage - 1)}
-                  disabled={currentPage === 1}
-                  className={`px-1 py-0 rounded-md font-semibold text-xs ${currentPage === 1 ? "bg-gray-200 text-gray-500 cursor-not-allowed" : "bg-white hover:bg-gray-100"}`}
-                >
-                  Prev
-                </button>
-                <span className="px-1 py-0 bg-blue-600 text-white font-bold rounded-md text-xs">{currentPage}</span>
-                <button
-                  onClick={() => goToPage(currentPage + 1)}
-                  disabled={currentPage === totalPages}
-                  className={`px-1 py-0 rounded-md font-semibold text-xs ${currentPage === totalPages ? "bg-gray-200 text-gray-500 cursor-not-allowed" : "bg-white hover:bg-gray-100"}`}
-                >
-                  Next
-                </button>
-              </div>
-            </div>
+            <Pagination
+              currentPage={currentPage}
+              totalPages={totalPages}
+              pageSize={pageSize}
+              onPageChange={(page) => {
+                setCurrentPage(page);
+                fetchResults(page, pageSize, filter);
+              }}
+              onPageSizeChange={(size) => {
+                setPageSize(size);
+                setCurrentPage(1);
+                fetchResults(1, size, filter);
+              }}
+              totalItems={results.length}
+              showPageSizeSelector={true}
+              showPageInfo={true}
+            />
           </div>
         )}
       </div>
 
       {viewModalData && canView && (
         <div className="fixed inset-0 bg-black bg-opacity-50 backdrop-blur-sm flex items-center justify-center z-50 px-2">
-          <div className="bg-white rounded-lg shadow-2xl w-full max-w-sm max-h-[70vh] border border-gray-200 p-2 overflow-hidden">
+          <div className="bg-white rounded-lg shadow-2xl w-full max-w-sm max-h-[70vh] border border-gray-200 p-3 overflow-hidden">
             <div className="overflow-y-auto max-h-[60vh] pr-1">
               <div className="mb-2 border-b pb-1">
                 <h3 className="text-sm font-bold text-blue-800 text-center">📄 Final Result Details</h3>
@@ -290,7 +365,6 @@ const FinalResults = () => {
                 <div><span className="font-semibold">Class:</span> {viewModalData.class_name}</div>
                 <div><span className="font-semibold">Exam ID:</span> {viewModalData.exam}</div>
                 <div><span className="font-semibold">Term:</span> {viewModalData.exam_term}</div>
-
                 <div className="col-span-1 font-semibold text-blue-900 border-b pt-1 pb-0.5">📋 Result</div>
                 <div><span className="font-semibold">Marks:</span> {viewModalData.total_marks_obtained}</div>
                 <div><span className="font-semibold">Total:</span> {viewModalData.total_marks}</div>
@@ -298,7 +372,7 @@ const FinalResults = () => {
                 <div><span className="font-semibold">Grade:</span> {viewModalData.grade}</div>
                 <div><span className="font-semibold">Pending:</span> {viewModalData.pending_subjects}</div>
                 <div><span className="font-semibold">Status:</span>
-                  <span className={`ml-0.5 px-0.5 py-0 rounded-full text-xs font-semibold ${viewModalData.is_complete
+                  <span className={`ml-0.5 px-1 py-0.5 rounded-full text-xs font-semibold ${viewModalData.is_complete
                     ? "bg-green-100 text-green-800"
                     : "bg-yellow-100 text-yellow-800"
                     }`}>
@@ -311,7 +385,7 @@ const FinalResults = () => {
             <div className="mt-2 text-center">
               <button
                 onClick={() => setViewModalData(null)}
-                className="px-2 py-0.5 bg-blue-700 text-white rounded-full shadow hover:bg-blue-800 text-xs"
+                className="px-3 py-1 bg-blue-700 text-white rounded-full shadow hover:bg-blue-800 text-xs"
               >
                 Close
               </button>

@@ -2,10 +2,10 @@ import React, { useState, useEffect } from "react";
 import axios from "axios";
 import Cookies from "js-cookie";
 import { MdEdit, MdDelete, MdVisibility } from "react-icons/md";
-import toast, { Toaster } from "react-hot-toast";
 import Select from "react-select";
 import { Buttons } from "../../components";
 import Pagination from "../../components/Pagination";
+import Toaster from "../../components/Toaster"; // Your custom toaster
 
 const ClassAnnouncements = () => {
     const [announcements, setAnnouncements] = useState([]);
@@ -23,16 +23,23 @@ const ClassAnnouncements = () => {
     const [totalPages, setTotalPages] = useState(1);
     const [totalItems, setTotalItems] = useState(0);
     const [loading, setLoading] = useState(false);
+    // Custom Toaster state
+    const [toaster, setToaster] = useState({ message: '', type: 'success' });
 
     const API = import.meta.env.VITE_SERVER_URL;
     const API_URL = `${API}class-announcements/`;
+
+    // Custom toast function
+    const showToast = (message, type = 'success') => {
+        setToaster({ message, type });
+    };
 
     const fetchData = async () => {
         setLoading(true);
         try {
             const token = Cookies.get("access_token");
             if (!token) {
-                toast.error("No authentication token found. Please log in again.");
+                showToast("No authentication token found. Please log in again.", "error");
                 console.error("No access_token found in Cookies.");
                 return;
             }
@@ -50,11 +57,11 @@ const ClassAnnouncements = () => {
             
             if (results.length === 0) {
                 console.warn("No announcements found in response.");
-                toast.info("No announcements available.");
+                // Don't show toast for empty results on initial load
             }
         } catch (err) {
             console.error("Fetch announcements error:", err.response?.data || err.message);
-            toast.error(err.response?.data?.message || "Failed to fetch announcements.");
+            showToast(err.response?.data?.message || "Failed to fetch announcements.", "error");
         } finally {
             setLoading(false);
         }
@@ -64,7 +71,7 @@ const ClassAnnouncements = () => {
         try {
             const token = Cookies.get("access_token");
             if (!token) {
-                toast.error("No authentication token found. Please log in again.");
+                showToast("No authentication token found. Please log in again.", "error");
                 console.error("No access_token found in Cookies.");
                 return;
             }
@@ -77,17 +84,17 @@ const ClassAnnouncements = () => {
             setClassOptions(Array.isArray(classes) ? classes : []);
             if (classes.length === 0) {
                 console.warn("No classes found in response.");
-                toast.warn("No classes available to select.");
+                showToast("No classes available to select.", "error");
             }
         } catch (err) {
             console.error("Fetch classes error:", err.response?.data || err.message);
-            toast.error(err.response?.data?.message || "Failed to load classes.");
+            showToast(err.response?.data?.message || "Failed to load classes.", "error");
         }
     };
 
     const handleCreateOrUpdate = async () => {
         if (!newAnnouncement.title || !newAnnouncement.description || !newAnnouncement.class_schedule) {
-            toast.error("All fields are required!");
+            showToast("All fields are required!", "error");
             return;
         }
 
@@ -100,10 +107,10 @@ const ClassAnnouncements = () => {
             if (editingItem) {
                 // Use PATCH for updates and use uuid instead of id
                 await axios.patch(`${API_URL}${editingItem.uuid}/`, newAnnouncement, config);
-                toast.success("Announcement updated!");
+                showToast("Announcement updated successfully!", "success");
             } else {
                 await axios.post(API_URL, newAnnouncement, config);
-                toast.success("Announcement created!");
+                showToast("Announcement created successfully!", "success");
             }
 
             fetchData();
@@ -112,32 +119,38 @@ const ClassAnnouncements = () => {
             setEditingItem(null);
         } catch (err) {
             console.error("Create/Update error:", err.response?.data || err.message);
-            toast.error(err.response?.data?.message || "Operation failed.");
+            showToast(err.response?.data?.message || "Operation failed.", "error");
         }
     };
 
     const handleDelete = async (uuid) => {
         if (!canDelete) {
-            toast.error("No permission to delete.");
+            showToast("You do not have permission to delete announcements.", "error");
             return;
         }
 
-        if (!window.confirm("Are you sure you want to delete this announcement?")) {
-            return;
-        }
-
-        try {
-            const token = Cookies.get("access_token");
-            // Use uuid instead of id
-            await axios.delete(`${API_URL}${uuid}/`, {
-                headers: { Authorization: `Bearer ${token}` },
-            });
-            toast.success("Announcement deleted.");
-            fetchData();
-        } catch (err) {
-            console.error("Delete error:", err.response?.data || err.message);
-            toast.error(err.response?.data?.message || "Failed to delete.");
-        }
+        // Using custom confirmation toast
+        showToast(
+            {
+                message: "Are you sure you want to delete this announcement?",
+                type: "confirm",
+                onConfirm: async () => {
+                    try {
+                        const token = Cookies.get("access_token");
+                        await axios.delete(`${API_URL}${uuid}/`, {
+                            headers: { Authorization: `Bearer ${token}` },
+                        });
+                        showToast("Announcement deleted successfully!", "success");
+                        fetchData();
+                    } catch (err) {
+                        console.error("Delete error:", err.response?.data || err.message);
+                        showToast(err.response?.data?.message || "Failed to delete announcement.", "error");
+                    }
+                },
+                onCancel: () => setToaster({ message: "", type: "success" })
+            },
+            "confirmation"
+        );
     };
 
     useEffect(() => {
@@ -170,9 +183,50 @@ const ClassAnnouncements = () => {
             : classSchedule || "N/A";
     };
 
+    // No Announcements Empty State Component
+    const NoAnnouncementsMessage = () => (
+        <div className="flex flex-col items-center justify-center py-16 px-4 text-center bg-gradient-to-br from-blue-50 to-indigo-100 rounded-lg border-2 border-dashed border-blue-300 mx-2 mt-4">
+            <div className="w-24 h-24 mb-6 text-blue-300">
+                <svg viewBox="0 0 24 24" fill="currentColor" className="w-full h-full">
+                    <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+                </svg>
+            </div>
+            
+            <h3 className="text-xl font-bold text-blue-800 mb-2">No Announcements Yet</h3>
+            <p className="text-blue-600 mb-4 max-w-md">
+                No class announcements have been created yet. Start by adding your first announcement to keep everyone informed!
+            </p>
+            
+            {canAdd && (
+                <button
+                    onClick={() => {
+                        setShowForm(true);
+                        setNewAnnouncement({ class_schedule: "", title: "", description: "" });
+                        setEditingItem(null);
+                    }}
+                    className="flex items-center px-4 py-2 bg-blue-600 text-white font-semibold rounded-lg shadow-md hover:bg-blue-700 transition-colors duration-200"
+                >
+                    <div className="flex items-center justify-center w-6 h-6 bg-white/20 rounded-full mr-2">
+                        <span className="text-white text-base font-bold">+</span>
+                    </div>
+                    Create Your First Announcement
+                </button>
+            )}
+        </div>
+    );
+
     return (
         <div className="p-6">
-            <Toaster position="top-center" />
+            {/* Custom Toaster */}
+            <Toaster
+                message={toaster.message}
+                type={toaster.type}
+                duration={3000}
+                onClose={() => setToaster({ message: "", type: "success" })}
+                onConfirm={toaster.onConfirm}
+                onCancel={toaster.onCancel}
+            />
+            
             <div className="flex justify-between items-center bg-blue-900 text-white px-6 py-3 rounded-md">
                 <h1 className="text-xl font-bold">Class Announcements</h1>
                 {canAdd && (
@@ -267,9 +321,12 @@ const ClassAnnouncements = () => {
             )}
 
             {loading ? (
-                <p className="text-center text-gray-600 text-sm mt-4">Loading announcements...</p>
+                <div className="flex items-center justify-center py-16">
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+                    <span className="ml-3 text-gray-600">Loading announcements...</span>
+                </div>
             ) : announcements.length === 0 ? (
-                <p className="text-center text-gray-600 text-sm mt-4">No announcements found.</p>
+                <NoAnnouncementsMessage />
             ) : (
                 <>
                     <Buttons

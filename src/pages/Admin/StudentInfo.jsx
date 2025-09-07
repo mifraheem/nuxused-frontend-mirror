@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
 import Cookies from "js-cookie";
-import toast, { Toaster } from "react-hot-toast";
 import { FiTrash, FiEdit, FiEye } from "react-icons/fi";
-import { Buttons } from "../../components";
+import Buttons from "../../components/Buttons"; // Adjust the import path as needed
+import Toaster from "../../components/Toaster"; // Import custom Toaster component
 
 const StudentInfo = () => {
   const [students, setStudents] = useState([]);
@@ -13,10 +13,12 @@ const StudentInfo = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [pageSize, setPageSize] = useState(10);
+  const [toaster, setToaster] = useState({ message: "", type: "success" });
+  const [confirmResolve, setConfirmResolve] = useState(null);
 
   const API = import.meta.env.VITE_SERVER_URL;
 
-  // Permissions (align with other pages)
+  // Permissions
   const permissions = JSON.parse(localStorage.getItem("user_permissions") || "[]");
   const canView = permissions.includes("users.view_studentprofile");
   const canEdit = permissions.includes("users.change_studentprofile");
@@ -26,6 +28,44 @@ const StudentInfo = () => {
     const token = Cookies.get("access_token");
     if (!token) throw new Error("User is not authenticated.");
     return { Authorization: `Bearer ${token}` };
+  };
+
+  const showToast = (message, type = "success") => {
+    setToaster({ message, type });
+  };
+
+  const confirmToast = (message = "Delete this student?") => {
+    return new Promise((resolve) => {
+      setConfirmResolve(() => resolve); // Store the resolve function
+      setToaster({
+        message: (
+          <div className="flex flex-col gap-4">
+            <p className="text-lg font-medium">{message}</p>
+            <div className="flex justify-end gap-2">
+              <button
+                onClick={() => {
+                  setToaster({ message: "", type: "success" });
+                  resolve(true);
+                }}
+                className="px-3 py-1.5 rounded-md bg-red-600 text-white text-sm hover:bg-red-700"
+              >
+                Yes
+              </button>
+              <button
+                onClick={() => {
+                  setToaster({ message: "", type: "success" });
+                  resolve(false);
+                }}
+                className="px-3 py-1.5 rounded-md border border-gray-300 text-sm hover:bg-gray-50"
+              >
+                No
+              </button>
+            </div>
+          </div>
+        ),
+        type: "confirmation",
+      });
+    });
   };
 
   const fetchStudents = async (page = 1, size = pageSize) => {
@@ -42,25 +82,24 @@ const StudentInfo = () => {
         setTotalPages(data.total_pages || 1);
         return data.results;
       } else {
-        toast.error("Failed to fetch students.");
+        showToast("Failed to fetch students.", "error");
         return [];
       }
     } catch (error) {
       console.error("Error fetching students:", error.response || error.message);
-      toast.error(error.response?.data?.message || "Failed to fetch students.");
+      showToast(error.response?.data?.message || "Failed to fetch students.", "error");
       return [];
     }
   };
 
   useEffect(() => {
     fetchStudents(1, pageSize);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pageSize]);
 
   const updateStudent = async () => {
     try {
       if (!selectedStudent || !selectedStudent.user_id) {
-        toast.error("Invalid student selected for update.");
+        showToast("Invalid student selected for update.", "error");
         return;
       }
 
@@ -85,22 +124,22 @@ const StudentInfo = () => {
       });
 
       if ([200, 202].includes(response.status)) {
-        toast.success("Student updated successfully.");
+        showToast("Student updated successfully.", "success");
         fetchStudents(currentPage, pageSize);
         setIsEditModalOpen(false);
       } else {
-        toast.error("Unexpected response from server.");
+        showToast("Unexpected response from server.", "error");
       }
     } catch (error) {
       console.error("Error updating student:", error);
-      toast.error(error.response?.data?.detail || "Failed to update student.");
+      showToast(error.response?.data?.detail || "Failed to update student.", "error");
     }
   };
 
   const deleteStudent = async (id) => {
     try {
       if (!id) {
-        toast.error("Invalid student ID.");
+        showToast("Invalid student ID.", "error");
         return;
       }
 
@@ -111,68 +150,48 @@ const StudentInfo = () => {
 
       if ([200, 202, 204].includes(response.status)) {
         if (response.status === 202) {
-          toast.success("Student deletion scheduled. Will be removed after 10 seconds.");
+          showToast("Student deletion scheduled. Will be removed after 10 seconds.", "success");
           setTimeout(() => {
             setStudents((prev) => prev.filter((s) => s.user_id !== id));
-            toast.success("Student deleted.");
+            showToast("Student deleted.", "success");
           }, 10000);
         } else {
           setStudents((prev) => prev.filter((s) => s.user_id !== id));
-          toast.success("Student deleted.");
+          showToast("Student deleted.", "success");
         }
       } else {
-        toast.error("Failed to delete student: Unexpected status code.");
+        showToast("Failed to delete student: Unexpected status code.", "error");
       }
     } catch (error) {
       console.error("Error deleting student:", error.response || error.message);
-      toast.error(
+      showToast(
         error.response?.data?.detail ||
-          error.response?.data?.message ||
-          "Failed to delete student."
+        error.response?.data?.message ||
+        "Failed to delete student.",
+        "error"
       );
     }
   };
 
-  const confirmDeleteStudent = (id) => {
+  const confirmDeleteStudent = async (id) => {
     if (!id) {
-      toast.error("Invalid student ID.");
+      showToast("Invalid student ID.", "error");
       return;
     }
     if (!canDelete) {
-      toast.error("You don’t have permission to delete student profiles.");
+      showToast("You don’t have permission to delete student profiles.", "error");
       return;
     }
 
-    toast(
-      (t) => (
-        <div className="text-center">
-          <p className="font-semibold">Delete this student?</p>
-          <div className="flex justify-center gap-2 mt-2">
-            <button
-              onClick={() => {
-                deleteStudent(id);
-                toast.dismiss(t.id);
-              }}
-              className="bg-red-600 text-white px-3 py-1 rounded hover:bg-red-700 text-sm"
-            >
-              Yes
-            </button>
-            <button
-              onClick={() => toast.dismiss(t.id)}
-              className="bg-gray-300 text-black px-3 py-1 rounded hover:bg-gray-400 text-sm"
-            >
-              No
-            </button>
-          </div>
-        </div>
-      ),
-      { duration: 5000 }
-    );
+    const ok = await confirmToast("Delete this student?");
+    if (ok) {
+      deleteStudent(id);
+    }
   };
 
   const openViewModal = (student) => {
     if (!student || !student.user_id) {
-      toast.error("Invalid student selected.");
+      showToast("Invalid student selected.", "error");
       return;
     }
     setSelectedStudent(student);
@@ -181,7 +200,7 @@ const StudentInfo = () => {
 
   const openEditModal = (student) => {
     if (!student || !student.user_id) {
-      toast.error("Invalid student selected.");
+      showToast("Invalid student selected.", "error");
       return;
     }
     setSelectedStudent({ ...student, id: student.user_id });
@@ -195,10 +214,15 @@ const StudentInfo = () => {
   };
 
   return (
-    <div className="p-2 md:p-3">
-      <Toaster position="top-center" reverseOrder={false} />
+    <div className="p-2 md:p-3 relative">
+      <Toaster
+        message={toaster.message}
+        type={toaster.type}
+        duration={toaster.type === "confirmation" ? 5000 : 3000}
+        onClose={() => setToaster({ message: "", type: "success" })}
+      />
 
-      {/* Header bar (compact, survives narrow widths like WTM) */}
+      {/* Header bar */}
       <div className="bg-blue-900 text-white rounded-md flex items-center justify-between px-2 py-2 mt-2">
         <h1 className="text-sm md:text-base font-bold">Manage Student Information</h1>
       </div>
@@ -207,25 +231,38 @@ const StudentInfo = () => {
         <Buttons
           data={students}
           columns={[
-            { label: "ID", key: "user_id" },
+            { label: "Profile ID", key: "profile_id" },
+            { label: "User ID", key: "user_id" },
             { label: "Username", key: "username" },
-            { label: "FirstName", key: "first_name" },
-            { label: "LastName", key: "last_name" },
+            { label: "First Name", key: "first_name" },
+            { label: "Last Name", key: "last_name" },
             { label: "Email", key: "email" },
+            { label: "Phone Number", key: "phone_number" },
+            { label: "Address", key: "address" },
+            { label: "Date of Birth", key: "dob" },
+            { label: "Gender", key: "gender" },
+            { label: "Registration No", key: "registration_no" },
+            { label: "Class Name", key: "class_name" },
           ]}
           filename="Students_List"
         />
 
-        {/* Scroll container ensures layout stays intact when sidebar is open */}
+        {/* Table */}
         <div className="overflow-x-auto mt-2">
-          <table className="w-full border-collapse border border-gray-300 bg-white min-w-[650px]">
-            <thead className="bg-blue-900 text-white">
+          <table className="w-full border-collapse border border-gray-300 bg-white min-w-[1000px] shadow-lg">
+            <thead className="bg-blue-900 text-white sticky top-0 z-10">
               <tr>
-                <th className="border border-gray-300 p-1 text-center text-xs">#</th>
+                <th className="border border-gray-300 p-1 text-center text-xs">No.</th>
                 <th className="border border-gray-300 p-1 text-center text-xs">Username</th>
                 <th className="border border-gray-300 p-1 text-center text-xs">First Name</th>
                 <th className="border border-gray-300 p-1 text-center text-xs">Last Name</th>
                 <th className="border border-gray-300 p-1 text-center text-xs">Email</th>
+                <th className="border border-gray-300 p-1 text-center text-xs">Phone</th>
+                <th className="border border-gray-300 p-1 text-center text-xs">Address</th>
+                <th className="border border-gray-300 p-1 text-center text-xs">Date of Birth</th>
+                <th className="border border-gray-300 p-1 text-center text-xs">Gender</th>
+                <th className="border border-gray-300 p-1 text-center text-xs">Registration No</th>
+                <th className="border border-gray-300 p-1 text-center text-xs">Class</th>
                 <th className="border border-gray-300 p-1 text-center text-xs">Actions</th>
               </tr>
             </thead>
@@ -233,22 +270,34 @@ const StudentInfo = () => {
               {students.map((student, index) => (
                 <tr key={student.user_id || `student-${index}`} className="hover:bg-gray-50">
                   <td className="border border-gray-300 p-1 text-center text-xs">
-                    <span className="inline-block max-w-[120px] truncate" title={student.user_id}>
-                      {student.user_id}
-                    </span>
+                    {index + 1 + (currentPage - 1) * pageSize}
                   </td>
                   <td className="border border-gray-300 p-1 text-xs">
                     <span className="block max-w-[160px] truncate" title={student.username}>
-                      {student.username}
+                      {student.username || "N/A"}
                     </span>
                   </td>
-                  <td className="border border-gray-300 p-1 text-xs">{student.first_name}</td>
-                  <td className="border border-gray-300 p-1 text-xs">{student.last_name}</td>
+                  <td className="border border-gray-300 p-1 text-xs">{student.first_name || "N/A"}</td>
+                  <td className="border border-gray-300 p-1 text-xs">{student.last_name || "N/A"}</td>
                   <td className="border border-gray-300 p-1 text-xs">
                     <span className="block max-w-[220px] truncate" title={student.email}>
-                      {student.email}
+                      {student.email || "N/A"}
                     </span>
                   </td>
+                  <td className="border border-gray-300 p-1 text-xs">
+                    <span className="block max-w-[150px] truncate" title={student.phone_number}>
+                      {student.phone_number || "N/A"}
+                    </span>
+                  </td>
+                  <td className="border border-gray-300 p-1 text-xs">
+                    <span className="block max-w-[200px] truncate" title={student.address}>
+                      {student.address || "N/A"}
+                    </span>
+                  </td>
+                  <td className="border border-gray-300 p-1 text-xs">{student.dob || "N/A"}</td>
+                  <td className="border border-gray-300 p-1 text-xs capitalize">{student.gender || "N/A"}</td>
+                  <td className="border border-gray-300 p-1 text-xs">{student.registration_no || "N/A"}</td>
+                  <td className="border border-gray-300 p-1 text-xs">{student.class_name || "N/A"}</td>
                   <td className="border border-gray-300 p-1">
                     <div className="flex items-center justify-center gap-2">
                       {canView && (
@@ -281,11 +330,8 @@ const StudentInfo = () => {
               ))}
               {students.length === 0 && (
                 <tr>
-                  <td
-                    colSpan={6}
-                    className="border border-gray-300 p-2 text-center text-gray-500 text-sm"
-                  >
-                    No students found.
+                  <td colSpan={12} className="border border-gray-300 p-2 text-center text-gray-500 text-sm">
+                    No students added yet.
                   </td>
                 </tr>
               )}
@@ -293,7 +339,7 @@ const StudentInfo = () => {
           </table>
         </div>
 
-        {/* Pagination controls (compact & responsive) */}
+        {/* Pagination controls */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mt-2">
           <div className="flex items-center gap-2">
             <label className="text-xs font-medium text-gray-700">Page Size:</label>
@@ -322,9 +368,7 @@ const StudentInfo = () => {
               <button
                 key={idx}
                 onClick={() => goToPage(idx + 1)}
-                className={`px-2 py-1 rounded text-xs ${
-                  currentPage === idx + 1 ? "bg-blue-600 text-white" : "bg-gray-200"
-                }`}
+                className={`px-2 py-1 rounded text-xs ${currentPage === idx + 1 ? "bg-blue-600 text-white" : "bg-gray-200"}`}
               >
                 {idx + 1}
               </button>
@@ -340,7 +384,7 @@ const StudentInfo = () => {
         </div>
       </div>
 
-      {/* View Modal (compact & scrollable) */}
+      {/* View Modal */}
       {isViewModalOpen && selectedStudent && (
         <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-60 px-2 z-50">
           <div className="bg-white w-full max-w-sm rounded-xl shadow-2xl border border-gray-300 overflow-hidden">
@@ -367,6 +411,14 @@ const StudentInfo = () => {
                         "N/A"
                       )}
                     </td>
+                  </tr>
+                  <tr>
+                    <th className="px-2 py-1 text-left text-gray-700">Profile ID</th>
+                    <td className="px-2 py-1">{selectedStudent.profile_id || "N/A"}</td>
+                  </tr>
+                  <tr>
+                    <th className="px-2 py-1 text-left text-gray-700">User ID</th>
+                    <td className="px-2 py-1">{selectedStudent.user_id || "N/A"}</td>
                   </tr>
                   <tr>
                     <th className="px-2 py-1 text-left text-gray-700">Username</th>
@@ -401,6 +453,10 @@ const StudentInfo = () => {
                     <td className="px-2 py-1 capitalize">{selectedStudent.gender || "N/A"}</td>
                   </tr>
                   <tr>
+                    <th className="px-2 py-1 text-left text-gray-700">Registration No</th>
+                    <td className="px-2 py-1">{selectedStudent.registration_no || "N/A"}</td>
+                  </tr>
+                  <tr>
                     <th className="px-2 py-1 text-left text-gray-700">Class</th>
                     <td className="px-2 py-1">{selectedStudent.class_name || "N/A"}</td>
                   </tr>
@@ -419,7 +475,7 @@ const StudentInfo = () => {
         </div>
       )}
 
-      {/* Edit Modal (compact & scrollable) */}
+      {/* Edit Modal */}
       {isEditModalOpen && selectedStudent && (
         <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-60 px-2 z-50">
           <div className="bg-white w-full max-w-sm rounded-xl shadow-2xl border border-gray-300 overflow-hidden">

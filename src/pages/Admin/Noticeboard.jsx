@@ -2,9 +2,9 @@ import React, { useState, useEffect } from "react";
 import axios from "axios";
 import Cookies from "js-cookie";
 import { MdEdit, MdDelete, MdVisibility } from "react-icons/md";
-import toast, { Toaster } from "react-hot-toast";
 import { Buttons } from "../../components";
 import Pagination from "../../components/Pagination";
+import Toaster from "../../components/Toaster";
 
 const Noticeboard = () => {
   const [notices, setNotices] = useState([]);
@@ -21,10 +21,14 @@ const Noticeboard = () => {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
   const [totalPages, setTotalPages] = useState(1);
+  const [toaster, setToaster] = useState({ message: '', type: 'success' });
 
   const API = import.meta.env.VITE_SERVER_URL;
-
   const API_URL = `${API}announcements/`;
+
+  const showToast = (message, type = 'success') => {
+    setToaster({ message, type });
+  };
 
   // Fetch notices from the API
   const fetchNotices = async () => {
@@ -53,7 +57,7 @@ const Noticeboard = () => {
     } catch (error) {
       console.error("Error fetching notices:", error.response || error.message);
       setError("Failed to fetch notices. Please try again later.");
-      toast.error("Failed to fetch notices.");
+      showToast("Failed to fetch notices.", "error");
     } finally {
       setLoading(false);
     }
@@ -62,14 +66,14 @@ const Noticeboard = () => {
   // Create a new notice
   const handleAddNotice = async () => {
     if (!newNotice.title || !newNotice.description) {
-      toast.error("All fields are required!");
+      showToast("All fields are required!", "error");
       return;
     }
 
     try {
       const token = Cookies.get("access_token");
       if (!token) {
-        toast.error("User is not authenticated.");
+        showToast("User is not authenticated.", "error");
         return;
       }
 
@@ -84,8 +88,7 @@ const Noticeboard = () => {
       console.log("Create Notice Response:", response.data);
 
       if (response.status === 201) {
-        toast.success("Notice created successfully!");
-        // Fetch notices again after creating a new one
+        showToast("Notice created successfully!", "success");
         fetchNotices();
         setNewNotice({ title: "", description: "", announced_for: "all" });
         setShowForm(false);
@@ -94,8 +97,9 @@ const Noticeboard = () => {
       }
     } catch (error) {
       console.error("Error creating notice:", error.response || error.message);
-      toast.error(
-        error.response?.data?.message || "Failed to create notice. Please try again."
+      showToast(
+        error.response?.data?.message || "Failed to create notice. Please try again.",
+        "error"
       );
     }
   };
@@ -103,47 +107,37 @@ const Noticeboard = () => {
   // Delete a notice with confirmation
   const handleDeleteNotice = async (id) => {
     if (!canDelete) {
-      toast((t) => (
-        <div className="text-center font-semibold p-4 bg-red-100 border border-red-400 rounded shadow-md">
-          🚫 You do not have permission to delete announcements.
-          <div className="mt-3">
-            <button
-              onClick={() => toast.dismiss(t.id)}
-              className="mt-2 px-4 py-1 bg-red-500 text-white rounded hover:bg-red-600"
-            >
-              Close
-            </button>
-          </div>
-        </div>
-      ));
+      showToast("You do not have permission to delete announcements.", "error");
       return;
     }
 
-    toast((t) => (
-      <div>
-        <p>Are you sure you want to delete this notice?</p>
-        <div className="flex justify-end gap-2 mt-2">
-          <button
-            onClick={() => {
-              deleteNotice(id);
-              toast.dismiss(t.id);
-            }}
-            className="bg-red-500 text-white px-3 py-1 rounded"
-          >
-            Yes
-          </button>
-          <button
-            onClick={() => toast.dismiss(t.id)}
-            className="bg-gray-500 text-white px-3 py-1 rounded"
-          >
-            No
-          </button>
-        </div>
-      </div>
-    ));
+    showToast(
+      {
+        message: "Are you sure you want to delete this notice?",
+        type: "confirm",
+        onConfirm: async () => {
+          try {
+            const token = Cookies.get("access_token");
+            if (!token) {
+              throw new Error("User is not authenticated.");
+            }
+            await axios.delete(`${API_URL}${id}/`, {
+              headers: { Authorization: `Bearer ${token}` },
+            });
+            showToast("Notice deleted successfully!", "success");
+            setNotices((prevNotices) => prevNotices.filter((notice) => notice.id !== id));
+          } catch (error) {
+            console.error("Error deleting notice:", error.response || error.message);
+            showToast("Failed to delete notice. Please try again.", "error");
+          }
+        },
+        onCancel: () => setToaster({ message: "", type: "success" })
+      },
+      "confirm"
+    );
   };
 
-  // Function to delete notice
+  // Function to delete notice (called within handleDeleteNotice)
   const deleteNotice = async (id) => {
     try {
       const token = Cookies.get("access_token");
@@ -155,37 +149,37 @@ const Noticeboard = () => {
         headers: { Authorization: `Bearer ${token}` },
       });
 
-      toast.success("Notice deleted successfully!");
+      showToast("Notice deleted successfully!", "success");
       setNotices((prevNotices) => prevNotices.filter((notice) => notice.id !== id));
     } catch (error) {
       console.error("Error deleting notice:", error.response || error.message);
-      toast.error("Failed to delete notice. Please try again.");
+      showToast("Failed to delete notice. Please try again.", "error");
     }
   };
 
-  // ✅ Handle Edit Notice
+  // Handle Edit Notice
   const handleEditNotice = (notice) => {
     setEditingNotice(notice);
     setNewNotice(notice);
     setShowForm(true);
   };
 
-  // ✅ Handle View Notice
+  // Handle View Notice
   const handleViewNotice = (notice) => {
     setSelectedNotice(notice);
   };
 
-  // ✅ Update Notice
+  // Update Notice
   const handleUpdateNotice = async () => {
     if (!newNotice.title || !newNotice.description) {
-      toast.error("All fields are required!");
+      showToast("All fields are required!", "error");
       return;
     }
 
     try {
       const token = Cookies.get("access_token");
       if (!token) {
-        toast.error("User is not authenticated.");
+        showToast("User is not authenticated.", "error");
         return;
       }
 
@@ -198,8 +192,8 @@ const Noticeboard = () => {
       );
 
       if (response.status === 200) {
-        toast.success("Notice updated successfully!");
-        fetchNotices(); // ✅ Refresh the list
+        showToast("Notice updated successfully!", "success");
+        fetchNotices();
         setShowForm(false);
         setNewNotice({ title: "", description: "", announced_for: "all" });
         setEditingNotice(null);
@@ -208,7 +202,7 @@ const Noticeboard = () => {
       }
     } catch (error) {
       console.error("Error updating notice:", error);
-      toast.error("Failed to update notice. Please try again.");
+      showToast("Failed to update notice. Please try again.", "error");
     }
   };
 
@@ -223,10 +217,16 @@ const Noticeboard = () => {
   const canEdit = permissions.includes("users.change_announcement");
   const canDelete = permissions.includes("users.delete_announcement");
 
-
   return (
     <div>
-      <Toaster position="top-center" reverseOrder={false} />
+      <Toaster
+        message={toaster.message}
+        type={toaster.type}
+        duration={3000}
+        onClose={() => setToaster({ message: "", type: "success" })}
+        onConfirm={toaster.onConfirm}
+        onCancel={toaster.onCancel}
+      />
       <div className="bg-blue-900 text-white py-2 px-6 rounded-md flex justify-between items-center mt-5">
         <h1 className="text-xl font-bold">School Noticeboard</h1>
         {canAdd && (
@@ -238,7 +238,6 @@ const Noticeboard = () => {
             }}
             className="flex items-center px-3 py-2 bg-cyan-400 text-white font-semibold rounded-lg shadow-md hover:bg-cyan-500 transition"
           >
-
             <div className="flex items-center justify-center w-8 h-8 bg-black rounded-full mr-3">
               <span className="text-cyan-500 text-xl font-bold">
                 {showForm ? "-" : "+"}
@@ -361,56 +360,43 @@ const Noticeboard = () => {
                   {(canEdit || canDelete) && (
                     <th className="border border-gray-300 p-2">Actions</th>
                   )}
-
                 </tr>
               </thead>
               <tbody>
                 {notices.map((notice, index) => (
                   <tr key={notice.id}>
-                    {/* Sequence Number */}
                     <td className="border border-gray-300 p-2 text-center">
                       {(page - 1) * pageSize + index + 1}
                     </td>
                     <td className="border border-gray-300 p-2">
                       {notice.title}
                     </td>
-
-                    {/* ✅ Description - Truncate */}
                     <td className="border border-gray-300 p-2">
                       {notice.description.length > 50
                         ? `${notice.description.slice(0, 50)}...`
                         : notice.description}
                     </td>
-
-                    {/* ✅ Audience */}
                     <td className="border border-gray-300 p-2 capitalize">
                       {notice.announced_for}
                     </td>
-
-                    {/* ✅ Actions */}
                     {(canEdit || canDelete) && (
                       <td className="border border-gray-300 p-2 flex justify-center gap-2">
-                        {/* ✅ View Icon */}
                         <MdVisibility
                           onClick={() => handleViewNotice(notice)}
                           className="text-blue-500 text-2xl cursor-pointer hover:text-blue-700"
                         />
-
-                        {/* ✅ Edit Icon */}
                         {canEdit && (
                           <MdEdit
                             onClick={() => handleEditNotice(notice)}
                             className="text-yellow-500 text-2xl cursor-pointer hover:text-yellow-700"
                           />
                         )}
-
                         {canDelete && (
                           <MdDelete
                             onClick={() => handleDeleteNotice(notice.id)}
                             className="text-red-500 text-2xl cursor-pointer hover:text-red-700"
                           />
                         )}
-
                       </td>
                     )}
                   </tr>
@@ -423,31 +409,27 @@ const Noticeboard = () => {
               pageSize={pageSize}
               onPageChange={(newPage) => {
                 setPage(newPage);
-                fetchData(newPage, pageSize);
+                fetchNotices();
               }}
               onPageSizeChange={(size) => {
                 setPageSize(size);
                 setPage(1);
-                fetchData(1, size);
+                fetchNotices();
               }}
               totalItems={notices.length}
               showPageSizeSelector={true}
               showPageInfo={true}
             />
           </div>
-
         ) : (
           <p className="text-center text-gray-500">No notices available.</p>
         )}
-
       </div>
 
-      {/* ✅ View Modal */}
+      {/* View Modal */}
       {selectedNotice && (
         <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-60 px-4 z-50">
           <div className="bg-white w-full max-w-lg rounded-2xl shadow-2xl border border-gray-300 overflow-hidden">
-
-            {/* Modal Header */}
             <div className="flex items-center justify-between px-6 py-4 border-b bg-blue-50">
               <h2 className="text-xl font-bold text-blue-700">📢 Notice Details</h2>
               <button
@@ -457,27 +439,19 @@ const Noticeboard = () => {
                 &times;
               </button>
             </div>
-
-            {/* Modal Body */}
             <div className="px-6 py-5 overflow-y-auto max-h-[65vh] space-y-5 text-sm text-gray-700">
-
-              {/* Title */}
               <div>
                 <div className="text-gray-500 font-medium">📝 Title</div>
                 <div className="mt-1 text-gray-800 font-semibold truncate">
                   {selectedNotice.title || "N/A"}
                 </div>
               </div>
-
-              {/* Description */}
               <div>
                 <div className="text-gray-500 font-medium">📄 Description</div>
                 <div className="mt-1 p-3 bg-gray-100 rounded border border-gray-300 max-h-[150px] overflow-y-auto whitespace-pre-wrap leading-relaxed text-gray-800">
                   {selectedNotice.description || "No description provided."}
                 </div>
               </div>
-
-              {/* Audience */}
               <div>
                 <div className="text-gray-500 font-medium">🎯 Audience</div>
                 <div className="mt-1 text-gray-800 capitalize">
@@ -485,8 +459,6 @@ const Noticeboard = () => {
                 </div>
               </div>
             </div>
-
-            {/* Modal Footer */}
             <div className="flex justify-end px-6 py-4 border-t bg-gray-50">
               <button
                 onClick={() => setSelectedNotice(null)}
@@ -498,9 +470,6 @@ const Noticeboard = () => {
           </div>
         </div>
       )}
-
-
-
     </div>
   );
 };

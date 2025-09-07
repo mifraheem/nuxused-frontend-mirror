@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
 import Cookies from "js-cookie";
-import toast, { Toaster } from "react-hot-toast";
 import { MdEdit, MdDelete } from "react-icons/md";
 import { Buttons } from "../../components";
 import apiRequest from '../../helpers/apiRequest';
 import Select from "react-select";
 import Pagination from "../../components/Pagination";
+import Toaster from "../../components/Toaster";
 
 const FeeStructures = () => {
     const [feeStructures, setFeeStructures] = useState([]);
@@ -15,6 +15,7 @@ const FeeStructures = () => {
     const [page, setPage] = useState(1);
     const [pageSize, setPageSize] = useState(10);
     const [totalPages, setTotalPages] = useState(1);
+    const [toaster, setToaster] = useState({ message: '', type: 'success' });
 
     const [newFeeStructure, setNewFeeStructure] = useState({
         class_assigned_id: "",
@@ -29,6 +30,10 @@ const FeeStructures = () => {
 
     const API = import.meta.env.VITE_SERVER_URL;
     const API_URL = `${API}fee-structures/`;
+
+    const showToast = (message, type = 'success') => {
+        setToaster({ message, type });
+    };
 
     const fetchFeeStructures = async () => {
         try {
@@ -46,7 +51,7 @@ const FeeStructures = () => {
                 throw new Error("Unexpected API response");
             }
         } catch {
-            toast.error("Failed to fetch fee structures.");
+            showToast("Failed to fetch fee structures.", "error");
         }
     };
 
@@ -56,6 +61,7 @@ const FeeStructures = () => {
             setClasses(res.data.results || res.data);
         } catch (err) {
             console.error('Error fetching classes:', err);
+            showToast("Failed to fetch classes.", "error");
         }
     };
 
@@ -65,12 +71,13 @@ const FeeStructures = () => {
             setFeeTypes(res.data.results || res.data);
         } catch (err) {
             console.error('Error fetching fee types:', err);
+            showToast("Failed to fetch fee types.", "error");
         }
     };
 
     const handleSaveStructure = async () => {
         if (!newFeeStructure.class_assigned_id || !newFeeStructure.fee_type_id || !newFeeStructure.amount || !newFeeStructure.due_date) {
-            toast.error("All fields are required.");
+            showToast("All fields are required.", "error");
             return;
         }
 
@@ -83,7 +90,7 @@ const FeeStructures = () => {
                     { amount: newFeeStructure.amount },
                     { headers: { Authorization: `Bearer ${token}` } }
                 );
-                toast.success("Fee structure updated!");
+                showToast("Fee structure updated!", "success");
                 setFeeStructures((prev) =>
                     prev.map((f) =>
                         f.id === editingStructure.id ? { ...f, amount: res.data.data.amount } : f
@@ -93,7 +100,7 @@ const FeeStructures = () => {
                 const res = await axios.post(API_URL, newFeeStructure, {
                     headers: { Authorization: `Bearer ${token}` },
                 });
-                toast.success("Fee structure created!");
+                showToast("Fee structure created!", "success");
                 setFeeStructures((prev) => [...prev, res.data.data]);
             }
 
@@ -107,47 +114,36 @@ const FeeStructures = () => {
             setEditingStructure(null);
             setShowForm(false);
         } catch {
-            toast.error("Failed to save fee structure.");
+            showToast("Failed to save fee structure.", "error");
         }
     };
 
     const handleDelete = (id) => {
         if (!canDelete) {
-            toast.error("You do not have permission to delete fee structures.");
+            showToast("You do not have permission to delete fee structures.", "error");
             return;
         }
 
-        toast((t) => (
-            <div>
-                <p>Delete this Fee Structure?</p>
-                <div className="flex justify-end mt-2">
-                    <button
-                        onClick={async () => {
-                            try {
-                                const token = Cookies.get("access_token");
-                                await axios.delete(`${API_URL}${id}/`, {
-                                    headers: { Authorization: `Bearer ${token}` },
-                                });
-                                setFeeStructures((prev) => prev.filter((f) => f.id !== id));
-                                toast.success("Deleted successfully!");
-                                toast.dismiss(t.id);
-                            } catch {
-                                toast.error("Failed to delete.");
-                            }
-                        }}
-                        className="bg-red-500 text-white px-2 py-1 rounded mr-1 text-xs"
-                    >
-                        Yes
-                    </button>
-                    <button
-                        onClick={() => toast.dismiss(t.id)}
-                        className="bg-gray-500 text-white px-2 py-1 rounded text-xs"
-                    >
-                        No
-                    </button>
-                </div>
-            </div>
-        ));
+        showToast(
+            {
+                message: "Delete this Fee Structure?",
+                type: "confirm",
+                onConfirm: async () => {
+                    try {
+                        const token = Cookies.get("access_token");
+                        await axios.delete(`${API_URL}${id}/`, {
+                            headers: { Authorization: `Bearer ${token}` },
+                        });
+                        showToast("Deleted successfully!", "success");
+                        setFeeStructures((prev) => prev.filter((f) => f.id !== id));
+                    } catch {
+                        showToast("Failed to delete.", "error");
+                    }
+                },
+                onCancel: () => setToaster({ message: "", type: "success" })
+            },
+            "confirm"
+        );
     };
 
     const handleEdit = (structure) => {
@@ -187,7 +183,14 @@ const FeeStructures = () => {
 
     return (
         <div className="p-2">
-            <Toaster position="top-center" />
+            <Toaster
+                message={toaster.message}
+                type={toaster.type}
+                duration={3000}
+                onClose={() => setToaster({ message: "", type: "success" })}
+                onConfirm={toaster.onConfirm}
+                onCancel={toaster.onCancel}
+            />
             <div className="bg-blue-900 text-white py-1 px-2 rounded-md flex justify-between items-center mt-2">
                 <h1 className="text-lg font-bold">Manage Fee Structures</h1>
                 {canAdd && (
@@ -324,7 +327,6 @@ const FeeStructures = () => {
                                 <tbody>
                                     {feeStructures.map((f, index) => (
                                         <tr key={f.id}>
-                                            {/* Sequence number */}
                                             <td className="border border-gray-300 p-0.5 text-center text-xs">
                                                 {(page - 1) * pageSize + index + 1}
                                             </td>

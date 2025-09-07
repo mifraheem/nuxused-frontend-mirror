@@ -1,11 +1,10 @@
 import React, { useState, useEffect } from "react";
-import Cookies from "js-cookie";
 import axios from "axios";
-import toast, { Toaster } from "react-hot-toast";
 import { MdEdit, MdDelete, MdVisibility } from "react-icons/md";
 import Select from "react-select";
 import { Buttons } from "../../components";
 import Pagination from "../../components/Pagination";
+import Toaster from "../../components/Toaster"; // Import the custom Toaster
 
 const ClassTasks = () => {
   const [tasks, setTasks] = useState([]);
@@ -27,14 +26,35 @@ const ClassTasks = () => {
   const [totalItems, setTotalItems] = useState(0);
   const [loading, setLoading] = useState(false);
 
+  // Toaster state
+  const [toaster, setToaster] = useState({
+    message: "",
+    type: "success",
+    show: false
+  });
+
   const API = import.meta.env.VITE_SERVER_URL;
   const API_URL = `${API}class-tasks/`;
 
+  // Get permissions from localStorage (since we can't use Cookies in artifacts)
   const permissions = JSON.parse(localStorage.getItem("user_permissions") || "[]");
   const canAdd = permissions.includes("users.add_classtask");
   const canEdit = permissions.includes("users.change_classtask");
   const canDelete = permissions.includes("users.delete_classtask");
   const canView = permissions.includes("users.view_classtask");
+
+  // Function to show toast messages
+  const showToast = (message, type = "success") => {
+    setToaster({
+      message,
+      type,
+      show: true
+    });
+  };
+
+  const closeToast = () => {
+    setToaster(prev => ({ ...prev, show: false }));
+  };
 
   if (!canView) {
     return (
@@ -47,31 +67,66 @@ const ClassTasks = () => {
   const fetchTasks = async () => {
     setLoading(true);
     try {
-      const token = Cookies.get("access_token");
+      // Get token from localStorage (since we can't use Cookies)
+      const token = localStorage.getItem("access_token");
       if (!token) {
-        toast.error("No authentication token found. Please log in again.");
-        console.error("No access_token found in Cookies.");
+        showToast("No authentication token found. Please log in again.", "error");
+        console.error("No access_token found in localStorage.");
         return;
       }
+
       console.log("Fetching tasks with URL:", `${API_URL}?page=${page}&page_size=${pageSize}`);
       const response = await axios.get(`${API_URL}?page=${page}&page_size=${pageSize}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       console.log("Tasks API response:", response.data);
 
-      // Handle the correct API response structure
-      const results = response.data?.data?.results || [];
-      setTasks(Array.isArray(results) ? results : []);
-      setTotalPages(response.data?.data?.total_pages || 1);
-      setTotalItems(response.data?.data?.total_items || 0);
+      // Handle different possible response structures
+      let results = [];
+      let totalPagesCount = 1;
+      let totalItemsCount = 0;
 
-      if (results.length === 0) {
+      if (response.data) {
+        // Check for nested data structure
+        if (response.data.data) {
+          results = response.data.data.results || response.data.data || [];
+          totalPagesCount = response.data.data.total_pages || Math.ceil((response.data.data.count || 0) / pageSize);
+          totalItemsCount = response.data.data.total_items || response.data.data.count || 0;
+        }
+        // Check for direct results
+        else if (response.data.results) {
+          results = response.data.results || [];
+          totalPagesCount = response.data.total_pages || Math.ceil((response.data.count || 0) / pageSize);
+          totalItemsCount = response.data.total_items || response.data.count || 0;
+        }
+        // Check if response.data is directly an array
+        else if (Array.isArray(response.data)) {
+          results = response.data;
+          totalPagesCount = 1;
+          totalItemsCount = response.data.length;
+        }
+      }
+
+      setTasks(Array.isArray(results) ? results : []);
+      setTotalPages(totalPagesCount);
+      setTotalItems(totalItemsCount);
+
+      if (results.length === 0 && page === 1) {
         console.warn("No tasks found in response.");
-        toast.info("No tasks available.");
+        showToast("No tasks available.", "confirmation");
       }
     } catch (err) {
       console.error("Fetch tasks error:", err.response?.data || err.message);
-      toast.error(err.response?.data?.message || "Failed to load class tasks.");
+      const errorMessage = err.response?.data?.message ||
+        err.response?.data?.detail ||
+        err.response?.statusText ||
+        "Failed to load class tasks.";
+      showToast(errorMessage, "error");
+
+      // Reset data on error
+      setTasks([]);
+      setTotalPages(1);
+      setTotalItems(0);
     } finally {
       setLoading(false);
     }
@@ -79,26 +134,45 @@ const ClassTasks = () => {
 
   const fetchClassOptions = async () => {
     try {
-      const token = Cookies.get("access_token");
+      const token = localStorage.getItem("access_token");
       if (!token) {
-        toast.error("No authentication token found. Please log in again.");
-        console.error("No access_token found in Cookies.");
+        showToast("No authentication token found. Please log in again.", "error");
+        console.error("No access_token found in localStorage.");
         return;
       }
+
       console.log("Fetching class options with URL:", `${API}classes/?page_size=100`);
       const res = await axios.get(`${API}classes/?page_size=100`, {
         headers: { Authorization: `Bearer ${token}` },
       });
-      const classes = res.data?.data?.results || res.data?.results || [];
+
+      // Handle different possible response structures for classes
+      let classes = [];
+      if (res.data) {
+        if (res.data.data && res.data.data.results) {
+          classes = res.data.data.results;
+        } else if (res.data.results) {
+          classes = res.data.results;
+        } else if (Array.isArray(res.data.data)) {
+          classes = res.data.data;
+        } else if (Array.isArray(res.data)) {
+          classes = res.data;
+        }
+      }
+
       console.log("Class options response:", classes);
       setClassOptions(Array.isArray(classes) ? classes : []);
+
       if (classes.length === 0) {
         console.warn("No classes found in response.");
-        toast.warn("No classes available to select.");
+        showToast("No classes available to select.", "confirmation");
       }
     } catch (err) {
       console.error("Fetch classes error:", err.response?.data || err.message);
-      toast.error(err.response?.data?.message || "Failed to load class list.");
+      const errorMessage = err.response?.data?.message ||
+        err.response?.data?.detail ||
+        "Failed to load class list.";
+      showToast(errorMessage, "error");
     }
   };
 
@@ -114,12 +188,12 @@ const ClassTasks = () => {
   const handleSave = async () => {
     const { class_schedule, title, description, start_date, due_date } = newTask;
     if (!class_schedule || !title || !description || !start_date || !due_date) {
-      toast.error("All fields are required.");
+      showToast("All fields are required.", "error");
       return;
     }
 
     try {
-      const token = Cookies.get("access_token");
+      const token = localStorage.getItem("access_token");
       const formData = new FormData();
       formData.append("class_schedule", class_schedule);
       formData.append("title", title);
@@ -140,10 +214,10 @@ const ClassTasks = () => {
       if (editingTask) {
         // Use PATCH for updates
         const response = await axios.patch(`${API_URL}${editingTask.id}/`, formData, config);
-        toast.success(response.data?.message || "Task updated successfully");
+        showToast(response.data?.message || "Task updated successfully", "success");
       } else {
         const response = await axios.post(API_URL, formData, config);
-        toast.success(response.data?.message || "Task created successfully");
+        showToast(response.data?.message || "Task created successfully", "success");
       }
 
       setShowForm(false);
@@ -162,7 +236,10 @@ const ClassTasks = () => {
       fetchTasks();
     } catch (err) {
       console.error("Create/Update error:", err.response?.data || err.message);
-      toast.error(err.response?.data?.message || "Failed to save task");
+      const errorMessage = err.response?.data?.message ||
+        err.response?.data?.detail ||
+        "Failed to save task";
+      showToast(errorMessage, "error");
     }
   };
 
@@ -181,7 +258,7 @@ const ClassTasks = () => {
 
   const handleDelete = async (id) => {
     if (!canDelete) {
-      toast.error("You do not have permission to delete class tasks.");
+      showToast("You do not have permission to delete class tasks.", "error");
       return;
     }
 
@@ -190,15 +267,18 @@ const ClassTasks = () => {
     }
 
     try {
-      const token = Cookies.get("access_token");
+      const token = localStorage.getItem("access_token");
       await axios.delete(`${API_URL}${id}/`, {
         headers: { Authorization: `Bearer ${token}` },
       });
-      toast.success("Task deleted successfully.");
+      showToast("Task deleted successfully.", "success");
       fetchTasks();
     } catch (err) {
       console.error("Delete error:", err.response?.data || err.message);
-      toast.error(err.response?.data?.message || "Failed to delete task");
+      const errorMessage = err.response?.data?.message ||
+        err.response?.data?.detail ||
+        "Failed to delete task";
+      showToast(errorMessage, "error");
     }
   };
 
@@ -227,7 +307,16 @@ const ClassTasks = () => {
 
   return (
     <div className="p-6">
-      <Toaster position="top-center" />
+      {/* Custom Toaster */}
+      {toaster.show && (
+        <Toaster
+          message={toaster.message}
+          type={toaster.type}
+          onClose={closeToast}
+          duration={4000}
+        />
+      )}
+
       <div className="flex justify-between items-center bg-blue-900 text-white px-6 py-3 rounded-md">
         <h1 className="text-xl font-bold">Class Task Manager</h1>
         {canAdd && (
@@ -371,9 +460,25 @@ const ClassTasks = () => {
       )}
 
       {loading ? (
-        <p className="text-center text-gray-600 text-sm mt-4">Loading tasks...</p>
+        <div className="text-center text-gray-600 text-sm mt-4 py-8">
+          <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+          <p className="mt-2">Loading tasks...</p>
+        </div>
       ) : tasks.length === 0 ? (
-        <p className="text-center text-gray-600 text-sm mt-4">No tasks found.</p>
+        <div className="text-center text-gray-600 text-sm mt-4 py-8">
+          <p>No tasks found.</p>
+          {canAdd && (
+            <button
+              onClick={() => {
+                setShowForm(true);
+                setEditingTask(null);
+              }}
+              className="mt-2 bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 text-xs"
+            >
+              Create First Task
+            </button>
+          )}
+        </div>
       ) : (
         <>
           <Buttons
