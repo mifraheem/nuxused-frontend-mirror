@@ -45,39 +45,69 @@ const TimetableManagement = () => {
   };
 
   // Fetch current user's profile and school information
+  // Inside TimetableManagement component
+
   const fetchUserProfile = async () => {
     try {
       const config = { headers };
-      const res = await axios.get(`${API}api/auth/users/profile/`, config);
-      const profile = res.data?.data || res.data;
-      
+      // First, fetch the user profile
+      const profileRes = await axios.get(`${API}api/auth/users/list_profiles/teacher`, config);
+      const profile = profileRes.data?.data || profileRes.data;
+
       console.log("🔍 User Profile:", profile);
       setUserProfile(profile);
-      
-      // Try multiple possible field names for UUID school ID
-      const userSchoolId = profile.school_id || 
-                          profile.school?.id || 
-                          profile.school_uuid ||
-                          profile.institution_id || 
-                          profile.institution_uuid ||
-                          profile.school || 
-                          profile.institution ||
-                          profile.organization_id ||
-                          profile.organization_uuid;
-      
-      console.log("🏫 School UUID Found:", userSchoolId);
-      
-      // Validate UUID format
-      if (userSchoolId && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(userSchoolId)) {
-        setSchoolId(userSchoolId);
+
+      // Try to get school ID from profile first
+      let userSchoolId =
+        profile.school_id ||
+        profile.school?.id ||
+        profile.school_uuid ||
+        profile.institution_id ||
+        profile.institution_uuid ||
+        profile.school ||
+        profile.institution ||
+        profile.organization_id ||
+        profile.organization_uuid;
+
+      // If no school ID is found in the profile, fetch from /api/schools/
+      if (!userSchoolId || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(userSchoolId)) {
+        console.log("🔄 No valid school ID in profile, fetching from /api/schools/");
+        try {
+          const schoolRes = await axios.get(`${API}api/schools/`, { headers });
+          const schools = schoolRes.data?.data?.results || schoolRes.data?.results || schoolRes.data;
+
+          if (Array.isArray(schools) && schools.length > 0) {
+            // Assuming the first school in the list is the relevant one
+            // Adjust this logic based on your API response structure
+            userSchoolId = schools[0].id || schools[0].uuid || schools[0].school_id;
+
+            console.log("🏫 School ID from /api/schools/:", userSchoolId);
+
+            // Validate UUID format
+            if (userSchoolId && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(userSchoolId)) {
+              setSchoolId(userSchoolId);
+            } else {
+              console.warn("⚠️ Invalid school ID format from /api/schools/:", userSchoolId);
+              setSchoolId(null);
+              showToast("No valid school ID found in schools API", "error");
+            }
+          } else {
+            console.warn("⚠️ No schools found in /api/schools/ response");
+            setSchoolId(null);
+            showToast("No schools found for this user", "error");
+          }
+        } catch (schoolError) {
+          console.error("❌ Failed to fetch schools:", schoolError.response?.data || schoolError.message);
+          setSchoolId(null);
+          showToast("Failed to fetch school information", "error");
+        }
       } else {
-        console.warn("⚠️ No valid school UUID found");
-        setSchoolId(null);
-        showToast("No valid school ID found", "error");
+        console.log("🏫 Valid school ID from profile:", userSchoolId);
+        setSchoolId(userSchoolId);
       }
-      
     } catch (err) {
       console.error("❌ Failed to fetch user profile:", err.response?.data || err.message);
+      setSchoolId(null);
       showToast("Failed to fetch user profile", "error");
     }
   };
@@ -88,7 +118,7 @@ const TimetableManagement = () => {
       // Build URLs with school filtering if available
       const schoolParam = schoolId ? `?school_id=${schoolId}` : '';
       const timetableParam = schoolId ? `&school_id=${schoolId}` : '';
-      
+
       const [timetableRes, teacherRes, subjectRes, roomRes, classRes] = await Promise.all([
         axios.get(`${API_URL}?page=${page}&page_size=${pageSize}${timetableParam}`, { headers }),
         axios.get(`${API}api/auth/users/list_profiles/teacher/${schoolParam}`, { headers }),
@@ -107,39 +137,39 @@ const TimetableManagement = () => {
         Array.isArray(teacherRes.data?.data?.results)
           ? teacherRes.data.data.results
           : Array.isArray(teacherRes.data?.results)
-          ? teacherRes.data.results
-          : []
+            ? teacherRes.data.results
+            : []
       );
 
       setSubjects(
         Array.isArray(subjectRes.data?.data?.results)
           ? subjectRes.data.data.results
           : Array.isArray(subjectRes.data?.results)
-          ? subjectRes.data.results
-          : []
+            ? subjectRes.data.results
+            : []
       );
 
       setRooms(
         Array.isArray(roomRes.data?.data?.results)
           ? roomRes.data.data.results
           : Array.isArray(roomRes.data?.results)
-          ? roomRes.data.results
-          : []
+            ? roomRes.data.results
+            : []
       );
 
       setClasses(
         Array.isArray(classRes.data?.data?.results)
           ? classRes.data.data.results
           : Array.isArray(classRes.data?.results)
-          ? classRes.data.results
-          : []
+            ? classRes.data.results
+            : []
       );
 
-      console.log("✅ Data loaded:", { 
-        teachers: teachers.length, 
-        subjects: subjects.length, 
-        rooms: rooms.length, 
-        classes: classes.length 
+      console.log("✅ Data loaded:", {
+        teachers: teachers.length,
+        subjects: subjects.length,
+        rooms: rooms.length,
+        classes: classes.length
       });
 
     } catch (error) {
@@ -216,7 +246,7 @@ const TimetableManagement = () => {
   // ✅ Load Data for Editing (UUID Version)
   const handleEdit = (timetable) => {
     console.log("🔧 Editing timetable:", timetable);
-    
+
     // Find UUIDs based on names
     const selectedTeacher = teachers.find(t => t.username === timetable.teacher_name);
     const selectedSubject = subjects.find(s => s.subject_name === timetable.subject_name);
@@ -555,7 +585,7 @@ const TimetableManagement = () => {
             </tbody>
           </table>
         )}
-        
+
         <Pagination
           currentPage={page}
           totalPages={totalPages}
