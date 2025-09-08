@@ -21,7 +21,7 @@ const FinalResults = () => {
   const [viewModalData, setViewModalData] = useState(null);
   const [toaster, setToaster] = useState({ message: "", type: "success" });
 
-  const API = import.meta.env.VITE_SERVER_URL || "http://127.0.0.1:8000/";
+  const API = import.meta.env.VITE_SERVER_URL ;
   const API_URL = `${API}/final-results/`;
 
   const permissions = JSON.parse(localStorage.getItem("user_permissions") || "[]");

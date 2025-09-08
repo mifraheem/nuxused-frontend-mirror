@@ -17,7 +17,7 @@ const StaffDetails = () => {
   const [toaster, setToaster] = useState({ message: "", type: "success" });
   const [confirmResolve, setConfirmResolve] = useState(null);
 
-  const API = import.meta.env.VITE_SERVER_URL || "http://127.0.0.1:8000/";
+  const API = import.meta.env.VITE_SERVER_URL ;
   const API_URL = `${API}api/auth/users/list_profiles/staff/`;
   const DELETE_URL = `${API}api/auth/users/`;
   const UPDATE_URL = `${API}api/auth/staff-profile/`;

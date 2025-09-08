@@ -6,7 +6,7 @@ import Buttons from '../../components/Buttons';
 import * as XLSX from 'xlsx';
 import Toaster from '../../components/Toaster'; // Import custom Toaster component
 
-const API = import.meta.env.VITE_SERVER_URL || "http://127.0.0.1:8000/";
+const API = import.meta.env.VITE_SERVER_URL ;
 const API_BASE_URL = `${API}attendance/`;
 const STUDENTS_API = `${API}api/auth/users/list_profiles/student/`;
 const CLASSES_API = `${API}classes/`;

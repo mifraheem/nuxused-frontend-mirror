@@ -40,7 +40,7 @@ const StudentResults = () => {
   const [filterType, setFilterType] = useState(null);
   const [toaster, setToaster] = useState({ message: "", type: "success" });
 
-  const API = import.meta.env.VITE_SERVER_URL || "http://127.0.0.1:8000/";
+  const API = import.meta.env.VITE_SERVER_URL ;
   const API_URL = `${API}/student-results/`;
   const CLASSES_API = `${API}/classes/`;
   const STUDENTS_API = `${API}/api/auth/users/list_profiles/student/`;

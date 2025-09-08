@@ -8,7 +8,7 @@ const CARD_WIDTH_REM = 20;          // 20rem ~ 320px (nice readable width)
 const CARD_HEIGHT_PX = 420;         // shared height for FRONT & BACK
 
 const TeacherIDCard = () => {
-  const API = import.meta.env.VITE_SERVER_URL || "http://localhost:8000";
+  const API = import.meta.env.VITE_SERVER_URL ;
 
   const [teachers, setTeachers] = useState([]);
   const [selectedTeacher, setSelectedTeacher] = useState(null);

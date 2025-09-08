@@ -1,11 +1,87 @@
 import React, { useState, useEffect } from 'react';
 
-const Toaster = ({ message, type = 'success', duration = 3000, onClose }) => {
+const Toaster = ({ message, type = 'success', duration = 3000, onClose, showOnLoad = false, allowNoDataErrors = false, onConfirm, onCancel }) => {
     const [isVisible, setIsVisible] = useState(false);
     const [isAnimating, setIsAnimating] = useState(false);
 
+    // Common "no data" error messages to filter out
+    const noDataErrorMessages = [
+        'no teacher or student found for the role',
+        'no groups found',
+        'no users found',
+        'no groups available',
+        'no users available',
+        'not found',
+        'no data',
+        'failed to fetch promotion records',
+        'no promotion records added yet',
+        'failed to fetch class options',
+        'failed to load dropdown data',
+        'subjects endpoint not found',
+        'no students with valid uuids found',
+        'failed to fetch students',
+        'failed to load students for selected class',
+        'class student endpoint not found',
+        'no valid students found',
+        'no attendance records found for selected criteria',
+        'fetch failed',
+        'failed to fetch teachers',
+        'failed to fetch schools',
+        'no schools available',
+        'no valid teachers found',
+        'no unmarked staff found',
+        'failed to prepare attendance list',
+        'no attendance records found',
+        'failed to fetch results',
+        'unexpected api response format',
+        'failed to fetch dropdown data',
+        'no students with valid uuids found',
+        'failed to fetch final results',
+        'failed to fetch classes',
+        'failed to fetch exams',
+        'failed to fetch subjects',
+        'failed to fetch rooms',
+        'failed to fetch invigilators',
+        'unexpected exam response format',
+        'failed to fetch user profile',
+        'no valid school id found in schools api',
+        'no schools found for this user',
+        'failed to fetch school information',
+        'authentication token not found',
+        'failed to fetch fee structures',
+        'failed to fetch fee types',
+        'no students found. using default data',
+        'student endpoint not found. using default data',
+        'unauthorized. please log in again',
+        'no fees found for selected student. using default data',
+        'student fee endpoint not found. using default data',
+        'failed to fetch selected student\'s fee types',
+        'payment records endpoint not found',
+        'failed to fetch payment records',
+        'no classes available to select',
+        'failed to load classes',
+        'no authentication token found. please log in again',
+        'failed to fetch student fees',
+        'failed to load students',
+        'could not fetch student fee records'
+    ];
+
     useEffect(() => {
-        if (message) {
+        // Validate message and check if it's a "no data" error
+        const isNoDataError = message && typeof message === 'string' && 
+            noDataErrorMessages.some(noDataMsg => 
+                message.toLowerCase().includes(noDataMsg.toLowerCase())
+            );
+
+        // Only show if:
+        // - showOnLoad is true, OR
+        // - Message is valid, non-empty, and either not a "no data" error or allowNoDataErrors is true
+        const isValidMessage = message && 
+            typeof message === 'string' && 
+            message.trim() !== '' && 
+            (!isNoDataError || allowNoDataErrors);
+
+        if ((showOnLoad || isValidMessage) && message && typeof message === 'string' && message.trim() !== '') {
             setIsVisible(true);
             setTimeout(() => setIsAnimating(true), 10);
             
@@ -18,10 +94,22 @@ const Toaster = ({ message, type = 'success', duration = 3000, onClose }) => {
             }, duration);
 
             return () => clearTimeout(timer);
+        } else {
+            setIsVisible(false);
+            setIsAnimating(false);
         }
-    }, [message, duration, onClose]);
+    }, [message, duration, onClose, showOnLoad, allowNoDataErrors]);
 
-    if (!isVisible || !message) return null;
+    // Return null if no valid message, not visible, or it's a "no data" error (unless allowed)
+    if (!isVisible || 
+        !message || 
+        typeof message !== 'string' || 
+        message.trim() === '' || 
+        (!allowNoDataErrors && noDataErrorMessages.some(noDataMsg => 
+            message.toLowerCase().includes(noDataMsg.toLowerCase())
+        ))) {
+        return null;
+    }
 
     const typeStyles = {
         success: {
@@ -59,7 +147,7 @@ const Toaster = ({ message, type = 'success', duration = 3000, onClose }) => {
         },
     };
 
-    const currentStyle = typeStyles[type];
+    const currentStyle = typeStyles[type] || typeStyles.success;
 
     const typeIcons = {
         success: (
@@ -129,12 +217,13 @@ const Toaster = ({ message, type = 'success', duration = 3000, onClose }) => {
                 {/* Header Section */}
                 <div className="relative z-10 flex items-start justify-between mb-6">
                     <div className="flex items-center gap-4">
-                        {typeIcons[type]}
+                        {typeIcons[type] || typeIcons.success}
                         <div>
                             <h3 className={`text-xl font-bold ${currentStyle.text} mb-1`}>
                                 {type === 'success' && 'Success'}
                                 {type === 'error' && 'Error'}
-                                {type === 'confirmation' && 'Notification'}
+                                {type === 'confirmation' && 'Confirmation'}
+                                {!(type in typeStyles) && 'Success'}
                             </h3>
                             <div className={`w-12 h-1 ${currentStyle.iconBg} rounded-full`}></div>
                         </div>
@@ -185,6 +274,30 @@ const Toaster = ({ message, type = 'success', duration = 3000, onClose }) => {
                             {message}
                         </p>
                     </div>
+                    
+                    {/* Confirmation Buttons */}
+                    {type === 'confirmation' && (
+                        <div className="mt-4 flex justify-end gap-2">
+                            <button
+                                onClick={() => {
+                                    if (onConfirm) onConfirm();
+                                    handleClose();
+                                }}
+                                className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 text-sm"
+                            >
+                                Confirm
+                            </button>
+                            <button
+                                onClick={() => {
+                                    if (onCancel) onCancel();
+                                    handleClose();
+                                }}
+                                className="px-4 py-2 bg-gray-300 text-gray-800 rounded-md hover:bg-gray-400 text-sm"
+                            >
+                                Cancel
+                            </button>
+                        </div>
+                    )}
                     
                     {/* Decorative corner accent */}
                     <div className={`absolute top-0 right-0 w-16 h-16 ${currentStyle.iconBg} opacity-20 rounded-bl-2xl`}></div>

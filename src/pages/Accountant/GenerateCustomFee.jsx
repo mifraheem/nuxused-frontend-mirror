@@ -1,10 +1,8 @@
-import React, { useState, useEffect } from 'react';
-import axios from 'axios';
-import Cookies from 'js-cookie';
+import { useState, useEffect } from 'react';
+
 import toast, { Toaster } from 'react-hot-toast';
 import apiRequest from '../../helpers/apiRequest';
 
-const API_BASE = 'http://127.0.0.1:8000';
 
 const GenerateCustomFee = () => {
   const [mode, setMode] = useState(null);

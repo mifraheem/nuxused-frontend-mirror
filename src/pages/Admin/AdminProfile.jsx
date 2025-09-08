@@ -20,15 +20,15 @@ const AdminProfile = () => {
 
   const [isEditing, setIsEditing] = useState(false);
   const [previewImage, setPreviewImage] = useState(null);
-
-  const API_URL = "http://127.0.0.1:8000/api/auth/users/list_profiles/admin/";
-  const UPDATE_URL = "http://127.0.0.1:8000/api/auth/profile";
+const API_BASE = import.meta.env.VITE_SERVER_URL ;
+  const API_URL = "/api/auth/users/list_profiles/admin/";
+  const UPDATE_URL = "/api/auth/profile";
 
   useEffect(() => {
     const fetchAdminProfile = async () => {
       try {
         const token = Cookies.get("access_token");
-        const response = await axios.get(API_URL, {
+        const response = await axios.get(`${API_BASE}${API_URL}`, {
           headers: { Authorization: `Bearer ${token}` },
         });
 
@@ -86,7 +86,7 @@ const AdminProfile = () => {
       }
   
       const response = await axios.patch(
-        `${UPDATE_URL}/${admin.user_id}/edit_profile/`,
+        `${API_BASE}${UPDATE_URL}/${admin.user_id}/edit_profile/`,
         formData,
         {
           headers: {

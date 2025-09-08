@@ -9,7 +9,7 @@ const CARD_WIDTH_REM = 20; // ~320px readable width
 const CARD_HEIGHT_PX = 420; // shared height front/back
 
 const StaffIDCardPage = () => {
-  const API = import.meta.env.VITE_SERVER_URL || "http://localhost:8000";
+  const API = import.meta.env.VITE_SERVER_URL ;
 
   const [staff, setStaff] = useState([]);
   const [selectedStaff, setSelectedStaff] = useState(null);

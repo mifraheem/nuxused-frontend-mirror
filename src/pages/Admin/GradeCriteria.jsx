@@ -26,7 +26,7 @@ const GradeCriteria = () => {
   const [showGradeDropdown, setShowGradeDropdown] = useState(false);
   const [toaster, setToaster] = useState({ message: "", type: "success" });
 
-  const API = import.meta.env.VITE_SERVER_URL || "http://127.0.0.1:8000/";
+  const API = import.meta.env.VITE_SERVER_URL ;
   const API_URL = `${API}grade-criteria/`;
 
   // Toast helper

@@ -19,7 +19,7 @@ const ParentAccount = () => {
   const [confirmResolve, setConfirmResolve] = useState(null);
 
   // ✅ safe API base with fallback
-  const API = import.meta.env.VITE_SERVER_URL || "http://127.0.0.1:8000/";
+  const API = import.meta.env.VITE_SERVER_URL ;
   const API_URL = `${API}api/auth/users/list_profiles/parent/`;
   const UPDATE_URL = `${API}api/auth/update-parent-profile/`;
   const DELETE_URL = `${API}api/auth/users/delete_user/`;
@@ -140,18 +140,32 @@ const ParentAccount = () => {
   };
 
   const openEditModal = (parent) => {
-    const matchedChildren = (parent.linked_students || [])
-      .map((name) => {
-        const match = students.find(
-          (s) => `${s.first_name} ${s.last_name}`.trim() === name
-        );
-        return match ? match.user_id : null;
-      })
-      .filter(Boolean);
+    // Extract profile_ids from linked_students for the multiselect
+    const linkedStudentIds = [];
+    
+    if (Array.isArray(parent.linked_students)) {
+      parent.linked_students.forEach(student => {
+        if (typeof student === 'string') {
+          // If it's already a string (profile_id), use it directly
+          linkedStudentIds.push(student);
+        } else if (student && typeof student === 'object' && student.profile_id) {
+          // If it's an object with profile_id, extract the profile_id
+          linkedStudentIds.push(student.profile_id);
+        } else if (student && typeof student === 'object' && student.name) {
+          // If it's an object with name, try to find matching student by name
+          const matchedStudent = students.find(s => 
+            `${s.first_name} ${s.last_name}`.trim() === student.name.trim()
+          );
+          if (matchedStudent) {
+            linkedStudentIds.push(matchedStudent.profile_id);
+          }
+        }
+      });
+    }
 
     setSelectedParent({
       ...parent,
-      children: matchedChildren,
+      children: linkedStudentIds,
     });
     setIsEditModalOpen(true);
   };
@@ -206,8 +220,10 @@ const ParentAccount = () => {
         email: selectedParent.email || "",
         dob: selectedParent.dob || null,
         gender: selectedParent.gender || "",
-        linked_students: selectedParent.children || [],
+        children: selectedParent.children || [], // API expects "children", not "linked_students"
       };
+
+      console.log("Sending payload:", payload); // Debug log
 
       const response = await axios.patch(apiUrl, payload, {
         headers: { ...authHeaders(), "Content-Type": "application/json" },
@@ -215,7 +231,7 @@ const ParentAccount = () => {
 
       if (response.status === 200) {
         showToast("Parent updated successfully.", "success");
-        fetchParents();
+        fetchParents(); // Refresh the parent list
         setIsEditModalOpen(false);
       }
     } catch (error) {
@@ -228,6 +244,25 @@ const ParentAccount = () => {
         "error"
       );
     }
+  };
+
+  // Helper function to get linked student names for display
+  const getLinkedStudentNames = (linkedStudents) => {
+    if (!Array.isArray(linkedStudents) || linkedStudents.length === 0) {
+      return "None";
+    }
+
+    return linkedStudents.map(student => {
+      if (typeof student === 'string') {
+        // If it's a string, find the student by profile_id
+        const foundStudent = students.find(s => s.profile_id === student);
+        return foundStudent ? `${foundStudent.first_name} ${foundStudent.last_name}`.trim() : student;
+      } else if (student && typeof student === 'object') {
+        // If it's an object, check for name property or construct from first_name/last_name
+        return student.name || `${student.first_name || ''} ${student.last_name || ''}`.trim();
+      }
+      return student;
+    }).join(", ");
   };
 
   return (
@@ -258,7 +293,7 @@ const ParentAccount = () => {
               Address: p.address,
               "Date of Birth": p.dob,
               Gender: p.gender,
-              "Linked Students": p.linked_students?.join(", ") || "None",
+              "Linked Students": getLinkedStudentNames(p.linked_students),
             }))}
             filename="Parent_Accounts"
             columns={[
@@ -308,9 +343,7 @@ const ParentAccount = () => {
                       <td className="border border-gray-300 p-1 text-xs">{parent.dob || "N/A"}</td>
                       <td className="border border-gray-300 p-1 text-xs">{parent.gender || "N/A"}</td>
                       <td className="border border-gray-300 p-1 text-xs">
-                        {parent.linked_students?.length
-                          ? parent.linked_students.join(", ")
-                          : "None"}
+                        {getLinkedStudentNames(parent.linked_students)}
                       </td>
                       <td className="border border-gray-300 p-1">
                         <div className="flex items-center justify-center gap-2">
@@ -421,9 +454,7 @@ const ParentAccount = () => {
                   <tr>
                     <th className="px-2 py-1 text-gray-700 text-left w-1/3">Children</th>
                     <td className="px-2 py-1">
-                      {selectedParent.linked_students?.length
-                        ? selectedParent.linked_students.join(", ")
-                        : "None"}
+                      {getLinkedStudentNames(selectedParent.linked_students)}
                     </td>
                   </tr>
                   {selectedParent.profile_picture && (
@@ -587,7 +618,7 @@ const ParentAccount = () => {
                 </div>
               </div>
 
-              {/* Children multiselect (kept native for simplicity & zero deps) */}
+              {/* Children multiselect */}
               <div>
                 <label className="block text-xs font-semibold text-gray-700 mb-0.5">
                   Select Child(ren)
@@ -605,11 +636,14 @@ const ParentAccount = () => {
                   style={{ maxHeight: "150px", overflowY: "auto" }}
                 >
                   {students.map((s) => (
-                    <option key={s.user_id} value={s.user_id}>
+                    <option key={s.profile_id} value={s.profile_id}>
                       {(s.first_name || "").trim()} {(s.last_name || "").trim()}
                     </option>
                   ))}
                 </select>
+                <p className="text-xs text-gray-500 mt-1">
+                  Hold Ctrl (Cmd on Mac) to select multiple students
+                </p>
               </div>
             </div>
 

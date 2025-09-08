@@ -16,7 +16,6 @@ const LatePaymentFines = () => {
     });
     const [showForm, setShowForm] = useState(false);
 
-    const API_URL = "http://127.0.0.1:8000/late-payment-fines/";
 
     const fetchFines = async () => {
         try {

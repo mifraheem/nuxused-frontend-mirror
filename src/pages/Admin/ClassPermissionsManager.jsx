@@ -27,7 +27,7 @@ const ClassPermissionsManager = () => {
     school: '',
   });
 
-  const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000/';
+  const API_BASE = import.meta.env.VITE_SERVER_URL ;
   const getAuthHeaders = () => {
     const token = Cookies.get('access_token');
     return token ? { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' } : { 'Content-Type': 'application/json' };

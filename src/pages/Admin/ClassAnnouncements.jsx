@@ -187,7 +187,7 @@ const ClassAnnouncements = () => {
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div>
                             <label className="block text-sm font-semibold text-gray-700 mb-1">
-                                Class (optional)
+                                Class
                             </label>
                             <Select
                                 value={classOptions.find((cls) => cls.id === newAnnouncement.class_schedule) || null}

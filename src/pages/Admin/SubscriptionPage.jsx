@@ -10,7 +10,7 @@ import {
 } from "lucide-react";
 import Cookies from "js-cookie";
 
-const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:8000";
+const API_BASE = import.meta.env.VITE_SERVER_URL ;
 
 /* ----------------------------- HTTP LAYER ----------------------------- */
 const makeHeaders = () => {
@@ -72,10 +72,10 @@ const SubscriptionPage = () => {
 
       // Adjust paths if your router is different (e.g. `/api/business/...`)
       const [sub, wlt, invs, pays] = await Promise.all([
-        http("/api/billing/subscription/"),
-        http("/api/billing/wallet/"),
-        http("/api/billing/invoices/?page=1&page_size=10"),
-        http("/api/billing/payments/?page=1&page_size=10"),
+        http("api/billing/subscription/"),
+        http("api/billing/wallet/"),
+        http("api/billing/invoices/"),
+        http("api/billing/payments/"),
       ]);
 
       setSubscription(sub || null);

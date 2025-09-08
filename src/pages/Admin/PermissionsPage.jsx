@@ -5,7 +5,7 @@ import Cookies from "js-cookie";
 import Toaster from "../../components/Toaster"; // Import your custom Toaster component
 import GroupPermissionsDialog from "../../components/GroupPermissionsDialog";
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:8000";
+const API_BASE_URL = import.meta.env.VITE_SERVER_URL ;
 
 const HEADERS = (token) => {
   const base = { "Content-Type": "application/json" };
