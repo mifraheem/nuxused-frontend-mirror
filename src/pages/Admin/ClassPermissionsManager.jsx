@@ -27,7 +27,7 @@ const ClassPermissionsManager = () => {
     school: '',
   });
 
-  const API_BASE = import.meta.env.VITE_SERVER_URL ;
+  const API_BASE = import.meta.env.VITE_SERVER_URL;
   const getAuthHeaders = () => {
     const token = Cookies.get('access_token');
     return token ? { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' } : { 'Content-Type': 'application/json' };
@@ -37,39 +37,24 @@ const ClassPermissionsManager = () => {
     setToaster({ message, type });
   };
 
-  const confirmToast = (message = 'Are you sure?') => {
+  const confirmToast = (message = "Are you sure?") => {
     return new Promise((resolve) => {
-      setConfirmResolve(() => resolve); // Store the resolve function
       setToaster({
-        message: (
-          <div className="flex flex-col gap-4">
-            <p className="text-lg font-medium">{message}</p>
-            <div className="flex justify-end gap-2">
-              <button
-                onClick={() => {
-                  setToaster({ message: "", type: "success" });
-                  resolve(true);
-                }}
-                className="px-3 py-1.5 rounded-md bg-red-600 text-white text-sm hover:bg-red-700"
-              >
-                Yes, delete
-              </button>
-              <button
-                onClick={() => {
-                  setToaster({ message: "", type: "success" });
-                  resolve(false);
-                }}
-                className="px-3 py-1.5 rounded-md border border-gray-300 text-sm hover:bg-gray-50"
-              >
-                Cancel
-              </button>
-            </div>
-          </div>
-        ),
+        message,
         type: "confirmation",
+      });
+
+      // pass confirm + cancel handlers to Toaster
+      setToaster({
+        message,
+        type: "confirmation",
+        onConfirm: () => resolve(true),
+        onCancel: () => resolve(false),
+        duration: 3000, // ⬅️ no auto close
       });
     });
   };
+
 
   const buildPatch = (original, current) => {
     const patch = {};
@@ -398,13 +383,14 @@ const ClassPermissionsManager = () => {
   };
 
   const handleDelete = async (id) => {
-    const ok = await confirmToast('Delete this permission? This action cannot be undone.');
+    const ok = await confirmToast("Delete this permission? This action cannot be undone.");
     if (ok) {
       await deleteGroupClassPermission(id);
     } else {
-      showToast('Deletion cancelled', 'confirmation');
+      showToast("Deletion cancelled", "confirmation");
     }
   };
+
 
   const handleShowClasses = async (gcp) => {
     setSelectedGCPForClasses(gcp);
@@ -422,9 +408,12 @@ const ClassPermissionsManager = () => {
       <Toaster
         message={toaster.message}
         type={toaster.type}
-        duration={3000}
+        duration={toaster.duration ?? 3000}
         onClose={() => setToaster({ message: "", type: "success" })}
+        onConfirm={toaster.onConfirm}
+        onCancel={toaster.onCancel}
       />
+
       <div className="max-w-7xl mx-auto py-4 sm:py-6">
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 sm:p-6 mb-6">
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">

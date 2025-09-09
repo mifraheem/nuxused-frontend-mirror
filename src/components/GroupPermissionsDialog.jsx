@@ -12,10 +12,9 @@ export default function GroupPermissionsDialog({
   initialName = "",
   initialPermissionIds = [],
   readOnlyName = false,
-  /** Optional: pass the active school id and this dialog will include school_id in the payload */
-  schoolId, // <-- new optional prop (safe; if omitted nothing breaks)
+  schoolId,
 }) {
-  const [groupName, setGroupName] = useState(initialName);
+  const [groupName, setGroupName] = useState("");
   const [query, setQuery] = useState("");
   const [permissionsState, setPermissionsState] = useState({});
   const [customState, setCustomState] = useState({});
@@ -42,7 +41,7 @@ export default function GroupPermissionsDialog({
           app_label: appLabel,
           display_name: displayName,
           codename,
-          name: perm.name, // keep original for filter
+          name: perm.name,
         };
 
         if (["add", "change", "delete", "view"].includes(action)) {
@@ -82,30 +81,41 @@ export default function GroupPermissionsDialog({
     },
   ];
 
+  // Initialize states when dialog opens or when initialPermissionIds changes
   useEffect(() => {
-    const state = {};
-    modelList.forEach((m) => {
-      state[m.key] = {};
-      ACTION_KEYS.forEach((k) => {
-        state[m.key][k] = initialPermissionIds.includes(
-          models[m.app]?.[m.modelName]?.[k]?.id
-        );
+    if (open && modelList.length > 0) {
+      // Initialize permission states
+      const state = {};
+      modelList.forEach((m) => {
+        state[m.key] = {};
+        ACTION_KEYS.forEach((k) => {
+          const permId = models[m.app]?.[m.modelName]?.[k]?.id;
+          state[m.key][k] = permId ? initialPermissionIds.includes(permId) : false;
+        });
       });
-    });
-    setPermissionsState(state);
+      setPermissionsState(state);
 
-    const customInit = Object.fromEntries(
-      customPermissions.map((p) => [p.id, initialPermissionIds.includes(p.id)])
-    );
-    setCustomState(customInit);
-  }, [modelList, customPermissions, initialPermissionIds, models]);
+      // Initialize custom permission states
+      const customInit = Object.fromEntries(
+        customPermissions.map((p) => [p.id, initialPermissionIds.includes(p.id)])
+      );
+      setCustomState(customInit);
+    }
+  }, [open, modelList, customPermissions, initialPermissionIds, models]);
 
+  // Set group name when dialog opens or initialName changes
   useEffect(() => {
-    if (!open) {
-      setQuery("");
+    if (open) {
       setGroupName(initialName);
     }
   }, [open, initialName]);
+
+  // Clear query when dialog closes
+  useEffect(() => {
+    if (!open) {
+      setQuery("");
+    }
+  }, [open]);
 
   const setCell = (modelKey, actionKey, value) => {
     setPermissionsState((prev) => ({
@@ -151,14 +161,13 @@ export default function GroupPermissionsDialog({
       permission_ids: selectedIds,
     };
 
-    // If schoolId was provided, include it (helps ensure backend accepts the POST)
     return schoolId ? { ...base, school_id: schoolId } : base;
   };
 
   const handleSave = () => {
     const payload = buildPayload();
     if (!payload.name) return alert("Please enter a group name");
-    onSave?.(payload); // parent does the actual POST/PATCH
+    onSave?.(payload);
   };
 
   const title =

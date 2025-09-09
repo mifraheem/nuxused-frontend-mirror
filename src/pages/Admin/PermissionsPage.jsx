@@ -2,20 +2,36 @@ import React, { useEffect, useMemo, useState } from "react";
 import { Search, Plus, Edit3, Shield, Trash2, X, Loader2, Users, Settings } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import Cookies from "js-cookie";
-import Toaster from "../../components/Toaster"; // Import your custom Toaster component
+import Toaster from "../../components/Toaster";
 import GroupPermissionsDialog from "../../components/GroupPermissionsDialog";
 
-const API_BASE_URL = import.meta.env.VITE_SERVER_URL ;
+const API_BASE_URL = import.meta.env.VITE_SERVER_URL;
 
 const HEADERS = (token) => {
   const base = { "Content-Type": "application/json" };
   if (token) base.Authorization = `Bearer ${token}`;
   return base;
 };
+function extractResults(res, fallbackKey = "results") {
+  if (!res) return [];
+
+  // handle paginated style { data: { results: [] } }
+  if (res.data?.[fallbackKey]) return res.data[fallbackKey];
+  if (res.data?.data?.[fallbackKey]) return res.data.data[fallbackKey];
+
+  // direct array return
+  if (Array.isArray(res.data)) return res.data;
+  if (Array.isArray(res)) return res;
+
+  // nested results
+  if (res[fallbackKey]) return res[fallbackKey];
+  if (res.data) return res.data;
+
+  return [];
+}
 
 async function http(method, url, body) {
   let token = Cookies.get("access_token");
-  console.log(`HTTP ${method} request to ${url}, token: ${token ? "present" : "missing"}`);
 
   const attemptRequest = async (useToken) => {
     const res = await fetch(`${API_BASE_URL}${url}`, {
@@ -25,14 +41,15 @@ async function http(method, url, body) {
       credentials: "include",
     });
 
-    let data = null;
-    const text = await res.text();
-    if (text) {
-      try { data = JSON.parse(text); } catch { data = text; }
-    }
-    console.log(`Response from ${url}:`, data);
+    // Handle no-content immediately
+    if (res.status === 204) return {};
 
-    if (res.status === 304) return data || {};
+    let data;
+    try {
+      data = await res.clone().json();
+    } catch {
+      data = await res.text();
+    }
 
     if (!res.ok) {
       const msg =
@@ -63,18 +80,18 @@ async function http(method, url, body) {
   }
 }
 
+
+
 async function refreshToken() {
   const refresh = Cookies.get("refresh_token");
-  console.log("Refresh token:", refresh ? "present" : "missing");
   if (!refresh) throw new Error("No refresh token available");
-  const res = await fetch(`${API_BASE_URL}/api/token/refresh/`, {
+  const res = await fetch(`${API_BASE_URL}api/token/refresh/`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ refresh }),
     credentials: "include",
   });
   const data = await res.json();
-  console.log("Token refresh response:", data);
   if (res.ok) {
     Cookies.set("access_token", data.access, { expires: 7, secure: true, sameSite: "Strict" });
     return data.access;
@@ -82,117 +99,109 @@ async function refreshToken() {
   throw new Error("Token refresh failed");
 }
 
-// Group API Functions
-async function fetchGroups() {
-  const res = await http("GET", "/api/groups/");
-  const data = res?.data?.results || res?.results || res || [];
-  console.log("fetchGroups response:", data);
-  return Array.isArray(data) ? data : [];
+// API Functions
+async function fetchGroups(schoolId) {
+  const url = schoolId ? `api/groups/?school_id=${encodeURIComponent(schoolId)}` : "api/groups/";
+  const res = await http("GET", url);
+  const results = extractResults(res);
+
+  return results.map((g) => ({
+    id: g.id,
+    name: g.name || g.group_name || "Unnamed Group",
+    school_name: g.school_name || g.school || "",
+    permissions_count: g.permissions_count || 0,
+  }));
+}
+
+async function fetchSchools() {
+  const res = await http("GET", "api/schools/");
+  const results = extractResults(res);
+
+  return results.map((s) => ({
+    id: s.id,
+    school_name: s.school_name || s.name || "Unnamed School",
+  }));
 }
 
 async function createGroup(payload) {
-  return http("POST", "/api/groups/", payload);
+  return http("POST", "api/groups/", payload);
 }
 
 async function updateGroup(id, payload) {
-  return http("PUT", `/api/groups/${id}/`, payload);
+  return http("PATCH", `api/groups/${id}/`, payload);
 }
 
 async function deleteGroup(id) {
-  return http("DELETE", `/api/groups/${id}/`);
+  return http("DELETE", `api/groups/${id}/`);
 }
 
 async function fetchGroupDetails(id) {
-  return http("GET", `/api/groups/${id}/`);
+  return http("GET", `api/groups/${id}/`);
 }
 
 async function addPermissionsToGroup(groupId, permissionIds) {
-  return http("POST", `/api/groups/${groupId}/add_permissions/`, { permission_ids: permissionIds });
+  return http("POST", `api/groups/${groupId}/add_permissions/`, { permission_ids: permissionIds });
 }
 
 async function removePermissionsFromGroup(groupId, permissionIds) {
-  return http("POST", `/api/groups/${groupId}/remove_permissions/`, { permission_ids: permissionIds });
+  return http("POST", `api/groups/${groupId}/remove_permissions/`, { permission_ids: permissionIds });
 }
 
 async function fetchAvailablePermissions() {
-  const res = await http("GET", "/api/groups/available_permissions/");
-  console.log("fetchAvailablePermissions response:", res);
+  const res = await http("GET", "api/groups/available_permissions/");
   return res || {};
 }
 
-async function fetchManageableUsers() {
-  const res = await http("GET", "/api/groups/manageable_users/");
-  const data = res?.data?.results || res?.results || res || [];
-  console.log("fetchManageableUsers response:", data);
-  return Array.isArray(data) ? data : [];
-}
-
 async function fetchUsersList() {
-  const res = await http("GET", "/api/groups/users_list/");
-  const data = res?.data?.results || res?.results || res?.data || res || [];
-  console.log("fetchUsersList response:", data);
-  return Array.isArray(data) ? data : [];
+  const res = await http("GET", "api/groups/users_list/");
+  return extractResults(res);
 }
 
+// -------------------- FIXED fetchUserGroups --------------------
 async function fetchUserGroups(userId) {
   try {
-    console.log(`Fetching groups for user ID: ${userId}`);
-    
-    if (!userId) {
-      throw new Error("User ID is required to fetch user groups");
-    }
+    if (!userId) throw new Error("User ID is required to fetch user groups");
+    const res = await http("GET", `api/groups/${userId}/user_detail/`);
 
-    const res = await http("GET", `/api/groups/user/${userId}/groups/`);
-    const data = res?.data?.results || res?.results || res?.data || res || [];
-    console.log(`fetchUserGroups for user ${userId} response:`, data);
-    
-    return Array.isArray(data) ? data : [];
+    // ✅ The API response has groups under res.data.groups
+    const groups = res?.data?.groups || [];
+
+    return groups; // always an array
   } catch (error) {
     console.error(`Error fetching groups for user ${userId}:`, error);
-    
-    if (error.status === 404) {
-      console.log(`No groups found for user ${userId}, returning empty array`);
-      return [];
-    }
-    
+    if (error.status === 404) return [];
     throw error;
   }
 }
+
 
 async function assignGroupsToUser(userId, groupIds) {
   if (!userId || !Array.isArray(groupIds)) {
     throw new Error("Valid user ID and group IDs array are required");
   }
-  
-  console.log(`Assigning groups ${groupIds} to user ${userId}`);
-  return http("POST", "/api/groups/assign_groups_to_user/", { 
-    user_id: userId, 
-    group_ids: groupIds 
-  });
+  return http("POST", "api/groups/assign_groups/", { user_id: userId, group_ids: groupIds });
 }
 
 async function removeGroupsFromUser(userId, groupIds) {
   if (!userId || !Array.isArray(groupIds)) {
     throw new Error("Valid user ID and group IDs array are required");
   }
-  
-  console.log(`Removing groups ${groupIds} from user ${userId}`);
-  return http("POST", "/api/groups/remove_groups_from_user/", { 
-    user_id: userId, 
-    group_ids: groupIds 
-  });
+  console.log("Removing groups with payload:", { user_id: userId, group_ids: groupIds });
+  return http("POST", "api/groups/remove_groups/", { user_id: userId, group_ids: groupIds });
 }
 
-async function fetchAvailableGroupsForAssignment() {
-  try {
-    const res = await http("GET", "/api/groups/available_groups_for_assignment/");
-    const data = res?.data || res?.results || res || [];
-    console.log("fetchAvailableGroupsForAssignment response:", data);
-    return Array.isArray(data) ? data : [];
-  } catch (error) {
-    console.error("Error fetching available groups:", error);
-    return [];
-  }
+
+async function fetchAvailableGroupsForAssignment(schoolId) {
+  const url = schoolId ? `api/groups/?school_id=${encodeURIComponent(schoolId)}` : "api/groups/";
+  const res = await http("GET", url);
+  const results = extractResults(res);
+
+  return results.map((g) => ({
+    id: g.id,
+    name: g.name || g.group_name || "Unnamed Group",
+    school_name: g.school_name || g.school || "",
+    permissions_count: g.permissions_count || 0,
+  }));
 }
 
 export default function PermissionsPage() {
@@ -204,9 +213,12 @@ export default function PermissionsPage() {
   const [permissions, setPermissions] = useState({});
   const [manageableUsers, setManageableUsers] = useState([]);
   const [availableGroups, setAvailableGroups] = useState([]);
+  const [schools, setSchools] = useState([]);
+  const [selectedSchoolId, setSelectedSchoolId] = useState(null);
   const [loadingGroups, setLoadingGroups] = useState(false);
   const [loadingPermissions, setLoadingPermissions] = useState(false);
   const [loadingUsers, setLoadingUsers] = useState(false);
+  const [loadingSchools, setLoadingSchools] = useState(false);
   const [savingGroup, setSavingGroup] = useState(false);
   const [savingUserGroups, setSavingUserGroups] = useState(false);
   const [loadingUserGroups, setLoadingUserGroups] = useState(false);
@@ -215,58 +227,37 @@ export default function PermissionsPage() {
   const [selectedUser, setSelectedUser] = useState(null);
   const [selectedUserGroups, setSelectedUserGroups] = useState([]);
   const [showUserGroupsDialog, setShowUserGroupsDialog] = useState(false);
-  const [selectedSchoolId, setSelectedSchoolId] = useState(null);
+
   const [dialogConfig, setDialogConfig] = useState({
     open: false,
     mode: "create",
     initialName: "",
     initialPermissionIds: [],
     readOnlyName: false,
+    groupId: null,
   });
-  const [toaster, setToaster] = useState({ message: "", type: "success" });
-  const [confirmResolve, setConfirmResolve] = useState(null);
+  const [toaster, setToaster] = useState({
+    message: "",
+    type: "success",
+    duration: 3000,
+    onConfirm: null,
+    onCancel: null,
+  });
 
-  const showToast = (message, type = "success") => {
-    setToaster({ message, type });
+  const showToast = (message, type = "success", duration = 3000) => {
+    setToaster({ message, type, duration, onConfirm: null, onCancel: null });
   };
 
-  const confirmToast = (message = "Are you sure?") => {
-    return new Promise((resolve) => {
-      setConfirmResolve(() => resolve); // Store the resolve function
-      setToaster({
-        message: (
-          <div className="flex flex-col gap-4">
-            <p className="text-lg font-medium">{message}</p>
-            <div className="flex justify-end gap-2">
-              <button
-                onClick={() => {
-                  setToaster({ message: "", type: "success" });
-                  resolve(true);
-                }}
-                className="px-3 py-1.5 rounded-md bg-red-600 text-white text-sm hover:bg-red-700"
-              >
-                Yes, delete
-              </button>
-              <button
-                onClick={() => {
-                  setToaster({ message: "", type: "success" });
-                  resolve(false);
-                }}
-                className="px-3 py-1.5 rounded-md border border-gray-300 text-sm hover:bg-gray-50"
-              >
-                Cancel
-              </button>
-            </div>
-          </div>
-        ),
-        type: "confirmation",
-      });
+  const showConfirm = (message, onConfirm, onCancel) => {
+    setToaster({
+      message,
+      type: "confirmation",
+      duration: 3000, 
+      onConfirm,
+      onCancel,
     });
   };
 
-  const showNotification = (message, type = "success") => {
-    showToast(message, type);
-  };
 
   const showError = (err) => {
     const msg = typeof err === "string" ? err : err?.message || "Something went wrong";
@@ -281,7 +272,6 @@ export default function PermissionsPage() {
 
   useEffect(() => {
     const token = Cookies.get("access_token");
-    console.log("Initial check - Access token:", token ? "present" : "missing");
     if (!token) {
       setAuthIssue("unauth");
       navigate("/login");
@@ -289,39 +279,35 @@ export default function PermissionsPage() {
     }
 
     async function loadInitialData() {
+      setLoadingSchools(true);
       setLoadingGroups(true);
       setLoadingPermissions(true);
       setAuthIssue(null);
 
       try {
-        const groupsData = await fetchGroups();
+        const [schoolsData, groupsData, permissionsData, availableGroupsData] = await Promise.all([
+          fetchSchools(),
+          fetchGroups(null),
+          fetchAvailablePermissions(),
+          fetchAvailableGroupsForAssignment(null),
+        ]);
+
+        setSchools(Array.isArray(schoolsData) ? schoolsData : []);
         setGroups(Array.isArray(groupsData) ? groupsData : []);
-      } catch (error) {
-        if (error.status === 401) setAuthIssue("unauth");
-        else if (error.status === 403) setAuthIssue("forbidden");
-        showError(error);
-      } finally {
-        setLoadingGroups(false);
-      }
-
-      try {
-        const permissionsData = await fetchAvailablePermissions();
         setPermissions(permissionsData);
+        setAvailableGroups(Array.isArray(availableGroupsData) ? availableGroupsData : []);
+
+        if (schoolsData.length > 0 && !selectedSchoolId) {
+          setSelectedSchoolId(schoolsData[0].id);
+        }
       } catch (error) {
         if (error.status === 401) setAuthIssue("unauth");
         else if (error.status === 403) setAuthIssue("forbidden");
         showError(error);
       } finally {
+        setLoadingSchools(false);
+        setLoadingGroups(false);
         setLoadingPermissions(false);
-      }
-
-      try {
-        const availableGroupsData = await fetchAvailableGroupsForAssignment();
-        setAvailableGroups(Array.isArray(availableGroupsData) ? availableGroupsData : []);
-      } catch (error) {
-        if (error.status === 401) setAuthIssue("unauth");
-        else if (error.status === 403) setAuthIssue("forbidden");
-        showError(error);
       }
     }
 
@@ -330,55 +316,45 @@ export default function PermissionsPage() {
 
   useEffect(() => {
     if (activeTab === "users") {
-      console.log("Users tab activated, fetching users...");
-      async function loadUsersData() {
-        setLoadingUsers(true);
-        try {
-          const usersData = await fetchUsersList();
+      setLoadingUsers(true);
+      fetchUsersList()
+        .then((usersData) => {
           setManageableUsers(Array.isArray(usersData) ? usersData : []);
-          console.log("manageableUsers updated:", usersData);
-        } catch (error) {
-          console.error("Users loading error:", error);
+        })
+        .catch((error) => {
           if (error.status === 401) setAuthIssue("unauth");
           else if (error.status === 403) setAuthIssue("forbidden");
           showError(error);
-        } finally {
-          setLoadingUsers(false);
-        }
-      }
-      loadUsersData();
+        })
+        .finally(() => setLoadingUsers(false));
     }
   }, [activeTab]);
 
   useEffect(() => {
-    console.log("manageableUsers state:", manageableUsers);
-  }, [manageableUsers]);
-
-  useEffect(() => {
-    (async () => {
-      try {
-        const res = await http("GET", `/api/schools/?_=${Date.now()}`);
-        const results = res?.data?.results ?? res?.results ?? [];
-        if (results.length > 0) {
-          setSelectedSchoolId(results[0].id);
-        } else {
-          console.warn("No schools returned from /api/schools/");
-        }
-      } catch (e) {
-        console.error("Failed to load schools", e);
-        showToast("Failed to load schools", "error");
-      }
-    })();
-  }, []);
+    if (selectedSchoolId) {
+      setLoadingGroups(true);
+      fetchGroups(selectedSchoolId)
+        .then((groupsData) => {
+          setGroups(Array.isArray(groupsData) ? groupsData : []);
+          return fetchAvailableGroupsForAssignment(selectedSchoolId);
+        })
+        .then((availableGroupsData) => {
+          setAvailableGroups(Array.isArray(availableGroupsData) ? availableGroupsData : []);
+        })
+        .catch((error) => {
+          showError(error);
+        })
+        .finally(() => setLoadingGroups(false));
+    }
+  }, [selectedSchoolId]);
 
   const filteredGroups = useMemo(() => {
     if (!groupSearch.trim()) return groups;
     const q = groupSearch.toLowerCase();
-    return groups.filter((g) => g.name?.toLowerCase().includes(q));
+    return groups.filter((g) => g.name?.toLowerCase().includes(q) || g.school_name?.toLowerCase().includes(q));
   }, [groups, groupSearch]);
 
   const filteredManageableUsers = useMemo(() => {
-    console.log("Filtering users, manageableUsers:", manageableUsers, "userSearch:", userSearch);
     if (!userSearch.trim()) return manageableUsers;
     const q = userSearch.toLowerCase();
     return manageableUsers.filter((u) =>
@@ -387,103 +363,33 @@ export default function PermissionsPage() {
   }, [manageableUsers, userSearch]);
 
   const handleCreateGroup = () => {
+    if (!selectedSchoolId) {
+      showToast("Please select a school first", "error");
+      return;
+    }
     setDialogConfig({
       open: true,
       mode: "create",
       initialName: "",
       initialPermissionIds: [],
       readOnlyName: false,
+      groupId: null,
     });
   };
 
   const handleEditGroup = async (group) => {
     try {
       const details = await fetchGroupDetails(group.id);
-      console.log("Group details:", details);
+      const d = details.data; // unwrap
       setSelectedGroup(group);
       setDialogConfig({
         open: true,
         mode: "edit",
-        initialName: details.name || group.name || "",
-        initialPermissionIds: Array.isArray(details.permissions) ? details.permissions.map((p) => p.id) : [],
+        initialName: d.name || group.name || "",
+        initialPermissionIds: Array.isArray(d.permissions) ? d.permissions.map((p) => p.id) : [],
         readOnlyName: false,
+        groupId: d.id,
       });
-    } catch (error) {
-      showError(error);
-    }
-  };
-
-  async function reloadGroups(schoolId) {
-    if (!schoolId) throw new Error("School id missing");
-
-    const res = await http(
-      "GET",
-      `/api/groups/?school_id=${encodeURIComponent(schoolId)}&_=${Date.now()}`
-    );
-
-    const results =
-      res?.data?.results ??
-      res?.results ??
-      (Array.isArray(res) ? res : []);
-
-    if (!Array.isArray(results)) {
-      throw new Error("Unexpected groups response shape");
-    }
-
-    setGroups(results);
-  }
-
-  const handleDialogSave = async (payloadFromDialog) => {
-    if (!selectedSchoolId) {
-      showToast("No school selected", "error");
-      return;
-    }
-
-    const body = { ...payloadFromDialog, school_id: selectedSchoolId };
-
-    try {
-      if (dialogConfig.mode === "create") {
-        await http("POST", "/api/groups/", body);
-      } else {
-        await http("PATCH", `/api/groups/${dialogConfig.groupId}/`, body);
-      }
-
-      try {
-        await reloadGroups(selectedSchoolId);
-        showToast(
-          `Group ${dialogConfig.mode === "create" ? "created" : "updated"} successfully`,
-          "success"
-        );
-      } catch (e) {
-        console.error(e);
-        showToast(
-          <div>
-            <div className="font-medium">Group saved ✅</div>
-            <div className="text-sm text-red-600">
-              But refreshing the list failed: {String(e.message || e)}
-            </div>
-          </div>,
-          "error"
-        );
-      }
-
-      setDialogConfig((prev) => ({ ...prev, open: false }));
-    } catch (e) {
-      console.error(e);
-      showToast(e.message || "Save failed", "error");
-    }
-  };
-
-  const handleDeleteGroup = async (group) => {
-    const ok = await confirmToast(`Delete the group "${group.name}"? This cannot be undone.`);
-    if (!ok) {
-      showToast("Deletion cancelled", "confirmation");
-      return;
-    }
-    try {
-      await deleteGroup(group.id);
-      setGroups((prev) => prev.filter((g) => g.id !== group.id));
-      showToast("Group deleted successfully", "success");
     } catch (error) {
       showError(error);
     }
@@ -492,23 +398,96 @@ export default function PermissionsPage() {
   const handleManagePermissions = async (group) => {
     try {
       const details = await fetchGroupDetails(group.id);
-      console.log("Group details for permissions:", details);
+      const d = details.data; // unwrap
       setSelectedGroup(group);
       setDialogConfig({
         open: true,
         mode: "manage",
-        initialName: details.name || group.name || "",
-        initialPermissionIds: Array.isArray(details.permissions) ? details.permissions.map((p) => p.id) : [],
+        initialName: d.name || group.name || "",
+        initialPermissionIds: Array.isArray(d.permissions) ? d.permissions.map((p) => p.id) : [],
         readOnlyName: true,
+        groupId: d.id,
       });
     } catch (error) {
       showError(error);
     }
   };
 
+  const handleDialogSave = async (payloadFromDialog) => {
+    if (!selectedSchoolId) {
+      showToast("No school selected", "error");
+      return;
+    }
+
+    setSavingGroup(true);
+    try {
+      if (dialogConfig.mode === "create") {
+        const response = await createGroup({ ...payloadFromDialog, school_id: selectedSchoolId });
+        showToast("Group created successfully", "success");
+        const [updatedGroups, updatedAvailableGroups] = await Promise.all([
+          fetchGroups(selectedSchoolId),
+          fetchAvailableGroupsForAssignment(selectedSchoolId),
+        ]);
+        setGroups(updatedGroups);
+        setAvailableGroups(updatedAvailableGroups);
+      } else if (dialogConfig.mode === "edit") {
+        await updateGroup(dialogConfig.groupId, { name: payloadFromDialog.name });
+        showToast("Group updated successfully", "success");
+        const updatedGroups = await fetchGroups(selectedSchoolId);
+        setGroups(updatedGroups);
+        const updatedAvailableGroups = await fetchAvailableGroupsForAssignment(selectedSchoolId);
+        setAvailableGroups(updatedAvailableGroups);
+      } else if (dialogConfig.mode === "manage") {
+        const currentPermissions = dialogConfig.initialPermissionIds || [];
+        const newPermissions = payloadFromDialog.permission_ids || [];
+        const toAdd = newPermissions.filter((id) => !currentPermissions.includes(id));
+        const toRemove = currentPermissions.filter((id) => !newPermissions.includes(id));
+
+        if (toAdd.length > 0) {
+          await addPermissionsToGroup(dialogConfig.groupId, toAdd);
+        }
+        if (toRemove.length > 0) {
+          await removePermissionsFromGroup(dialogConfig.groupId, toRemove);
+        }
+        showToast("Permissions updated successfully", "success");
+        const updatedGroups = await fetchGroups(selectedSchoolId);
+        setGroups(updatedGroups);
+        const updatedAvailableGroups = await fetchAvailableGroupsForAssignment(selectedSchoolId);
+        setAvailableGroups(updatedAvailableGroups);
+      }
+
+      setDialogConfig((prev) => ({ ...prev, open: false, groupId: null }));
+    } catch (error) {
+      showError(error);
+    } finally {
+      setSavingGroup(false);
+    }
+  };
+
+  const handleDeleteGroup = (group) => {
+    showConfirm(
+      `Delete the group "${group.name}"? This cannot be undone.`,
+      async () => {
+        try {
+          await deleteGroup(group.id);
+          setGroups((prev) => prev.filter((g) => g.id !== group.id));
+
+          const updatedAvailableGroups = await fetchAvailableGroupsForAssignment(selectedSchoolId);
+          setAvailableGroups(updatedAvailableGroups);
+
+          showToast("Group deleted successfully", "success");
+        } catch (error) {
+          showToast(error.message || "Failed to delete group", "error");
+        }
+      },
+      () => {
+        showToast("Deletion cancelled", "error");
+      }
+    );
+  };
+
+  // -------------------- FIXED handleManageUserGroups --------------------
   const handleManageUserGroups = async (user) => {
-    console.log("Managing groups for user:", user);
-    
     if (!user || !user.id) {
       showToast("Invalid user selected", "error");
       return;
@@ -517,32 +496,21 @@ export default function PermissionsPage() {
     try {
       setLoadingUserGroups(true);
       setSelectedUser(user);
-      
+
       const userGroups = await fetchUserGroups(user.id);
-      console.log("User groups fetched:", userGroups);
-      
-      const userGroupIds = Array.isArray(userGroups) 
-        ? userGroups.map((g) => g.id || g).filter(id => id != null)
-        : [];
-      
-      console.log("Setting selected user groups:", userGroupIds);
-      setSelectedUserGroups(userGroupIds);
-      
-      const availableGroupsData = await fetchAvailableGroupsForAssignment();
-      setAvailableGroups(Array.isArray(availableGroupsData) ? availableGroupsData : []);
-      
+      const userGroupIds = userGroups.map((g) => g.id); // ✅ just ids
+      setSelectedUserGroups([...new Set(userGroupIds)]);
+
       setShowUserGroupsDialog(true);
-      
     } catch (error) {
-      console.error("Error in handleManageUserGroups:", error);
       showError(error);
-      setSelectedUserGroups([]);
-      setShowUserGroupsDialog(true);
     } finally {
       setLoadingUserGroups(false);
     }
   };
 
+
+  // -------------------- FIXED handleSaveUserGroups --------------------
   const handleSaveUserGroups = async () => {
     if (!selectedUser || !selectedUser.id) {
       showToast("No user selected", "error");
@@ -550,60 +518,68 @@ export default function PermissionsPage() {
     }
 
     setSavingUserGroups(true);
-    
+
     try {
-      console.log("Saving user groups for:", selectedUser);
-      console.log("Selected groups:", selectedUserGroups);
-      
-      const currentUserGroups = await fetchUserGroups(selectedUser.id);
-      const currentGroupIds = Array.isArray(currentUserGroups) 
-        ? currentUserGroups.map((g) => g.id || g).filter(id => id != null)
-        : [];
+      const originalGroups = await fetchUserGroups(selectedUser.id);
+      const originalIds = originalGroups.map((g) => g.id);
+      const newIds = [...selectedUserGroups];
 
-      console.log("Current user groups:", currentGroupIds);
-      
-      const toAssign = selectedUserGroups.filter((id) => !currentGroupIds.includes(id));
-      const toRemove = currentGroupIds.filter((id) => !selectedUserGroups.includes(id));
+      const toAssign = newIds.filter((id) => !originalIds.includes(id));
+      const toRemove = originalIds.filter((id) => !newIds.includes(id));
 
-      console.log("Groups to assign:", toAssign);
-      console.log("Groups to remove:", toRemove);
-
-      if (toAssign.length) {
+      if (toAssign.length > 0) {
         await assignGroupsToUser(selectedUser.id, toAssign);
-        console.log("Successfully assigned groups:", toAssign);
       }
-      
-      if (toRemove.length) {
+      if (toRemove.length > 0) {
         await removeGroupsFromUser(selectedUser.id, toRemove);
-        console.log("Successfully removed groups:", toRemove);
       }
 
-      const userName = getUserDisplayName(selectedUser);
-      showToast(`Groups updated for ${userName}`, "success");
-      
+      // ✅ update user.groups immediately
+      setManageableUsers((prev) =>
+        prev.map((u) =>
+          u.id === selectedUser.id
+            ? {
+              ...u,
+              group_count: newIds.length,
+              groups: availableGroups.filter((g) => newIds.includes(g.id)),
+            }
+            : u
+        )
+      );
+
+      // ✅ Close modal and show success toast
       setShowUserGroupsDialog(false);
-
-      try {
-        const updatedUsers = await fetchUsersList();
-        setManageableUsers(Array.isArray(updatedUsers) ? updatedUsers : []);
-       
-
- console.log("Users list refreshed after group update");
-      } catch (error) {
-        console.warn("Could not refresh users list:", error);
-      }
-      
+      setSelectedUser(null);
+      showToast(`Groups updated for ${getUserDisplayName(selectedUser)}`, "success");
     } catch (error) {
-      console.error("Error saving user groups:", error);
       showError(error);
     } finally {
       setSavingUserGroups(false);
     }
   };
 
-  const handleNavigateToUsers = () => {
-    console.log("Navigating to users tab");
-    setActiveTab("users");
+
+
+
+
+
+
+
+  const getUserDisplayName = (user) => {
+    if (user.full_name?.trim()) return user.full_name;
+    if (user.first_name && user.last_name) return `${user.first_name} ${user.last_name}`;
+    return user.username || user.email || "Unknown User";
+  };
+
+  const getRoleColor = (role) => {
+    const colors = {
+      teacher: "bg-blue-100 text-blue-800",
+      admin: "bg-red-100 text-red-800",
+      staff: "bg-purple-100 text-purple-800",
+      student: "bg-orange-100 text-orange-800",
+      parent: "bg-green-100 text-green-800",
+    };
+    return colors[role] || "bg-gray-100 text-gray-800";
   };
 
   const AuthBanner = () => {
@@ -612,10 +588,7 @@ export default function PermissionsPage() {
     return (
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mb-4">
         <div
-          className={`rounded-md p-4 border ${isUnauth
-            ? "bg-yellow-50 text-yellow-800 border-yellow-200"
-            : "bg-red-50 text-red-800 border-red-200"
-            }`}
+          className={`rounded-md p-4 border ${isUnauth ? "bg-yellow-50 text-yellow-800 border-yellow-200" : "bg-red-50 text-red-800 border-red-200"}`}
         >
           <p className="text-sm">
             {isUnauth
@@ -627,30 +600,17 @@ export default function PermissionsPage() {
     );
   };
 
-  const getUserDisplayName = (user) => {
-    if (user.full_name && user.full_name.trim()) return user.full_name;
-    if (user.first_name && user.last_name) return `${user.first_name} ${user.last_name}`;
-    return user.username || user.email || 'Unknown User';
-  };
-
-  const getRoleColor = (role) => {
-    const colors = {
-      teacher: "bg-blue-100 text-blue-800",
-      admin: "bg-red-100 text-red-800",
-      staff: "bg-purple-100 text-purple-800",
-      student: "bg-orange-100 text-orange-800",
-    };
-    return colors[role] || "bg-gray-100 text-gray-800";
-  };
-
   return (
     <div className="min-h-screen bg-gray-50">
       <Toaster
         message={toaster.message}
         type={toaster.type}
-        duration={3000}
-        onClose={() => setToaster({ message: "", type: "success" })}
+        duration={toaster.duration}
+        onClose={() => setToaster({ ...toaster, message: "" })}
+        onConfirm={toaster.onConfirm}
+        onCancel={toaster.onCancel}
       />
+
 
       <div className="bg-white border-b border-gray-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -661,41 +621,49 @@ export default function PermissionsPage() {
             </div>
             <div className="flex items-center space-x-3">
               {activeTab === "groups" && (
-                <button
-                  onClick={handleCreateGroup}
-                  disabled={loadingGroups || authIssue}
-                  className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-lg text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  <Plus className="w-4 h-4 mr-2" />
-                  New Group
-                </button>
+                <>
+                  <select
+                    value={selectedSchoolId || ""}
+                    onChange={(e) => setSelectedSchoolId(e.target.value || null)}
+                    className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    disabled={loadingSchools}
+                  >
+                    <option value="">Select a school</option>
+                    {schools.map((school) => (
+                      <option key={school.id} value={school.id}>
+                        {school.school_name}
+                      </option>
+                    ))}
+                  </select>
+
+                  <button
+                    onClick={handleCreateGroup}
+                    disabled={loadingGroups || authIssue || !selectedSchoolId}
+                    className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-lg text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <Plus className="w-4 h-4 mr-2" />
+                    New Group
+                  </button>
+                </>
               )}
             </div>
           </div>
 
           <div className="flex space-x-8 -mb-px">
             <button
-              onClick={() => {
-                console.log("Switching to groups tab");
-                setActiveTab("groups");
-              }}
+              onClick={() => setActiveTab("groups")}
               className={`py-2 px-1 border-b-2 font-medium text-sm ${activeTab === "groups"
                 ? "border-blue-500 text-blue-600"
-                : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
-                }`}
+                : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"}`}
             >
               <Shield className="w-4 h-4 inline mr-2" />
               Roles
             </button>
             <button
-              onClick={() => {
-                console.log("Switching to users tab");
-                setActiveTab("users");
-              }}
+              onClick={() => setActiveTab("users")}
               className={`py-2 px-1 border-b-2 font-medium text-sm ${activeTab === "users"
                 ? "border-blue-500 text-blue-600"
-                : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
-                }`}
+                : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"}`}
             >
               <Users className="w-4 h-4 inline mr-2" />
               Users
@@ -734,7 +702,7 @@ export default function PermissionsPage() {
                 <span className="ml-3 text-gray-600">Loading groups...</span>
               </div>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {filteredGroups.map((group) => (
                   <div key={group.id} className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
                     <div className="flex items-start justify-between mb-4">
@@ -765,7 +733,7 @@ export default function PermissionsPage() {
                           <Trash2 className="w-4 h-4" />
                         </button>
                         <button
-                          onClick={handleNavigateToUsers}
+                          onClick={() => setActiveTab("users")}
                           className="p-2 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded-lg transition-colors"
                           title="Manage users"
                         >
@@ -773,19 +741,16 @@ export default function PermissionsPage() {
                         </button>
                       </div>
                     </div>
-                    <div className="flex items-center justify-between text-sm text-gray-600">
-                      <div className="flex items-center space-x-4">
-                        <button
-                          onClick={() => handleManagePermissions(group)}
-                          className="text-blue-600 hover:text-blue-800 font-medium"
-                        >
-                          {group.permissions_count || 0} permissions
-                        </button>
-                      </div>
+                    <div className="text-sm text-gray-600">
+                      <button
+                        onClick={() => handleManagePermissions(group)}
+                        className="text-blue-600 hover:text-blue-800 font-medium"
+                      >
+                        {group.permissions_count || 0} permissions
+                      </button>
                     </div>
                   </div>
                 ))}
-
                 {!loadingGroups && filteredGroups.length === 0 && (
                   <div className="col-span-full text-center py-12">
                     <Shield className="w-12 h-12 text-gray-400 mx-auto mb-4" />
@@ -849,7 +814,9 @@ export default function PermissionsPage() {
                                   {getUserDisplayName(user)}
                                 </p>
                                 {user.role && (
-                                  <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getRoleColor(user.role)}`}>
+                                  <span
+                                    className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getRoleColor(user.role)}`}
+                                  >
                                     {user.role}
                                   </span>
                                 )}
@@ -875,7 +842,7 @@ export default function PermissionsPage() {
                             <button
                               onClick={() => handleManageUserGroups(user)}
                               disabled={loadingUserGroups}
-                              className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                              className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
                             >
                               {loadingUserGroups ? (
                                 <Loader2 className="w-4 h-4 mr-2 animate-spin" />
@@ -932,7 +899,7 @@ export default function PermissionsPage() {
 
       <GroupPermissionsDialog
         open={dialogConfig.open}
-        onClose={() => setDialogConfig((prev) => ({ ...prev, open: false }))}
+        onClose={() => setDialogConfig((prev) => ({ ...prev, open: false, groupId: null }))}
         onSave={handleDialogSave}
         permissions={permissions}
         mode={dialogConfig.mode}
@@ -940,6 +907,7 @@ export default function PermissionsPage() {
         initialPermissionIds={dialogConfig.initialPermissionIds}
         readOnlyName={dialogConfig.readOnlyName}
         schoolId={selectedSchoolId}
+        saving={savingGroup}
       />
 
       {showUserGroupsDialog && selectedUser && (
@@ -950,61 +918,56 @@ export default function PermissionsPage() {
                 <Settings className="w-5 h-5 mr-2" />
                 Manage Groups - {getUserDisplayName(selectedUser)}
               </h2>
-              {loadingUserGroups && (
-                <Loader2 className="w-5 h-5 animate-spin text-blue-600" />
-              )}
+              {loadingUserGroups && <Loader2 className="w-5 h-5 animate-spin text-blue-600" />}
             </div>
-            
-            <div className="mb-4 p-4 bg-gray-50 rounded-lg">
-              <div className="flex items-center space-x-3">
-                <div className="w-10 h-10 bg-gray-300 rounded-full flex items-center justify-center">
-                  <Users className="w-5 h-5 text-gray-600" />
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-gray-900">{getUserDisplayName(selectedUser)}</p>
-                  <p className="text-sm text-gray-500">{selectedUser.email || selectedUser.username}</p>
-                  {selectedUser.id && (
-                    <p className="text-xs text-gray-400">ID: {selectedUser.id}</p>
-                  )}
-                </div>
-              </div>
-            </div>
+
+
 
             <div className="space-y-6">
               <div className="max-h-96 overflow-y-auto border border-gray-200 rounded-lg">
                 {availableGroups.length > 0 ? (
                   <div className="divide-y divide-gray-200">
                     {availableGroups.map((group) => (
-                      <label key={group.id} className="flex items-center p-4 hover:bg-gray-50 cursor-pointer">
+                      <label
+                        key={group.id}
+                        className={`flex items-center p-4 hover:bg-gray-50 cursor-pointer ${selectedUserGroups.includes(group.id) ? "bg-blue-50" : ""
+                          }`}
+                      >
                         <input
                           type="checkbox"
                           checked={selectedUserGroups.includes(group.id)}
                           onChange={(e) => {
                             const groupId = group.id;
-                            if (e.target.checked) {
-                              setSelectedUserGroups((prev) => {
-                                const newGroups = [...prev, groupId];
-                                console.log("Added group:", groupId, "New selection:", newGroups);
-                                return newGroups;
-                              });
-                            } else {
-                              setSelectedUserGroups((prev) => {
-                                const newGroups = prev.filter((id) => id !== groupId);
-                                console.log("Removed group:", groupId, "New selection:", newGroups);
-                                return newGroups;
-                              });
-                            }
+                            setSelectedUserGroups((prev) => {
+                              const newGroups = e.target.checked
+                                ? [...new Set([...prev, groupId])]
+                                : prev.filter((id) => id !== groupId);
+                              return newGroups;
+                            });
                           }}
                           className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded mr-4"
+                          disabled={savingUserGroups || loadingUserGroups}
                         />
-                        <div className="flex items-center space-x-3 flex-1">
+                        <div className="flex items-center space-x-3">
                           <div className="flex-shrink-0">
-                            <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
-                              <Shield className="w-5 h-5 text-blue-600" />
+                            <div
+                              className={`w-10 h-10 rounded-full flex items-center justify-center ${selectedUserGroups.includes(group.id)
+                                ? "bg-blue-200 text-blue-800"
+                                : "bg-blue-100 text-blue-600"
+                                }`}
+                            >
+                              <Shield className="w-5 h-5" />
                             </div>
                           </div>
                           <div className="flex-1 min-w-0">
-                            <div className="text-sm font-medium text-gray-900 truncate">{group.name}</div>
+                            <div className="text-sm font-medium text-gray-900 truncate">
+                              {group.name}
+                              {selectedUserGroups.includes(group.id) && (
+                                <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                  Assigned
+                                </span>
+                              )}
+                            </div>
                             {group.school_name && (
                               <div className="text-xs text-gray-500 truncate">{group.school_name}</div>
                             )}
@@ -1028,7 +991,6 @@ export default function PermissionsPage() {
                     {selectedUserGroups.length} of {availableGroups.length}
                   </span>
                 </div>
-                
                 {selectedUserGroups.length > 0 && (
                   <div className="mt-2">
                     <div className="flex flex-wrap gap-2 mb-3">
@@ -1042,7 +1004,7 @@ export default function PermissionsPage() {
                             {group.name}
                             <button
                               onClick={() => {
-                                setSelectedUserGroups(prev => prev.filter(id => id !== group.id));
+                                setSelectedUserGroups((prev) => prev.filter((id) => id !== group.id));
                               }}
                               className="ml-1 text-blue-600 hover:text-blue-800"
                             >
@@ -1052,10 +1014,7 @@ export default function PermissionsPage() {
                         ))}
                     </div>
                     <button
-                      onClick={() => {
-                        setSelectedUserGroups([]);
-                        console.log("Cleared all group selections");
-                      }}
+                      onClick={() => setSelectedUserGroups([])}
                       className="text-sm text-red-600 hover:text-red-800"
                     >
                       Clear all selections
@@ -1070,17 +1029,18 @@ export default function PermissionsPage() {
                 onClick={() => {
                   setShowUserGroupsDialog(false);
                   setSelectedUser(null);
-                  setSelectedUserGroups([]);
+                  showToast(`Groups updated `, "success");
+
                 }}
                 disabled={savingUserGroups}
-                className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors disabled:opacity-50"
+                className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg disabled:opacity-50"
               >
                 Cancel
               </button>
               <button
                 onClick={handleSaveUserGroups}
                 disabled={savingUserGroups || loadingUserGroups}
-                className="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors disabled:opacity-50"
+                className="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg disabled:opacity-50"
               >
                 {savingUserGroups && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
                 {savingUserGroups ? "Saving..." : "Save Groups"}
