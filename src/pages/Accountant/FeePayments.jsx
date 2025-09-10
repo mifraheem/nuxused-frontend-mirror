@@ -83,44 +83,37 @@ const FeePayments = () => {
     };
 
     const getStudentFeeById = async (studentId) => {
-        try {
-            setIsLoadingFees(true);
-            const token = Cookies.get("access_token");
-            if (!token) {
-                throw new Error("No access token found. Please log in.");
-            }
-            console.log("Fetching fees for studentId:", studentId);
-            const res = await axios.get(`${STUDENT_FEES_URL}${studentId}`, {
-                headers: { Authorization: `Bearer ${token}` },
-            });
-            console.log("Fee response:", res.data);
-            const result = Array.isArray(res.data.data) ? res.data.data : res.data.results || [];
-            setStudentFees(result);
-            if (result.length === 0) {
-                showToast("No fees found for selected student. Using default data.", "error");
-                setStudentFees([
-                    { uuid: "c5214007-a286-4a65-bdf9-9cf7b7aa8fb9", fee_type: "Registration Fee", net_payable: 1000, is_paid: false },
-                    { uuid: "d6225118-b397-4b76-ce0a-ad08c9bb9fc0", fee_type: "Tuition", net_payable: 5000, is_paid: false }
-                ]);
-            }
-        } catch (error) {
-            console.error("Error fetching fees:", error.response?.data);
-            if (error.response?.status === 404) {
-                showToast("Student fee endpoint not found. Using default data.", "error");
-                setStudentFees([
-                    { uuid: "c5214007-a286-4a65-bdf9-9cf7b7aa8fb9", fee_type: "Registration Fee", net_payable: 1000, is_paid: false },
-                    { uuid: "d6225118-b397-4b76-ce0a-ad08c9bb9fc0", fee_type: "Tuition", net_payable: 5000, is_paid: false }
-                ]);
-            } else if (error.response?.status === 401) {
-                showToast("Unauthorized. Please log in again.", "error");
-            } else {
-                showToast(error.response?.data?.message || "Failed to fetch selected student's fee types.", "error");
-                setStudentFees([]);
-            }
-        } finally {
-            setIsLoadingFees(false);
+    try {
+        setIsLoadingFees(true);
+        const token = Cookies.get("access_token");
+        if (!token) {
+            throw new Error("No access token found. Please log in.");
         }
-    };
+
+        console.log("Fetching fees for studentId:", studentId);
+
+        // ✅ use query param instead of appending ID
+        const res = await axios.get(`${STUDENT_FEES_URL}?student_id=${studentId}`, {
+            headers: { Authorization: `Bearer ${token}` },
+        });
+
+        console.log("Fee response:", res.data);
+
+        const result = res.data?.data?.results || res.data?.results || [];
+        setStudentFees(result);
+
+        if (result.length === 0) {
+            showToast("No fees found for selected student.", "error");
+        }
+    } catch (error) {
+        console.error("Error fetching fees:", error.response?.data);
+        showToast(error.response?.data?.message || "Failed to fetch selected student's fee types.", "error");
+        setStudentFees([]);
+    } finally {
+        setIsLoadingFees(false);
+    }
+};
+
 
     const fetchPayments = async () => {
         try {
@@ -330,7 +323,7 @@ const FeePayments = () => {
                                     else setStudentFees([]);
                                 }}
                                 options={students}
-                                getOptionLabel={(s) => `${s.first_name || s.name || ''} ${s.last_name || ''} (ID: ${s.uuid || s.profile_id || s.id})`}
+                                getOptionLabel={(s) => `${s.first_name || s.name || ''} ${s.last_name || ''}`}
                                 getOptionValue={(s) => s.uuid || s.profile_id || s.id}
                                 placeholder={isLoadingStudents ? "Loading students..." : "Select student"}
                                 isClearable

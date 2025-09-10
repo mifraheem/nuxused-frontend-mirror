@@ -282,7 +282,6 @@ const FinalResults = () => {
                 <thead className="bg-gray-200">
                   <tr>
                     <th className="border p-1 whitespace-nowrap text-center">S.No</th>
-                    <th className="border p-1 whitespace-nowrap text-center">ID</th>
                     <th className="border p-1 whitespace-nowrap text-center">Student</th>
                     <th className="border p-1 whitespace-nowrap text-center">Class</th>
                     <th className="border p-1 whitespace-nowrap text-center">Term</th>
@@ -301,7 +300,6 @@ const FinalResults = () => {
                       <td className="border p-1 text-center whitespace-nowrap">
                         {(currentPage - 1) * pageSize + index + 1}
                       </td>
-                      <td className="border p-1 text-center whitespace-nowrap">{result.id}</td>
                       <td className="border p-1 whitespace-nowrap">{result.student_name}</td>
                       <td className="border p-1 whitespace-nowrap">{result.class_name}</td>
                       <td className="border p-1 whitespace-nowrap">{result.exam_term}</td>

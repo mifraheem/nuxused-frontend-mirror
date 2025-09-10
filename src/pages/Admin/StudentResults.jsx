@@ -6,7 +6,7 @@ import Select from "react-select";
 import * as XLSX from "xlsx";
 import Buttons from "../../components/Buttons";
 import Pagination from "../../components/Pagination";
-import Toaster from "../../components/Toaster"; // Import custom Toaster component
+import Toaster from "../../components/Toaster";
 
 const StudentResults = () => {
   const [results, setResults] = useState([]);
@@ -27,7 +27,7 @@ const StudentResults = () => {
   const [selectedClass, setSelectedClass] = useState(null);
   const [selectedSubject, setSelectedSubject] = useState(null);
   const [selectedExam, setSelectedExam] = useState(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
   const [isLoadingStudents, setIsLoadingStudents] = useState(false);
   const [isLoadingSubjects, setIsLoadingSubjects] = useState(false);
   const [isLoadingExams, setIsLoadingExams] = useState(false);
@@ -40,12 +40,13 @@ const StudentResults = () => {
   const [filterType, setFilterType] = useState(null);
   const [toaster, setToaster] = useState({ message: "", type: "success" });
 
-  const API = import.meta.env.VITE_SERVER_URL ;
-  const API_URL = `${API}/student-results/`;
-  const CLASSES_API = `${API}/classes/`;
-  const STUDENTS_API = `${API}/api/auth/users/list_profiles/student/`;
-  const SUBJECTS_API = `${API}/subjects/`;
-  const EXAMS_API = `${API}/exams/`;
+  const API = import.meta.env.VITE_SERVER_URL;
+  const GET_API_URL = `${API}student-results/`; // For fetching results
+  const POST_API_URL = `${API}student-results/bulk/`; // For saving results
+  const CLASSES_API = `${API}classes/`;
+  const STUDENTS_API = `${API}api/auth/users/list_profiles/student/`;
+  const SUBJECTS_API = `${API}subjects/`;
+  const EXAMS_API = `${API}exams/`;
 
   const permissions = JSON.parse(localStorage.getItem("user_permissions") || "[]");
   const canAdd = permissions.includes("users.add_studentresult");
@@ -124,24 +125,28 @@ const StudentResults = () => {
         showToast("User is not authenticated.", "error");
         return;
       }
-      let url = `${API_URL}?page=${page}&page_size=${size}`;
+      setIsLoading(true);
+      let url = `${GET_API_URL}?page=${page}&page_size=${size}`;
       if (filters.subject) url += `&subject=${filters.subject}`;
-      if (filters.class_schedule) url += `&student__class_schedule=${filters.class_schedule}`;
+      if (filters.class_schedule) url += `&class_schedule=${filters.class_schedule}`;
       if (filters.exam) url += `&exam=${filters.exam}`;
       const response = await axios.get(url, {
         headers: { Authorization: `Bearer ${token}` },
       });
       const data = response.data.data;
+      console.log("Fetched results:", data); // Debug log
       if (Array.isArray(data.results)) {
         setResults(data.results);
         setCurrentPage(data.current_page);
         setTotalPages(data.total_pages);
       } else {
-        throw new Error("Unexpected API response format.");
+        throw new Error("Unexpected API response format: results is not an array.");
       }
     } catch (error) {
       console.error("Error fetching results:", error.response || error.message);
       showToast("Failed to fetch results. Please try again.", "error");
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -260,16 +265,18 @@ const StudentResults = () => {
       setShowExcelOptions(true);
       setShowResultTable(false);
       setBulkResultData(
-        students.map((student) => ({
-          student: getStudentUUID(student),
-          student_info: student,
-          exam: selectedExam.value,
-          subject: selectedSubject.value,
-          marks_obtained: "",
-          total_marks: "",
-          remarks: "",
-          class_schedule: selectedClass.value,
-        }))
+        students
+          .filter((student) => getStudentUUID(student))
+          .map((student) => ({
+            student: getStudentUUID(student),
+            student_info: student,
+            exam: selectedExam.value,
+            subject: selectedSubject.value,
+            marks_obtained: "",
+            total_marks: "",
+            remarks: "",
+            class_schedule: selectedClass.value,
+          }))
       );
     } catch (error) {
       console.error("Error in class/subject/exam selection:", error);
@@ -399,22 +406,28 @@ const StudentResults = () => {
       return;
     }
     const payload = {
-      student: studentUUID,
-      exam: record.exam,
+      class_id: record.class_schedule,
       subject: record.subject,
-      marks_obtained: marksObtained,
-      total_marks: totalMarks,
-      remarks: record.remarks || "",
-      class_schedule: record.class_schedule,
+      exam: record.exam,
+      global_total_marks: totalMarks,
+      results: [
+        {
+          student: studentUUID,
+          marks_obtained: marksObtained,
+          remarks: record.remarks || "",
+        },
+      ],
     };
     try {
       setRowSubmitting((prev) => ({ ...prev, [index]: true }));
-      const response = await axios.post(API_URL, payload, {
+      const response = await axios.post(POST_API_URL, payload, {
         headers: { Authorization: `Bearer ${token}` },
       });
       setRowSubmitted((prev) => ({ ...prev, [index]: true }));
-      setResults((prev) => [...prev, response.data.data]);
+      setResults((prev) => [...prev, ...(response.data.data?.results || [response.data.data])]);
       showToast(`Result saved for ${displayName}`, "success");
+      // Refresh results after saving
+      fetchResults(currentPage, pageSize, filter);
     } catch (err) {
       console.error("Single submit error:", err.response?.data);
       const errorMessage = err.response?.data?.message || err.response?.data?.detail || "Unknown error";
@@ -432,6 +445,7 @@ const StudentResults = () => {
         !record.student ||
         !record.subject ||
         !record.exam ||
+        !record.class_schedule ||
         isNaN(Number(record.marks_obtained)) ||
         isNaN(Number(record.total_marks)) ||
         Number(record.total_marks) <= 0
@@ -440,35 +454,36 @@ const StudentResults = () => {
       showToast("Please ensure all records have valid data", "error");
       return;
     }
+    const totalMarksSet = new Set(bulkResultData.map((r) => Number(r.total_marks)));
+    if (totalMarksSet.size > 1) {
+      showToast("All records must have the same total marks for bulk submission", "error");
+      return;
+    }
     try {
       setIsLoading(true);
-      const promises = bulkResultData.map((record, idx) => {
-        const sourceStudent = students[idx] || record.student_info || {};
-        const studentUUID = record.student || getStudentUUID(sourceStudent);
-        const displayName = getStudentDisplayName(sourceStudent);
-        if (!studentUUID) {
-          throw new Error(`Missing UUID for student: ${displayName}`);
-        }
-        const payload = {
-          student: studentUUID,
-          exam: record.exam,
-          subject: record.subject,
-          marks_obtained: Number(record.marks_obtained),
-          total_marks: Number(record.total_marks),
-          remarks: record.remarks || "",
-          class_schedule: record.class_schedule,
-        };
-        return axios
-          .post(API_URL, payload, {
-            headers: { Authorization: `Bearer ${token}` },
-          })
-          .catch((error) => {
-            console.error(`Error submitting for ${displayName}:`, error.response?.data);
-            throw error;
-          });
+      const payload = {
+        class_id: selectedClass.value,
+        subject: selectedSubject.value,
+        exam: selectedExam.value,
+        global_total_marks: Number(bulkResultData[0].total_marks),
+        results: bulkResultData.map((record, idx) => {
+          const sourceStudent = students[idx] || record.student_info || {};
+          const studentUUID = record.student || getStudentUUID(sourceStudent);
+          const displayName = getStudentDisplayName(sourceStudent);
+          if (!studentUUID) {
+            throw new Error(`Missing UUID for student: ${displayName}`);
+          }
+          return {
+            student: studentUUID,
+            marks_obtained: Number(record.marks_obtained),
+            remarks: record.remarks || "",
+          };
+        }),
+      };
+      const response = await axios.post(POST_API_URL, payload, {
+        headers: { Authorization: `Bearer ${token}` },
       });
-      const responses = await Promise.all(promises);
-      setResults((prev) => [...prev, ...responses.map((res) => res.data.data)]);
+      setResults((prev) => [...prev, ...(response.data.data?.results || [response.data.data])]);
       showToast("Bulk results submitted successfully", "success");
       setShowForm(false);
       setShowExcelOptions(false);
@@ -480,8 +495,10 @@ const StudentResults = () => {
       setExcelData([]);
       setRowSubmitting({});
       setRowSubmitted({});
+      // Refresh results after saving
+      fetchResults(1, pageSize);
     } catch (err) {
-      console.error("Error submitting bulk results:", err);
+      console.error("Error submitting bulk results:", err.response?.data);
       const errorMessage = err.response?.data?.message || err.response?.data?.detail || err.message;
       showToast(`Failed to submit results: ${errorMessage}`, "error");
     } finally {
@@ -494,7 +511,7 @@ const StudentResults = () => {
     setShowExcelOptions(false);
     setShowResultTable(false);
     setSelectedClass(
-      classes.find((c) => c.value === result.student__class_schedule) || null
+      classes.find((c) => c.label === result.class_name) || null
     );
     setSelectedSubject(subjects.find((s) => s.value === result.subject) || null);
     setSelectedExam(exams.find((e) => e.value === result.exam) || null);
@@ -506,8 +523,8 @@ const StudentResults = () => {
         subject: result.subject,
         marks_obtained: result.marks_obtained,
         total_marks: result.total_marks,
-        remarks: result.remarks,
-        class_schedule: result.student__class_schedule,
+        remarks: result.remarks || "",
+        class_schedule: classes.find((c) => c.label === result.class_name)?.value || result.class_name,
         student_info: { username: result.student_name },
       },
     ]);
@@ -527,11 +544,13 @@ const StudentResults = () => {
         showToast("User is not authenticated.", "error");
         return;
       }
-      await axios.delete(`${API_URL}${id}/`, {
+      await axios.delete(`${GET_API_URL}${id}/`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       showToast("Result deleted successfully!", "success");
       setResults((prev) => prev.filter((r) => r.id !== id));
+      // Refresh results after deletion
+      fetchResults(currentPage, pageSize, filter);
     } catch (error) {
       console.error("Error deleting result:", error.response || error.message);
       showToast("Failed to delete result. Please try again.", "error");
@@ -550,7 +569,7 @@ const StudentResults = () => {
 
   useEffect(() => {
     fetchDropdowns();
-    fetchResults();
+    fetchResults(1, pageSize);
   }, [pageSize]);
 
   const baseFont = isMobile ? "0.85rem" : "0.95rem";
@@ -624,13 +643,13 @@ const StudentResults = () => {
               {showForm ? "Close Form" : "Add New Result"}
             </button>
           )}
-          {canView && (
+          {/* {canView && (
             <button
               onClick={() => {
                 if (filterType) {
                   setFilterType(null);
                   setFilter({ subject: "", class_schedule: "", exam: "" });
-                  fetchResults();
+                  fetchResults(1, pageSize);
                 } else {
                   setFilterType("menu");
                 }
@@ -639,7 +658,7 @@ const StudentResults = () => {
             >
               {filterType ? "Close Filter" : "Filter Data"}
             </button>
-          )}
+          )} */}
         </div>
       </div>
 
@@ -989,13 +1008,19 @@ const StudentResults = () => {
         </div>
       )}
 
-      {canView && !showForm && !showExcelOptions && !showResultTable && results.length === 0 && (
+      {canView && !showForm && !showExcelOptions && !showResultTable && isLoading && (
+        <div className="mt-6 p-6 bg-gray-50 rounded-lg shadow-md border border-gray-200 max-w-4xl mx-auto text-center">
+          <p className="text-gray-500 text-lg font-medium">Loading student results...</p>
+        </div>
+      )}
+
+      {canView && !showForm && !showExcelOptions && !showResultTable && !isLoading && results.length === 0 && (
         <div className="mt-6 p-6 bg-gray-50 rounded-lg shadow-md border border-gray-200 max-w-4xl mx-auto text-center">
           <p className="text-gray-500 text-lg font-medium">No student results added yet.</p>
         </div>
       )}
 
-      {canView && results.length > 0 && (
+      {canView && !isLoading && results.length > 0 && (
         <div className="mt-6 bg-white p-4 sm:p-6 rounded-lg shadow-md">
           <Buttons
             data={results.map((rec, index) => ({
@@ -1016,69 +1041,61 @@ const StudentResults = () => {
             filename="StudentResults"
           />
           <div className="hidden md:block overflow-x-auto">
-            <table className="w-full border border-gray-200">
-              <thead className="bg-gray-100">
+            <table className="w-full border border-gray-300 text-xs bg-white min-w-[400px]">
+              <thead className="bg-gray-200">
                 <tr>
-                  <th className="border border-gray-200 p-3 text-left text-sm font-medium">S.No</th>
-                  <th className="border border-gray-200 p-3 text-left text-sm font-medium">
-                    Student Name
-                  </th>
-                  <th className="border border-gray-200 p-3 text-left text-sm font-medium">Class</th>
-                  <th className="border border-gray-200 p-3 text-left text-sm font-medium">Exam</th>
-                  <th className="border border-gray-200 p-3 text-left text-sm font-medium">Subject</th>
-                  <th className="border border-gray-200 p-3 text-left text-sm font-medium">
-                    Marks Obtained
-                  </th>
-                  <th className="border border-gray-200 p-3 text-left text-sm font-medium">
-                    Total Marks
-                  </th>
-                  <th className="border border-gray-200 p-3 text-left text-sm font-medium">Grade</th>
-                  <th className="border border-gray-200 p-3 text-left text-sm font-medium">Remarks</th>
+                  <th className="border p-1 whitespace-nowrap text-center">S.No</th>
+                  <th className="border p-1 whitespace-nowrap text-center">Student</th>
+                  <th className="border p-1 whitespace-nowrap text-center">Class</th>
+                  <th className="border p-1 whitespace-nowrap text-center">Exam</th>
+                  <th className="border p-1 whitespace-nowrap text-center">Subject</th>
+                  <th className="border p-1 whitespace-nowrap text-center">Marks Obtained</th>
+                  <th className="border p-1 whitespace-nowrap text-center">Total Marks</th>
+                  <th className="border p-1 whitespace-nowrap text-center">Grade</th>
+                  <th className="border p-1 whitespace-nowrap text-center">Remarks</th>
                   {(canEdit || canDelete || canView) && (
-                    <th className="border border-gray-200 p-3 text-left text-sm font-medium">
-                      Actions
-                    </th>
+                    <th className="border p-1 whitespace-nowrap text-center">Actions</th>
                   )}
                 </tr>
               </thead>
               <tbody>
                 {results.map((result, index) => (
-                  <tr key={result.id} className="hover:bg-gray-50">
-                    <td className="border border-gray-200 p-3 text-sm">
+                  <tr key={result.id}>
+                    <td className="border p-1 text-center whitespace-nowrap">
                       {(currentPage - 1) * pageSize + index + 1}
                     </td>
-                    <td className="border border-gray-200 p-3 text-sm">{result.student_name}</td>
-                    <td className="border border-gray-200 p-3 text-sm">{result.class_name}</td>
-                    <td className="border border-gray-200 p-3 text-sm">{result.exam_term}</td>
-                    <td className="border border-gray-200 p-3 text-sm">{result.subject_name}</td>
-                    <td className="border border-gray-200 p-3 text-sm">{result.marks_obtained}</td>
-                    <td className="border border-gray-200 p-3 text-sm">{result.total_marks}</td>
-                    <td className="border border-gray-200 p-3 text-sm">{result.grade}</td>
-                    <td className="border border-gray-200 p-3 text-sm">{result.remarks || "—"}</td>
+                    <td className="border p-1 whitespace-nowrap">{result.student_name}</td>
+                    <td className="border p-1 whitespace-nowrap">{result.class_name}</td>
+                    <td className="border p-1 whitespace-nowrap">{result.exam_term}</td>
+                    <td className="border p-1 whitespace-nowrap">{result.subject_name}</td>
+                    <td className="border p-1 text-center whitespace-nowrap">{result.marks_obtained}</td>
+                    <td className="border p-1 text-center whitespace-nowrap">{result.total_marks}</td>
+                    <td className="border p-1 text-center whitespace-nowrap">{result.grade}</td>
+                    <td className="border p-1 text-center whitespace-nowrap">{result.remarks || "—"}</td>
                     {(canEdit || canDelete || canView) && (
-                      <td className="border border-gray-200 p-3 flex gap-2">
+                      <td className="border p-1 flex justify-center whitespace-nowrap">
                         {canView && (
                           <button
                             onClick={() => setViewModalData(result)}
                             className="text-blue-600 hover:text-blue-800"
                           >
-                            <MdVisibility size={18} />
+                            <MdVisibility size={16} />
                           </button>
                         )}
                         {canEdit && (
                           <button
                             onClick={() => handleEditResult(result)}
-                            className="text-yellow-500 hover:text-yellow-700"
+                            className="text-yellow-500 hover:text-yellow-700 ml-2"
                           >
-                            <MdEdit size={18} />
+                            <MdEdit size={16} />
                           </button>
                         )}
                         {canDelete && (
                           <button
                             onClick={() => handleDeleteResult(result.id)}
-                            className="text-red-500 hover:text-red-700"
+                            className="text-red-500 hover:text-red-700 ml-2"
                           >
-                            <MdDelete size={18} />
+                            <MdDelete size={16} />
                           </button>
                         )}
                       </td>
@@ -1127,7 +1144,7 @@ const StudentResults = () => {
                         onClick={() => setViewModalData(result)}
                         className="text-blue-600 hover:text-blue-800"
                       >
-                        <MdVisibility size={18} />
+                        <MdVisibility size={16} />
                       </button>
                     )}
                     {canEdit && (
@@ -1135,7 +1152,7 @@ const StudentResults = () => {
                         onClick={() => handleEditResult(result)}
                         className="text-yellow-500 hover:text-yellow-700"
                       >
-                        <MdEdit size={18} />
+                        <MdEdit size={16} />
                       </button>
                     )}
                     {canDelete && (
@@ -1143,7 +1160,7 @@ const StudentResults = () => {
                         onClick={() => handleDeleteResult(result.id)}
                         className="text-red-500 hover:text-red-700"
                       >
-                        <MdDelete size={18} />
+                        <MdDelete size={16} />
                       </button>
                     )}
                   </div>
@@ -1157,12 +1174,12 @@ const StudentResults = () => {
             pageSize={pageSize}
             onPageChange={(page) => {
               setCurrentPage(page);
-              fetchResults(page, pageSize);
+              fetchResults(page, pageSize, filter);
             }}
             onPageSizeChange={(size) => {
               setPageSize(size);
               setCurrentPage(1);
-              fetchResults(1, size);
+              fetchResults(1, size, filter);
             }}
             totalItems={results.length}
             showPageSizeSelector={true}

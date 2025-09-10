@@ -403,7 +403,7 @@ const TimetableManagement = () => {
                   value={teachers.find(t => (t.id || t.profile_id) === formData.teacher) || null}
                   onChange={(selected) => setFormData({ ...formData, teacher: selected?.id || selected?.profile_id || "" })}
                   options={teachers}
-                  getOptionLabel={(t) => `${t.username} (${t.email || 'N/A'})`}
+                  getOptionLabel={(t) => `${t.first_name} ${t.last_name}`}
                   getOptionValue={(t) => t.id || t.profile_id}
                   placeholder="Search & select teacher"
                   isClearable

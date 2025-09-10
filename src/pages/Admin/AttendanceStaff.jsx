@@ -6,7 +6,7 @@ import * as XLSX from "xlsx";
 import { Buttons } from "../../components";
 import Toaster from "../../components/Toaster"; // Import custom Toaster component
 
-const API = import.meta.env.VITE_SERVER_URL ;
+const API = import.meta.env.VITE_SERVER_URL;
 const API_BASE_URL = `${API}staff-attendance/`;
 const TEACHERS_API_URL = `${API}api/auth/users/list_profiles/teacher/`;
 const SCHOOLS_API_URL = `${API}api/schools/`;
@@ -138,17 +138,18 @@ const AttendanceStaff = () => {
     }, []);
 
     // Enhanced UUID extraction for teachers
+    // Enhanced UUID extraction for teachers
     const getTeacherUUID = (teacher = {}) => {
-        const possibleUUIDs = [
-            teacher.profile_id,
-            teacher.user_id,
-            teacher.uuid,
-            teacher.id,
-        ];
+        // backend expects teacher.user_id specifically
+        if (teacher.user_id) return teacher.user_id;
+
+        // fallback for debugging
+        const possibleUUIDs = [teacher.profile_id, teacher.uuid, teacher.id];
         const uuid = possibleUUIDs.find((id) => id != null && id !== "");
         if (!uuid) console.warn("No valid UUID found for teacher:", teacher);
         return uuid;
     };
+
 
     // Get teacher display name
     const getTeacherDisplayName = (teacher = {}) => {
@@ -738,12 +739,12 @@ const AttendanceStaff = () => {
                                             onClick={() => handleSubmitSingle(index)}
                                             disabled={rowBusy || done || !teacherUUID}
                                             className={`px-4 py-2 rounded text-sm text-white ${!teacherUUID
-                                                    ? "bg-red-600 cursor-not-allowed"
-                                                    : done
-                                                        ? "bg-green-600 cursor-default"
-                                                        : rowBusy
-                                                            ? "bg-blue-400 cursor-wait"
-                                                            : "bg-blue-600 hover:bg-blue-700"
+                                                ? "bg-red-600 cursor-not-allowed"
+                                                : done
+                                                    ? "bg-green-600 cursor-default"
+                                                    : rowBusy
+                                                        ? "bg-blue-400 cursor-wait"
+                                                        : "bg-blue-600 hover:bg-blue-700"
                                                 } disabled:opacity-60 disabled:cursor-not-allowed`}
                                             title={!teacherUUID ? "Missing UUID" : done ? "Submitted" : "Submit this staff"}
                                         >
@@ -815,12 +816,12 @@ const AttendanceStaff = () => {
                                                     onClick={() => handleSubmitSingle(index)}
                                                     disabled={rowBusy || done || !teacherUUID}
                                                     className={`px-3 py-1.5 rounded text-sm text-white ${!teacherUUID
-                                                            ? "bg-red-600 cursor-not-allowed"
-                                                            : done
-                                                                ? "bg-green-600 cursor-default"
-                                                                : rowBusy
-                                                                    ? "bg-blue-400 cursor-wait"
-                                                                    : "bg-blue-600 hover:bg-blue-700"
+                                                        ? "bg-red-600 cursor-not-allowed"
+                                                        : done
+                                                            ? "bg-green-600 cursor-default"
+                                                            : rowBusy
+                                                                ? "bg-blue-400 cursor-wait"
+                                                                : "bg-blue-600 hover:bg-blue-700"
                                                         } disabled:opacity-60 disabled:cursor-not-allowed`}
                                                     title={!teacherUUID ? "Missing UUID" : done ? "Submitted" : "Submit this row"}
                                                 >
@@ -1001,15 +1002,15 @@ const AttendanceStaff = () => {
                 <div className="p-4 sm:p-6">
                     <Buttons
                         data={attendanceData.map((item, index) => ({
-                            "Sequence Number": (currentPage - 1) * pageSize + index + 1,
-                            ID: item.staff,
+                            "S.No.": (currentPage - 1) * pageSize + index + 1,
+                            // ID: item.staff,
                             Date: item.date,
                             Status: item.status,
                             Remarks: item.remarks || "—",
                         }))}
                         columns={[
-                            { label: "Sequence Number", key: "Sequence Number" },
-                            { label: "ID", key: "ID" },
+                            { label: "S.No.", key: "S.No." },
+                            // { label: "ID", key: "ID" },
                             { label: "Date", key: "Date" },
                             { label: "Status", key: "Status" },
                             { label: "Remarks", key: "Remarks" },
@@ -1022,8 +1023,7 @@ const AttendanceStaff = () => {
                         <table className="w-full border mt-4 bg-white shadow text-sm">
                             <thead className="bg-gray-200">
                                 <tr>
-                                    <th className="border p-3 text-left">Sequence Number</th>
-                                    <th className="border p-3 text-left">ID</th>
+                                    <th className="border p-3 text-left">S.No.</th>
                                     <th className="border p-3 text-left">Date</th>
                                     <th className="border p-3 text-left">Status</th>
                                     {(canChange || canDelete) && <th className="border p-3 text-left">Remarks</th>}
@@ -1034,7 +1034,6 @@ const AttendanceStaff = () => {
                                 {paginatedData.map((item, idx) => (
                                     <tr key={item.id} className="hover:bg-gray-50">
                                         <td className="border p-3">{(currentPage - 1) * pageSize + idx + 1}</td>
-                                        <td className="border p-3">{item.staff}</td>
                                         <td className="border p-3">{item.date}</td>
                                         <td className="border p-3">
                                             <select
