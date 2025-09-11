@@ -154,6 +154,7 @@ const SubjectManagement = () => {
   };
 
   const columns = [
+    
     { label: "Subject Name", key: "subject_name" },
     { label: "Course Code", key: "course_code" },
   ];

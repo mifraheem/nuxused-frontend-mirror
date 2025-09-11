@@ -332,14 +332,14 @@ const Noticeboard = () => {
         ) : notices.length > 0 ? (
           <div className="mt-6">
             <Buttons
-              data={notices.map((n) => ({
-                ID: n.id,
+              data={notices.map((n,index) => ({
+                "S.No": (page - 1) * pageSize + index + 1,
                 Title: n.title,
                 Description: n.description,
                 Audience: n.announced_for,
               }))}
               columns={[
-                { label: "ID", key: "ID" },
+                { label: "S.No", key: "S.No" },
                 { label: "Title", key: "Title" },
                 { label: "Description", key: "Description" },
                 { label: "Audience", key: "Audience" },

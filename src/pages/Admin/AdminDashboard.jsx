@@ -11,6 +11,10 @@ const AdminDashboard = () => {
   const [newTask, setNewTask] = useState({ subject: "", description: "" });
   const [userProfile, setUserProfile] = useState(null);
   const [schoolId, setSchoolId] = useState(null);
+  const [birthdayCounts, setBirthdayCounts] = useState({
+    students: 0,
+    teachers: 0,
+  });
 
   // Load tasks from React state instead of localStorage
   useEffect(() => {
@@ -18,12 +22,33 @@ const AdminDashboard = () => {
     setTasks(initialTasks);
   }, []);
 
+  const isUpcomingBirthday = (dob, daysAhead = 7) => {
+    if (!dob) return false;
+    const today = new Date();
+    const birthday = new Date(dob);
+
+    // Compare only month + day, ignore year
+    const thisYearBirthday = new Date(today.getFullYear(), birthday.getMonth(), birthday.getDate());
+
+    // If already passed this year, shift to next year
+    if (thisYearBirthday < today) {
+      thisYearBirthday.setFullYear(today.getFullYear() + 1);
+    }
+
+    const diffDays = Math.ceil((thisYearBirthday - today) / (1000 * 60 * 60 * 24));
+    return diffDays >= 0 && diffDays <= daysAhead;
+  };
+
   const handleAddTask = () => {
     if (newTask.subject.trim() !== "" && newTask.description.trim() !== "") {
       setTasks([...tasks, newTask]);
       setNewTask({ subject: "", description: "" });
     }
   };
+  const handleDeleteTask = (indexToDelete) => {
+    setTasks(tasks.filter((_, index) => index !== indexToDelete));
+  };
+
 
   // Initialize attendance data with API-provided data
   const [attendanceData, setAttendanceData] = useState({
@@ -86,10 +111,10 @@ const AdminDashboard = () => {
 
       const schoolParam = schoolId ? `?school_id=${schoolId}` : '';
       const studentsUrl = `${API}api/auth/users/list_profiles/student/${schoolParam}`;
-      
+
       const res = await axios.get(studentsUrl, config);
       const students = res.data?.data?.results || res.data?.data || [];
-      
+
       return students;
     } catch (err) {
       console.error("❌ Failed to fetch students for attendance:", err);
@@ -106,7 +131,7 @@ const AdminDashboard = () => {
       };
 
       let totalPresent = 0;
-      
+
       if (!students.length) return 0;
 
       const attendancePromises = students.slice(0, 10).map(async (student) => {
@@ -116,10 +141,10 @@ const AdminDashboard = () => {
             `${API}attendance/student-attendance/?student_id=${studentId}&daily=true&date=${date}`,
             config
           );
-          
+
           const attendanceData = res.data?.data || res.data;
           if (Array.isArray(attendanceData)) {
-            return attendanceData.some(record => 
+            return attendanceData.some(record =>
               record.date === date && (record.status === 'present' || record.is_present === true)
             ) ? 1 : 0;
           } else if (attendanceData && (attendanceData.status === 'present' || attendanceData.is_present === true)) {
@@ -134,11 +159,11 @@ const AdminDashboard = () => {
 
       const attendanceResults = await Promise.all(attendancePromises);
       totalPresent = attendanceResults.reduce((sum, present) => sum + present, 0);
-      
+
       if (students.length > 10) {
         totalPresent = Math.round((totalPresent / 10) * students.length);
       }
-      
+
       return totalPresent;
     } catch (err) {
       console.error("❌ Error fetching student attendance for date:", date, err);
@@ -175,18 +200,18 @@ const AdminDashboard = () => {
   const fetchWeeklyAttendanceData = async () => {
     try {
       console.log("🔍 Fetching weekly attendance data...");
-      
+
       const weekDates = getCurrentWeekDates();
       const students = await fetchStudentsForAttendance();
-      
+
       console.log("📅 Week dates:", weekDates);
       console.log("👥 Students count:", students.length);
 
-      const studentAttendancePromises = weekDates.map(date => 
+      const studentAttendancePromises = weekDates.map(date =>
         fetchStudentAttendanceForDate(date, students)
       );
-      
-      const teacherAttendancePromises = weekDates.map(date => 
+
+      const teacherAttendancePromises = weekDates.map(date =>
         fetchTeacherAttendanceForDate(date)
       );
 
@@ -233,34 +258,34 @@ const AdminDashboard = () => {
 
       const res = await axios.get(`${API}api/auth/users/profile/`, config);
       const profile = res.data?.data || res.data;
-      
+
       console.log("🔍 Full API Response:", res.data);
       console.log("🔍 Extracted Profile:", profile);
-      
+
       setUserProfile(profile);
-      
-      const userSchoolId = profile.school_id || 
-                          profile.school?.id || 
-                          profile.school?.uuid ||
-                          profile.institution_id || 
-                          profile.institution_uuid ||
-                          profile.school || 
-                          profile.institution ||
-                          profile.organization_id ||
-                          profile.organization_uuid ||
-                          profile.uuid;
-      
+
+      const userSchoolId = profile.school_id ||
+        profile.school?.id ||
+        profile.school?.uuid ||
+        profile.institution_id ||
+        profile.institution_uuid ||
+        profile.school ||
+        profile.institution ||
+        profile.organization_id ||
+        profile.organization_uuid ||
+        profile.uuid;
+
       console.log("🏫 School UUID Found:", userSchoolId);
       console.log("🔍 Is valid UUID format:", /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(userSchoolId));
       console.log("🔍 All profile keys:", Object.keys(profile));
-      
+
       if (userSchoolId && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(userSchoolId)) {
         setSchoolId(userSchoolId);
       } else {
         console.warn("⚠️ No valid UUID found for school ID");
         setSchoolId(null);
       }
-      
+
     } catch (err) {
       console.error("❌ Failed to fetch user profile:", err.response?.data || err.message);
     }
@@ -324,41 +349,41 @@ const AdminDashboard = () => {
       });
 
       const newCounts = {
-        students: studentsRes.data?.data?.total_items || 
-                 studentsRes.data?.total_items || 
-                 studentsRes.data?.data?.count || 
-                 studentsRes.data?.count ||
-                 studentsRes.data?.data?.length || 
-                 studentsRes.data?.length || 
-                 (Array.isArray(studentsRes.data?.data?.results) ? studentsRes.data.data.results.length : 0) ||
-                 (Array.isArray(studentsRes.data?.results) ? studentsRes.data.results.length : 0) || 0,
-        
-        teachers: teachersRes.data?.data?.total_items || 
-                 teachersRes.data?.total_items || 
-                 teachersRes.data?.data?.count || 
-                 teachersRes.data?.count ||
-                 teachersRes.data?.data?.length || 
-                 teachersRes.data?.length || 
-                 (Array.isArray(teachersRes.data?.data?.results) ? teachersRes.data.data.results.length : 0) ||
-                 (Array.isArray(teachersRes.data?.results) ? teachersRes.data.results.length : 0) || 0,
-        
-        subjects: subjectsRes.data?.data?.total_items || 
-                 subjectsRes.data?.total_items || 
-                 subjectsRes.data?.data?.count || 
-                 subjectsRes.data?.count ||
-                 subjectsRes.data?.data?.length || 
-                 subjectsRes.data?.length || 
-                 (Array.isArray(subjectsRes.data?.data?.results) ? subjectsRes.data.data.results.length : 0) ||
-                 (Array.isArray(subjectsRes.data?.results) ? subjectsRes.data.results.length : 0) || 0,
-        
-        classes: classesRes.data?.data?.total_items || 
-                classesRes.data?.total_items || 
-                classesRes.data?.data?.count || 
-                classesRes.data?.count ||
-                classesRes.data?.data?.length || 
-                classesRes.data?.length || 
-                (Array.isArray(classesRes.data?.data?.results) ? classesRes.data.data.results.length : 0) ||
-                (Array.isArray(classesRes.data?.results) ? classesRes.data.results.length : 0) || 0,
+        students: studentsRes.data?.data?.total_items ||
+          studentsRes.data?.total_items ||
+          studentsRes.data?.data?.count ||
+          studentsRes.data?.count ||
+          studentsRes.data?.data?.length ||
+          studentsRes.data?.length ||
+          (Array.isArray(studentsRes.data?.data?.results) ? studentsRes.data.data.results.length : 0) ||
+          (Array.isArray(studentsRes.data?.results) ? studentsRes.data.results.length : 0) || 0,
+
+        teachers: teachersRes.data?.data?.total_items ||
+          teachersRes.data?.total_items ||
+          teachersRes.data?.data?.count ||
+          teachersRes.data?.count ||
+          teachersRes.data?.data?.length ||
+          teachersRes.data?.length ||
+          (Array.isArray(teachersRes.data?.data?.results) ? teachersRes.data.data.results.length : 0) ||
+          (Array.isArray(teachersRes.data?.results) ? teachersRes.data.results.length : 0) || 0,
+
+        subjects: subjectsRes.data?.data?.total_items ||
+          subjectsRes.data?.total_items ||
+          subjectsRes.data?.data?.count ||
+          subjectsRes.data?.count ||
+          subjectsRes.data?.data?.length ||
+          subjectsRes.data?.length ||
+          (Array.isArray(subjectsRes.data?.data?.results) ? subjectsRes.data.data.results.length : 0) ||
+          (Array.isArray(subjectsRes.data?.results) ? subjectsRes.data.results.length : 0) || 0,
+
+        classes: classesRes.data?.data?.total_items ||
+          classesRes.data?.total_items ||
+          classesRes.data?.data?.count ||
+          classesRes.data?.count ||
+          classesRes.data?.data?.length ||
+          classesRes.data?.length ||
+          (Array.isArray(classesRes.data?.data?.results) ? classesRes.data.data.results.length : 0) ||
+          (Array.isArray(classesRes.data?.results) ? classesRes.data.results.length : 0) || 0,
       };
 
       console.log("📈 Final Counts with UUID filtering:", newCounts);
@@ -376,7 +401,7 @@ const AdminDashboard = () => {
     try {
       const token = Cookies.get("access_token");
       const schoolParam = schoolId ? `&school_id=${schoolId}` : '';
-      
+
       const res = await axios.get(`${API}announcements/?page=1&page_size=3${schoolParam}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -405,7 +430,7 @@ const AdminDashboard = () => {
   };
 
   const [teachers, setTeachers] = useState([]);
-  
+
   const getTeacherNames = (teacherIds) => {
     if (!teacherIds?.length) return "N/A";
 
@@ -440,7 +465,31 @@ const AdminDashboard = () => {
     fetchTasks();
     fetchTeachers();
     fetchWeeklyAttendanceData();
+    fetchBirthdays();
   }, [schoolId]);
+
+  const fetchBirthdays = async () => {
+    try {
+      const token = Cookies.get("access_token");
+      const config = { headers: { Authorization: `Bearer ${token}` } };
+
+      const studentRes = await axios.get(`${API}api/auth/users/list_profiles/student/`, config);
+      const teacherRes = await axios.get(`${API}api/auth/users/list_profiles/teacher/`, config);
+
+      const students = studentRes.data?.data?.results || [];
+      const teachers = teacherRes.data?.data?.results || [];
+
+      const studentCount = students.filter(s => isUpcomingBirthday(s.dob)).length;
+      const teacherCount = teachers.filter(t => isUpcomingBirthday(t.dob)).length;
+
+      setBirthdayCounts({
+        students: studentCount,
+        teachers: teacherCount,
+      });
+    } catch (err) {
+      console.error("❌ Error fetching birthdays:", err);
+    }
+  };
 
   const stats = [
     { title: "Total Students", count: counts.students, icon: <FaGraduationCap className="text-blue-900 text-5xl" /> },
@@ -489,8 +538,8 @@ const AdminDashboard = () => {
             </h4>
             <Bar
               data={attendanceData}
-              options={{ 
-                responsive: true, 
+              options={{
+                responsive: true,
                 maintainAspectRatio: false,
                 scales: {
                   y: {
@@ -514,7 +563,7 @@ const AdminDashboard = () => {
               height={200}
             />
           </div>
-          
+
           <div className="bg-white shadow-md rounded-md p-2 mt-2">
             <h3 className="text-lg sm:text-xl font-bold mb-2 text-blue-900">Weekly Tasks for Teachers</h3>
             <div className="overflow-x-auto">
@@ -570,25 +619,26 @@ const AdminDashboard = () => {
 
           <div className="bg-white shadow-md rounded-lg mb-4">
             <div className="bg-blue-800 text-white text-center rounded-t-lg py-2">
-              <h3 className="text-lg font-bold uppercase">Birthday Today</h3>
+              <h3 className="text-lg font-bold uppercase">Upcoming Birthdays</h3>
             </div>
             <div className="flex justify-around items-center py-4">
               <div className="flex flex-col items-center">
                 <FaGraduationCap className="text-blue-900 text-5xl" />
-                <span className="text-xl font-bold">0</span>
+                <span className="text-xl font-bold">{birthdayCounts.students}</span>
                 <span className="text-sm text-gray-500">Students</span>
               </div>
               <div className="flex flex-col items-center">
-                <FaBirthdayCake className="text-pink-700 text-5xl" />
-                <span className="text-xl font-bold">-</span>
+                {/* <FaBirthdayCake className="text-pink-700 text-5xl" /> */}
+                <span className="text-6xl font-bold">🎂</span>
               </div>
               <div className="flex flex-col items-center">
                 <FaChalkboardTeacher className="text-orange-900 text-5xl" />
-                <span className="text-xl font-bold">0</span>
+                <span className="text-xl font-bold">{birthdayCounts.teachers}</span>
                 <span className="text-sm text-gray-500">Teachers</span>
               </div>
             </div>
           </div>
+
 
           <div className="bg-white shadow-md rounded-md mb-2">
             <div className="bg-blue-700 text-white flex justify-between items-center rounded-t-md py-1 px-2">
@@ -650,13 +700,26 @@ const AdminDashboard = () => {
             {showTasks && tasks.length > 0 && (
               <div className="p-2 bg-gray-50 rounded-b-md">
                 <h4 className="text-gray-700 font-semibold mb-1 text-xs">Added Tasks:</h4>
-                <ul className="list-disc pl-3 text-xs text-gray-600">
+                <ul className="space-y-2 text-xs text-gray-600">
                   {tasks.map((task, index) => (
-                    <li key={index} className="mb-1">
-                      <strong>{task.subject}:</strong> {task.description}
+                    <li
+                      key={index}
+                      className="flex justify-between items-center bg-white border rounded-md px-2 py-1 shadow-sm"
+                    >
+                      <div>
+                        <strong className="text-gray-800">{task.subject}</strong>: {task.description}
+                      </div>
+                      <button
+                        onClick={() => handleDeleteTask(index)}
+                        className="ml-2 text-red-500 hover:text-red-700 font-bold text-sm"
+                        title="Delete Task"
+                      >
+                        ✕
+                      </button>
                     </li>
                   ))}
                 </ul>
+
               </div>
             )}
           </div>

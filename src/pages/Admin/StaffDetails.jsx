@@ -17,7 +17,7 @@ const StaffDetails = () => {
   const [toaster, setToaster] = useState({ message: "", type: "success" });
   const [confirmResolve, setConfirmResolve] = useState(null);
 
-  const API = import.meta.env.VITE_SERVER_URL ;
+  const API = import.meta.env.VITE_SERVER_URL;
   const API_URL = `${API}api/auth/users/list_profiles/staff/`;
   const DELETE_URL = `${API}api/auth/users/`;
   const UPDATE_URL = `${API}api/auth/staff-profile/`;
@@ -249,7 +249,7 @@ const StaffDetails = () => {
       <div className="mt-2 p-2">
         <Buttons
           data={staff.map((s, index) => ({
-            "Sequence Number": (currentPage - 1) * pageSize + index + 1,
+            // "S.No": (page - 1) * pageSize + index + 1,
             Username: s.username,
             "First Name": s.first_name,
             "Last Name": s.last_name,
@@ -259,7 +259,7 @@ const StaffDetails = () => {
           }))}
           filename="Staff_Profiles"
           columns={[
-            { label: "Sequence Number", key: "Sequence Number" },
+            // { label: "S.No", key: "S.No" },
             { label: "Username", key: "Username" },
             { label: "First Name", key: "First Name" },
             { label: "Last Name", key: "Last Name" },
@@ -275,10 +275,13 @@ const StaffDetails = () => {
             <thead className="bg-blue-900 text-white">
               <tr>
                 <th className="border border-gray-300 p-1 text-center text-xs">No.</th>
-                <th className="border border-gray-300 p-1 text-center text-xs">First Name</th>
-                <th className="border border-gray-300 p-1 text-center text-xs">Last Name</th>
+                <th className="border border-gray-300 p-1 text-center text-xs">Full Name</th>
                 <th className="border border-gray-300 p-1 text-center text-xs">Email</th>
                 <th className="border border-gray-300 p-1 text-center text-xs">Phone</th>
+                <th className="border border-gray-300 p-1 text-center text-xs">Address</th>
+                <th className="border border-gray-300 p-1 text-center text-xs">Gender</th>
+                <th className="border border-gray-300 p-1 text-center text-xs">Registration No.</th>
+                <th className="border border-gray-300 p-1 text-center text-xs">Salary</th>
                 <th className="border border-gray-300 p-1 text-center text-xs">Actions</th>
               </tr>
             </thead>
@@ -289,14 +292,17 @@ const StaffDetails = () => {
                     <td className="border border-gray-300 p-1 text-center text-xs">
                       {(currentPage - 1) * pageSize + index + 1}
                     </td>
-                    <td className="border border-gray-300 p-1 text-xs">{s.first_name}</td>
-                    <td className="border border-gray-300 p-1 text-xs">{s.last_name}</td>
+                    <td className="border border-gray-300 p-1 text-xs">{s.first_name} {s.last_name}</td>
                     <td className="border border-gray-300 p-1 text-xs">
                       <span className="block max-w-[220px] truncate" title={s.email}>
                         {s.email}
                       </span>
                     </td>
                     <td className="border border-gray-300 p-1 text-xs">{s.phone_number}</td>
+                    <td className="border border-gray-300 p-1 text-xs">{s.address}</td>
+                    <td className="border border-gray-300 p-1 text-xs">{s.gender}</td>
+                    <td className="border border-gray-300 p-1 text-xs">{s.registration_no}</td>
+                    <td className="border border-gray-300 p-1 text-xs">{s.salary}</td>
                     <td className="border border-gray-300 p-1">
                       <div className="flex items-center justify-center gap-2">
                         {canView && (
@@ -371,49 +377,83 @@ const StaffDetails = () => {
 
       {/* View Modal (compact & scrollable) */}
       {isViewModalOpen && selectedStaff && (
-        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-60 px-2 z-50">
-          <div className="bg-white w-full max-w-sm rounded-xl shadow-2xl border border-gray-300 overflow-hidden">
-            <div className="px-3 py-2 bg-blue-600 text-white">
-              <h2 className="text-sm md:text-base font-bold text-center">Staff Profile</h2>
-            </div>
-            <div className="p-3 overflow-y-auto max-h-[62vh]">
-              {selectedStaff.profile_picture && (
-                <div className="flex justify-center mb-3">
-                  <img
-                    src={`${API}${selectedStaff.profile_picture}`}
-                    alt="Profile"
-                    className="w-20 h-20 rounded-full border object-cover"
-                  />
-                </div>
-              )}
-              <table className="w-full text-xs border border-gray-200">
-                <tbody className="divide-y divide-gray-100">
-                  {[
-                    ["Username", selectedStaff.username],
-                    ["First Name", selectedStaff.first_name],
-                    ["Last Name", selectedStaff.last_name],
-                    ["Email", selectedStaff.email],
-                    ["Phone", selectedStaff.phone_number],
-                    ["Address", selectedStaff.address],
-                    ["Date of Birth", selectedStaff.dob],
-                    ["Gender", selectedStaff.gender],
-                    ["Registration No", selectedStaff.registration_no],
-                    [
-                      "Salary",
-                      selectedStaff.salary != null ? `Rs. ${selectedStaff.salary}` : "N/A",
-                    ],
-                  ].map(([label, val], i) => (
-                    <tr key={i}>
-                      <th className="px-2 py-1 text-left text-gray-700 w-1/3">{label}</th>
-                      <td className="px-2 py-1">{val || "N/A"}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-            <div className="flex justify-end px-3 py-2 bg-gray-50">
+        <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 px-4">
+          <div className="bg-white w-full max-w-2xl rounded-xl shadow-2xl border border-gray-200 overflow-hidden">
+
+            {/* Header */}
+            <div className="px-6 py-4 bg-blue-600 text-white flex justify-between items-center">
+              <h2 className="text-lg md:text-xl font-bold">Staff Profile</h2>
               <button
-                className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded-md text-xs"
+                onClick={() => setIsViewModalOpen(false)}
+                className="text-white hover:text-gray-200 text-2xl font-bold"
+              >
+                ×
+              </button>
+            </div>
+
+            {/* Content */}
+            <div className="p-6 overflow-y-auto max-h-[70vh]">
+              <div className="flex flex-col md:flex-row gap-6 items-center">
+
+                {/* Profile Picture */}
+                <div className="flex flex-col items-center">
+                  {selectedStaff.profile_picture ? (
+                    <img
+                      src={`${API}${selectedStaff.profile_picture}`}
+                      alt="Profile"
+                      className="w-32 h-32 object-cover rounded-full border-4 border-blue-200 shadow-md"
+                    />
+                  ) : (
+                    <div className="w-32 h-32 flex items-center justify-center rounded-full bg-gray-100 text-gray-400">
+                      No Image
+                    </div>
+                  )}
+                  <p className="mt-3 font-semibold text-lg">
+                    {selectedStaff.first_name} {selectedStaff.last_name}
+                  </p>
+                  <p className="text-gray-500 text-sm">{selectedStaff.username || "N/A"}</p>
+                </div>
+
+                {/* Info Grid */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 flex-1">
+                  <div className="p-4 bg-gray-50 rounded-lg shadow-sm border">
+                    <p className="text-xs uppercase text-gray-500 font-semibold">Email</p>
+                    <p className="text-base font-medium break-words">{selectedStaff.email || "N/A"}</p>
+                  </div>
+                  <div className="p-4 bg-gray-50 rounded-lg shadow-sm border">
+                    <p className="text-xs uppercase text-gray-500 font-semibold">Phone</p>
+                    <p className="text-base font-medium">{selectedStaff.phone_number || "N/A"}</p>
+                  </div>
+                  <div className="p-4 bg-gray-50 rounded-lg shadow-sm border">
+                    <p className="text-xs uppercase text-gray-500 font-semibold">Address</p>
+                    <p className="text-base font-medium">{selectedStaff.address || "N/A"}</p>
+                  </div>
+                  <div className="p-4 bg-gray-50 rounded-lg shadow-sm border">
+                    <p className="text-xs uppercase text-gray-500 font-semibold">Date of Birth</p>
+                    <p className="text-base font-medium">{selectedStaff.dob || "N/A"}</p>
+                  </div>
+                  <div className="p-4 bg-gray-50 rounded-lg shadow-sm border">
+                    <p className="text-xs uppercase text-gray-500 font-semibold">Gender</p>
+                    <p className="text-base font-medium capitalize">{selectedStaff.gender || "N/A"}</p>
+                  </div>
+                  <div className="p-4 bg-gray-50 rounded-lg shadow-sm border">
+                    <p className="text-xs uppercase text-gray-500 font-semibold">Registration No</p>
+                    <p className="text-base font-medium">{selectedStaff.registration_no || "N/A"}</p>
+                  </div>
+                  <div className="p-4 bg-gray-50 rounded-lg shadow-sm border">
+                    <p className="text-xs uppercase text-gray-500 font-semibold">Salary</p>
+                    <p className="text-base font-medium">
+                      {selectedStaff.salary != null ? `Rs. ${selectedStaff.salary}` : "N/A"}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="flex justify-end px-6 py-4 bg-gray-50">
+              <button
+                className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2 rounded-lg text-sm md:text-base shadow-md"
                 onClick={() => setIsViewModalOpen(false)}
               >
                 Close
@@ -423,88 +463,109 @@ const StaffDetails = () => {
         </div>
       )}
 
+
       {/* Edit Modal (compact & scrollable) */}
       {isEditModalOpen && selectedStaff && (
-        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-60 px-2 z-50">
-          <div className="bg-white w-full max-w-sm rounded-xl shadow-2xl border border-gray-300 overflow-hidden">
-            <div className="px-3 py-2 bg-blue-600 text-white">
-              <h2 className="text-sm md:text-base font-bold text-center">Edit Staff Profile</h2>
+        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-60 px-4 z-50">
+          <div className="bg-white w-full max-w-2xl rounded-xl shadow-2xl border border-gray-200 overflow-hidden">
+
+            {/* Header */}
+            <div className="px-6 py-4 bg-blue-600 text-white flex justify-between items-center">
+              <h2 className="text-lg md:text-xl font-bold">Edit Staff Profile</h2>
+              <button
+                onClick={() => setIsEditModalOpen(false)}
+                className="text-white hover:text-gray-200 text-2xl font-bold"
+              >
+                ×
+              </button>
             </div>
-            <div className="px-3 py-2 overflow-y-auto max-h-[62vh] space-y-2">
+
+            {/* Content */}
+            <div className="px-6 py-4 overflow-y-auto max-h-[70vh] space-y-4">
+
+              {/* Username */}
               <div>
-                <label className="block text-xs font-semibold text-gray-700 mb-0.5">Username</label>
+                <label className="block text-sm font-semibold text-gray-700 mb-1">Username</label>
                 <input
                   type="text"
                   value={selectedStaff.username || ""}
                   onChange={(e) => setSelectedStaff({ ...selectedStaff, username: e.target.value })}
-                  className="w-full border border-gray-300 rounded-md px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-green-500"
+                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
                 />
               </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+
+              {/* First + Last Name */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-semibold text-gray-700 mb-0.5">First Name</label>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1">First Name</label>
                   <input
                     type="text"
                     value={selectedStaff.first_name || ""}
                     onChange={(e) => setSelectedStaff({ ...selectedStaff, first_name: e.target.value })}
-                    className="w-full border border-gray-300 rounded-md px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-green-500"
+                    className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-gray-700 mb-0.5">Last Name</label>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1">Last Name</label>
                   <input
                     type="text"
                     value={selectedStaff.last_name || ""}
                     onChange={(e) => setSelectedStaff({ ...selectedStaff, last_name: e.target.value })}
-                    className="w-full border border-gray-300 rounded-md px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-green-500"
+                    className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
                   />
                 </div>
               </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+
+              {/* Email + Phone */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-semibold text-gray-700 mb-0.5">Email</label>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1">Email</label>
                   <input
                     type="email"
                     value={selectedStaff.email || ""}
                     onChange={(e) => setSelectedStaff({ ...selectedStaff, email: e.target.value })}
-                    className="w-full border border-gray-300 rounded-md px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-green-500"
+                    className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-gray-700 mb-0.5">Phone Number</label>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1">Phone Number</label>
                   <input
                     type="text"
                     value={selectedStaff.phone_number || ""}
                     onChange={(e) => setSelectedStaff({ ...selectedStaff, phone_number: e.target.value })}
-                    className="w-full border border-gray-300 rounded-md px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-green-500"
+                    className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
                   />
                 </div>
               </div>
+
+              {/* Address */}
               <div>
-                <label className="block text-xs font-semibold text-gray-700 mb-0.5">Address</label>
+                <label className="block text-sm font-semibold text-gray-700 mb-1">Address</label>
                 <input
                   type="text"
                   value={selectedStaff.address || ""}
                   onChange={(e) => setSelectedStaff({ ...selectedStaff, address: e.target.value })}
-                  className="w-full border border-gray-300 rounded-md px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-green-500"
+                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
                 />
               </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+
+              {/* DOB + Gender */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-semibold text-gray-700 mb-0.5">Date of Birth</label>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1">Date of Birth</label>
                   <input
                     type="date"
                     value={selectedStaff.dob || ""}
                     onChange={(e) => setSelectedStaff({ ...selectedStaff, dob: e.target.value })}
-                    className="w-full border border-gray-300 rounded-md px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-green-500"
+                    className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-gray-700 mb-0.5">Gender</label>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1">Gender</label>
                   <select
                     value={selectedStaff.gender || ""}
                     onChange={(e) => setSelectedStaff({ ...selectedStaff, gender: e.target.value })}
-                    className="w-full border border-gray-300 rounded-md px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-green-500 bg-white"
+                    className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500 bg-white"
                   >
                     <option value="">Select Gender</option>
                     <option value="Male">Male</option>
@@ -512,66 +573,69 @@ const StaffDetails = () => {
                   </select>
                 </div>
               </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+
+              {/* Registration No + Salary */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-semibold text-gray-700 mb-0.5">Registration No</label>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1">Registration No</label>
                   <input
                     type="text"
                     value={selectedStaff.registration_no || ""}
                     onChange={(e) => setSelectedStaff({ ...selectedStaff, registration_no: e.target.value })}
-                    className="w-full border border-gray-300 rounded-md px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-green-500"
+                    className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-gray-700 mb-0.5">Salary</label>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1">Salary</label>
                   <input
                     type="number"
                     value={selectedStaff.salary || ""}
                     onChange={(e) => setSelectedStaff({ ...selectedStaff, salary: e.target.value })}
-                    className="w-full border border-gray-300 rounded-md px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-green-500"
+                    className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
                   />
                 </div>
               </div>
+
+              {/* Profile Picture */}
               <div>
-                <label className="block text-xs font-semibold text-gray-700 mb-0.5">Profile Picture</label>
+                <label className="block text-sm font-semibold text-gray-700 mb-1">Profile Picture</label>
                 <input
                   type="file"
                   accept="image/*"
                   onChange={(e) =>
-                    setSelectedStaff({
-                      ...selectedStaff,
-                      new_profile_picture: e.target.files?.[0],
-                    })
+                    setSelectedStaff({ ...selectedStaff, new_profile_picture: e.target.files?.[0] })
                   }
-                  className="w-full border border-gray-300 rounded-md px-2 py-1 text-xs bg-white"
+                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm bg-white"
                 />
-                <div className="mt-2">
+                <div className="mt-3">
                   {selectedStaff.new_profile_picture ? (
                     <img
                       src={URL.createObjectURL(selectedStaff.new_profile_picture)}
                       alt="Preview"
-                      className="w-20 h-20 rounded-full border object-cover"
+                      className="w-24 h-24 rounded-full border object-cover shadow-sm"
                     />
                   ) : selectedStaff.profile_picture ? (
                     <img
                       src={`${API}${selectedStaff.profile_picture}`}
                       alt="Current"
-                      className="w-20 h-20 rounded-full border object-cover"
+                      className="w-24 h-24 rounded-full border object-cover shadow-sm"
                     />
                   ) : null}
                 </div>
               </div>
             </div>
-            <div className="flex justify-end gap-2 px-3 py-2 bg-gray-50">
+
+            {/* Footer */}
+            <div className="flex justify-end gap-3 px-6 py-4 bg-gray-50">
               <button
                 onClick={() => setIsEditModalOpen(false)}
-                className="px-3 py-1 bg-gray-200 hover:bg-gray-300 text-gray-800 rounded-md text-xs"
+                className="px-5 py-2 bg-gray-200 hover:bg-gray-300 text-gray-800 rounded-md text-sm font-medium"
               >
                 Cancel
               </button>
               <button
                 onClick={updateStaff}
-                className="px-3 py-1 bg-green-600 hover:bg-green-700 text-white rounded-md text-xs font-semibold"
+                className="px-5 py-2 bg-green-600 hover:bg-green-700 text-white rounded-md text-sm font-semibold shadow-md"
               >
                 Save
               </button>
@@ -579,6 +643,7 @@ const StaffDetails = () => {
           </div>
         </div>
       )}
+
     </div>
   );
 };

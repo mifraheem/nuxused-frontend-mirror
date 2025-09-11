@@ -5,7 +5,6 @@ import App from "../App";
 import AdminDashboard from "./Admin/AdminDashboard";
 import AccountantDashboard from "./Accountant/AccountantDashboard";
 import GenerateCustomFee from "./Accountant/GenerateCustomFee";
-import TransportFee from "./Accountant/TransportFee";
 import BulkFee from "./Accountant/BulkFee";
 import FamilyCredits from "./Accountant/FamilyCredits";
 import FeeCalculation from "./Accountant/FeeCalculation";
@@ -58,7 +57,6 @@ export {
     AdminDashboard,
     AccountantDashboard,
     GenerateCustomFee,
-    TransportFee,
     BulkFee,
     FamilyCredits,
     FeeCalculation,

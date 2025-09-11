@@ -252,15 +252,21 @@ const AttendanceStd = () => {
       setShowClassSelection(false);
       setShowExcelOptions(true);
       setShowAttendanceTable(false);
+
+      // KEY FIX: Properly initialize with all required fields
       setBulkAttendanceData(
-        students.map((student) => ({
-          student: getStudentUUID(student),
-          student_info: student,
-          subject: selectedSubject?.value,
-          class_schedule: selectedClass.value,
-          status: 'Present',
-          remarks: '',
-        }))
+        students.map((student) => {
+          const studentUUID = getStudentUUID(student);
+          return {
+            student: studentUUID,
+            student_uuid: studentUUID, // Ensure this is set
+            student_info: student,
+            subject: selectedSubject?.value, // Ensure subject is set
+            class_schedule: selectedClass?.value, // Ensure class is set
+            status: 'Present',
+            remarks: '',
+          };
+        })
       );
     } catch (error) {
       console.error("Error in class/subject selection:", error);
@@ -430,15 +436,27 @@ const AttendanceStd = () => {
     const studentUUID = record?.student_uuid || record?.student || getStudentUUID(sourceStudent);
     const displayName = getStudentDisplayName(sourceStudent);
 
+    // Add debugging
+    console.log('Debug - Record validation:', {
+      index,
+      record,
+      studentUUID,
+      hasSubject: !!record?.subject,
+      selectedSubject: selectedSubject?.value,
+      displayName
+    });
+
     if (!studentUUID) {
       showToast(`Missing student UUID for ${displayName}`, 'error');
       return;
     }
 
     if (!record?.subject) {
-      showToast(`Select subject for ${displayName}`, 'error');
+      showToast(`Subject missing for ${displayName}. Expected: ${selectedSubject?.value}`, 'error');
       return;
     }
+
+
 
     const payload = {
       student: studentUUID,
@@ -841,7 +859,7 @@ const AttendanceStd = () => {
   ];
 
   return (
-    <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 bg-gray-50 min-h-screen">
+    <div className="container mx-auto px-2 sm:px-6 lg:px-3 py-6 sm:py-8  min-h-screen">
       <Toaster
         message={toaster.message}
         type={toaster.type}
@@ -849,7 +867,7 @@ const AttendanceStd = () => {
         onClose={() => setToaster({ message: "", type: "success" })}
       />
       <div className="bg-gradient-to-r from-blue-900 to-blue-900 text-white py-4 px-6 sm:px-8 rounded-xl shadow-lg flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-8">
-        <h1 className="text-sm sm:text-lg font-bold text-center md:text-left">Attendance Report</h1>
+        <h1 className="text-lg sm:text-lg font-bold text-center md:text-left">Attendance Report</h1>
         <div className="flex flex-col sm:flex-row gap-3">
           {canAdd && (
             <button
@@ -1001,6 +1019,21 @@ const AttendanceStd = () => {
               </p>
               <button
                 onClick={() => {
+                  // Fix: Ensure bulkAttendanceData is properly initialized for manual entry
+                  const manualBulkData = students.map((student) => {
+                    const studentUUID = getStudentUUID(student);
+                    return {
+                      student: studentUUID,
+                      student_uuid: studentUUID, // KEY FIX: Ensure this is set
+                      student_info: student,
+                      subject: selectedSubject?.value, // KEY FIX: Use selected subject
+                      class_schedule: selectedClass?.value, // KEY FIX: Use selected class
+                      status: 'Present',
+                      remarks: '',
+                    };
+                  });
+
+                  setBulkAttendanceData(manualBulkData);
                   setShowAttendanceTable(true);
                   setShowExcelOptions(false);
                   setExcelData([]);
@@ -1088,15 +1121,14 @@ const AttendanceStd = () => {
                     <button
                       onClick={() => handleSubmitSingle(index)}
                       disabled={rowBusy || done || !studentUUID}
-                      className={`px-4 py-2 rounded text-sm text-white ${
-                        !studentUUID
-                          ? 'bg-red-600 cursor-not-allowed'
-                          : done
+                      className={`px-4 py-2 rounded text-sm text-white ${!studentUUID
+                        ? 'bg-red-600 cursor-not-allowed'
+                        : done
                           ? 'bg-green-600 cursor-default'
                           : rowBusy
-                          ? 'bg-blue-400 cursor-wait'
-                          : 'bg-blue-600 hover:bg-blue-700'
-                      } disabled:opacity-60 disabled:cursor-not-allowed transition-colors duration-200`}
+                            ? 'bg-blue-400 cursor-wait'
+                            : 'bg-blue-600 hover:bg-blue-700'
+                        } disabled:opacity-60 disabled:cursor-not-allowed transition-colors duration-200`}
                       title={!studentUUID ? 'Missing UUID' : done ? 'Submitted' : 'Submit this student'}
                     >
                       {!studentUUID ? 'No UUID' : done ? 'Submitted' : rowBusy ? 'Submitting...' : 'Submit'}
@@ -1166,15 +1198,14 @@ const AttendanceStd = () => {
                         <button
                           onClick={() => handleSubmitSingle(index)}
                           disabled={rowBusy || done || !studentUUID}
-                          className={`px-3 py-1.5 rounded text-sm text-white ${
-                            !studentUUID
-                              ? 'bg-red-600 cursor-not-allowed'
-                              : done
+                          className={`px-3 py-1.5 rounded text-sm text-white ${!studentUUID
+                            ? 'bg-red-600 cursor-not-allowed'
+                            : done
                               ? 'bg-green-600 cursor-default'
                               : rowBusy
-                              ? 'bg-blue-400 cursor-wait'
-                              : 'bg-blue-600 hover:bg-blue-700'
-                          } disabled:opacity-60 disabled:cursor-not-allowed transition-colors duration-200`}
+                                ? 'bg-blue-400 cursor-wait'
+                                : 'bg-blue-600 hover:bg-blue-700'
+                            } disabled:opacity-60 disabled:cursor-not-allowed transition-colors duration-200`}
                           title={!studentUUID ? 'Missing UUID' : done ? 'Submitted' : 'Submit this row'}
                         >
                           {!studentUUID ? 'No UUID' : done ? 'Submitted' : rowBusy ? 'Submitting...' : 'Submit'}
@@ -1453,9 +1484,8 @@ const AttendanceStd = () => {
                     <button
                       key={p}
                       onClick={() => setCurrentPage(p)}
-                      className={`px-4 py-2 rounded-lg text-sm transition-colors duration-200 ${
-                        currentPage === p ? "bg-blue-600 text-white hover:bg-blue-700" : "bg-gray-200 hover:bg-gray-300"
-                      }`}
+                      className={`px-4 py-2 rounded-lg text-sm transition-colors duration-200 ${currentPage === p ? "bg-blue-600 text-white hover:bg-blue-700" : "bg-gray-200 hover:bg-gray-300"
+                        }`}
                     >
                       {p}
                     </button>

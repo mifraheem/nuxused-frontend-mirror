@@ -422,7 +422,7 @@ const ClassTasks = () => {
           <Buttons
             data={tasks.map((t, index) => ({
               "S.No": (page - 1) * pageSize + index + 1,
-              ID: t.id,
+              // ID: t.id,
               Title: t.title,
               Description: t.description,
               "Start Date": t.start_date ? new Date(t.start_date).toLocaleDateString() : "N/A",
@@ -433,7 +433,7 @@ const ClassTasks = () => {
             }))}
             columns={[
               { label: "S.No", key: "S.No" },
-              { label: "ID", key: "ID" },
+              // { label: "ID", key: "ID" },
               { label: "Title", key: "Title" },
               { label: "Description", key: "Description" },
               { label: "Start Date", key: "Start Date" },

@@ -117,7 +117,7 @@ const PromotionRecords = () => {
                     <Buttons
                         data={records}
                         columns={[
-                            { label: "ID", key: "id" },
+                            // { label: "ID", key: "id" },
                             { label: "Student", key: "student_name" },
                             { label: "From Class", key: "from_class_name" },
                             { label: "To Class", key: "to_class_name" },

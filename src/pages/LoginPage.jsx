@@ -12,7 +12,8 @@ import Cookies from "js-cookie";
 export default function LoginPage() {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
-  const [loading, setLoading] = useState(false); // New loading state
+  const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false); // New state for password visibility
 
   const navigate = useNavigate();
 
@@ -25,27 +26,27 @@ export default function LoginPage() {
       return;
     }
 
-    setLoading(true); // Start loader
+    setLoading(true);
     try {
-      console.log("Attempting login with payload:", { username }); // Debug payload
+      console.log("Attempting login with payload:", { username });
       const response = await axios.post(API_URL, {
         username,
         password,
       });
 
-      console.log("Login API response:", response.data); // Debug full response
+      console.log("Login API response:", response.data);
 
       const { access, refresh, role: userRole, permissions } = response.data.data;
 
       if (!access || !refresh) {
         toast.error("Invalid token data received from server.");
-        setLoading(false); // Stop loader
+        setLoading(false);
         return;
       }
 
       if (!permissions || permissions.length === 0) {
         toast.error("You are not authorized to access the system.");
-        setLoading(false); // Stop loader
+        setLoading(false);
         return;
       }
 
@@ -68,13 +69,25 @@ export default function LoginPage() {
       // Redirect to dashboard
       setTimeout(() => {
         navigate("/admin");
-        setLoading(false); // Stop loader after redirect
+        setLoading(false);
       }, 500);
     } catch (err) {
       console.error("Login Error:", err.response?.data || err.message);
       toast.error(err.response?.data?.message || "Login failed. Please check your credentials.");
-      setLoading(false); // Stop loader on error
+      setLoading(false);
     }
+  };
+
+  // Handle Enter key press
+  const handleKeyPress = (e) => {
+    if (e.key === 'Enter' && !loading) {
+      handleLogin();
+    }
+  };
+
+  // Toggle password visibility
+  const togglePasswordVisibility = () => {
+    setShowPassword(!showPassword);
   };
 
   return (
@@ -99,7 +112,8 @@ export default function LoginPage() {
                 placeholder="Username or Email"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
-                disabled={loading} // Disable input during loading
+                onKeyPress={handleKeyPress}
+                disabled={loading}
               />
               <i className="pi pi-user absolute right-4 top-3 text-gray-400"></i>
             </div>
@@ -112,14 +126,18 @@ export default function LoginPage() {
             <div className="relative">
               <InputText
                 id="password"
-                className="w-full px-4 py-2 border rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-300"
+                className="w-full px-4 py-2 pr-12 border rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-300"
                 placeholder="Password"
-                type="password"
+                type={showPassword ? "text" : "password"}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                disabled={loading} // Disable input during loading
+                onKeyPress={handleKeyPress}
+                disabled={loading}
               />
-              <i className="pi pi-lock absolute right-4 top-3 text-gray-400"></i>
+              <i 
+                className={`pi ${showPassword ? 'pi-eye-slash' : 'pi-eye'} absolute right-4 top-3 text-gray-400 cursor-pointer hover:text-gray-600 transition-colors`}
+                onClick={togglePasswordVisibility}
+              ></i>
             </div>
           </div>
 
@@ -128,7 +146,7 @@ export default function LoginPage() {
             className={`w-full bg-blue-950 text-white py-2 px-4 rounded-full text-lg transition-all ${
               loading ? "opacity-50 cursor-not-allowed" : "hover:bg-blue-800"
             }`}
-            disabled={loading} // Disable button during loading
+            disabled={loading}
           >
             {loading ? (
               <div className="flex items-center justify-center">

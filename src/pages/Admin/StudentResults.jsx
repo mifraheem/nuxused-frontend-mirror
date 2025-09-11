@@ -643,22 +643,7 @@ const StudentResults = () => {
               {showForm ? "Close Form" : "Add New Result"}
             </button>
           )}
-          {/* {canView && (
-            <button
-              onClick={() => {
-                if (filterType) {
-                  setFilterType(null);
-                  setFilter({ subject: "", class_schedule: "", exam: "" });
-                  fetchResults(1, pageSize);
-                } else {
-                  setFilterType("menu");
-                }
-              }}
-              className="bg-green-500 text-white px-4 py-2 rounded-md shadow hover:bg-green-700 text-sm sm:text-base"
-            >
-              {filterType ? "Close Filter" : "Filter Data"}
-            </button>
-          )} */}
+         
         </div>
       </div>
 

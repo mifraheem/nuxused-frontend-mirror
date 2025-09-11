@@ -249,7 +249,7 @@ const FinalResults = () => {
             <Buttons
               data={results.map((res, index) => ({
                 Sequence: (currentPage - 1) * pageSize + index + 1,
-                ID: res.id,
+                // ID: res.id,
                 Student: res.student_name,
                 Class: res.class_name,
                 Exam: res.exam_term,
@@ -262,7 +262,7 @@ const FinalResults = () => {
               }))}
               columns={[
                 { label: "S.No", key: "Sequence" },
-                { label: "ID", key: "ID" },
+                // { label: "ID", key: "ID" },
                 { label: "Student", key: "Student" },
                 { label: "Class", key: "Class" },
                 { label: "Exam", key: "Exam" },

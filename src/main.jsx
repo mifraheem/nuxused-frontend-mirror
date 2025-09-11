@@ -48,7 +48,6 @@ import {
   StudentInfo,
   SubjectManagement,
   TimetableManagement,
-  TransportFee,
   ViewOnlineClasses,
   ViewTimetable,
   WeeklyTaskManager,
@@ -315,10 +314,7 @@ const router = createBrowserRouter([
             path: "/accountant/custom-fee",
             element: <GenerateCustomFee />,
           },
-          {
-            path: "/accountant/transport-fee",
-            element: <TransportFee />,
-          },
+         
           {
             path: "/accountant/bulk-fee",
             element: <BulkFee />,

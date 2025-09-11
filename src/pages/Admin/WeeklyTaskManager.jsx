@@ -515,8 +515,8 @@ const WeeklyTaskManager = () => {
           ) : (
             <>
               <Buttons
-                data={tasks.map((task) => ({
-                  ID: task.id,
+                data={tasks.map((task,index) => ({
+                  "S.No": (page - 1) * pageSize + index + 1,
                   Title: task.title,
                   Description: task.description,
                   Teacher: getTeacherNames(task.teachers),
@@ -525,7 +525,7 @@ const WeeklyTaskManager = () => {
                   File: task.file ? "Attached" : "No File",
                 }))}
                 columns={[
-                  { label: "ID", key: "ID" },
+                  { label: "S.No", key: "S.No" },
                   { label: "Title", key: "Title" },
                   { label: "Description", key: "Description" },
                   { label: "Teacher", key: "Teacher" },
