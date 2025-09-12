@@ -51,10 +51,10 @@ export default function LoginPage() {
       }
 
       // Store tokens and role in cookies
-      Cookies.set("access_token", access, { expires: 7, secure: true, sameSite: "Strict" });
-      Cookies.set("refresh_token", refresh, { expires: 7, secure: true, sameSite: "Strict" });
-      Cookies.set("user_role", userRole, { expires: 7, secure: true, sameSite: "Strict" });
-      Cookies.set("username", username, { expires: 7, secure: true, sameSite: "Strict" });
+      Cookies.set("access_token", access, { expires: 7,  sameSite: "Strict" });
+      Cookies.set("refresh_token", refresh, { expires: 7,  sameSite: "Strict" });
+      Cookies.set("user_role", userRole, { expires: 7, sameSite: "Strict" });
+      Cookies.set("username", username, { expires: 7,  sameSite: "Strict" });
 
       // Store permissions in localStorage
       localStorage.setItem("user_permissions", JSON.stringify(permissions));

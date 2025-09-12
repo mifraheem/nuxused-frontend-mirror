@@ -93,7 +93,7 @@ async function refreshToken() {
   });
   const data = await res.json();
   if (res.ok) {
-    Cookies.set("access_token", data.access, { expires: 7, secure: true, sameSite: "Strict" });
+    Cookies.set("access_token", data.access, { expires: 7,  sameSite: "Strict" });
     return data.access;
   }
   throw new Error("Token refresh failed");
