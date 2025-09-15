@@ -1,10 +1,17 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Cookies from "js-cookie";
+import axios from "axios";
 
 const Topbar = () => {
   const navigate = useNavigate();
   const [currentTime, setCurrentTime] = useState("");
+  const [schoolName, setSchoolName] = useState("School Name");
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  const API = import.meta.env.VITE_SERVER_URL;
+  const SCHOOL_API_URL = `${API}api/schools/`;
 
   const handleLogout = () => {
     Cookies.remove("access_token");
@@ -12,16 +19,34 @@ const Topbar = () => {
     navigate("/login");
   };
 
-  const userName = Cookies.get("username") || "User";
-
-  const getGreeting = () => {
-    const hour = new Date().getHours();
-    if (hour < 12) return "Good Morning";
-    else if (hour < 18) return "Good Afternoon";
-    else return "Good Evening";
+  const fetchSchoolName = async () => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const token = Cookies.get("access_token");
+      if (!token) {
+        throw new Error("User is not authenticated.");
+      }
+      const response = await axios.get(SCHOOL_API_URL, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = response.data?.data?.results || [];
+      if (data.length > 0 && data[0].school_name) {
+        setSchoolName(data[0].school_name);
+      } else {
+        throw new Error("No school data found.");
+      }
+    } catch (error) {
+      console.error("Error fetching school name:", error.response?.data || error.message);
+      setError("Failed to fetch school name.");
+      setSchoolName("School Name");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   useEffect(() => {
+    fetchSchoolName();
     const updateTime = () => {
       const now = new Date();
       setCurrentTime(now.toLocaleString());
@@ -33,11 +58,21 @@ const Topbar = () => {
 
   return (
     <div className="flex flex-wrap justify-between items-center bg-blue-100 px-4 py-4 w-full shadow-sm border-b border-blue-200">
-      {/* Greeting */}
+      {/* School Name */}
       <div className="w-full sm:w-auto mb-3 sm:mb-0 text-center sm:text-left">
-        <h1 className="text-xl sm:text-2xl font-extrabold text-blue-900 tracking-wide">
-          👋 {getGreeting()}, <span className="text-blue-800 capitalize">{userName}</span>{" "}
-        </h1>
+        {isLoading ? (
+          <h1 className="text-xl sm:text-2xl font-extrabold text-blue-900 tracking-wide">
+            Loading...
+          </h1>
+        ) : error ? (
+          <h1 className="text-xl sm:text-2xl font-extrabold text-red-600 tracking-wide">
+            {error}
+          </h1>
+        ) : (
+          <h1 className="text-xl sm:text-2xl font-extrabold text-blue-900 tracking-wide">
+            🏫 {schoolName}
+          </h1>
+        )}
       </div>
 
       {/* Time + Logout */}
