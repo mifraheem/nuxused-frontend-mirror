@@ -22,7 +22,7 @@ const ParentAccount = () => {
   const API = import.meta.env.VITE_SERVER_URL;
   const API_URL = `${API}api/auth/users/list_profiles/parent/`;
   const UPDATE_URL = `${API}api/auth/update-parent-profile/`;
-  const DELETE_URL = `${API}api/auth/users/delete_user/`;
+  const DELETE_URL = `${API}api/auth/users/`;
   const STUDENT_LIST_URL = `${API}api/auth/users/list_profiles/student/`;
 
   // Permissions
@@ -51,37 +51,19 @@ const ParentAccount = () => {
     setToaster({ message, type });
   };
 
-  const confirmToast = (message = "Delete this parent?") => {
-    return new Promise((resolve) => {
-      setConfirmResolve(() => resolve); // Store the resolve function
-      setToaster({
-        message: (
-          <div className="flex flex-col gap-4">
-            <p className="text-lg font-medium">{message}</p>
-            <div className="flex justify-end gap-2">
-              <button
-                onClick={() => {
-                  setToaster({ message: "", type: "success" });
-                  resolve(true);
-                }}
-                className="px-3 py-1.5 rounded-md bg-red-600 text-white text-sm hover:bg-red-700"
-              >
-                Yes
-              </button>
-              <button
-                onClick={() => {
-                  setToaster({ message: "", type: "success" });
-                  resolve(false);
-                }}
-                className="px-3 py-1.5 rounded-md border border-gray-300 text-sm hover:bg-gray-50"
-              >
-                No
-              </button>
-            </div>
-          </div>
-        ),
-        type: "confirmation",
-      });
+  const confirmToast = (message, parentId) => {
+    setToaster({
+      message: message,
+      type: "confirmation",
+      onConfirm: () => {
+        console.log("User confirmed delete for ID:", parentId);
+        deleteParent(parentId);
+        setToaster({ message: "", type: "success" }); // Clear toaster
+      },
+      onCancel: () => {
+        console.log("User cancelled delete");
+        setToaster({ message: "", type: "success" }); // Clear toaster
+      }
     });
   };
 
@@ -173,35 +155,66 @@ const ParentAccount = () => {
   const closeViewModal = () => setIsViewModalOpen(false);
 
   const confirmDeleteParent = async (id) => {
+    console.log("Delete clicked for ID:", id); // Debug log
+
     if (!canDelete) {
       showToast("You do not have permission to delete parent profiles.", "error");
       return;
     }
+
     if (!isValidId(id)) {
       showToast("Invalid parent ID format.", "error");
       return;
     }
 
-    const ok = await confirmToast("Delete this parent?");
-    if (ok) {
-      deleteParent(id);
-    }
+    // Use the Toaster's built-in confirmation functionality
+    confirmToast("Are you sure you want to delete this parent? This action cannot be undone.", id);
   };
 
   const deleteParent = async (id) => {
+    console.log("Starting delete for ID:", id);
     try {
-      await axios.delete(`${DELETE_URL}${id}/`, { headers: authHeaders() });
-      setParents((prev) => prev.filter((p) => p.user_id !== id));
+      const deleteUrl = `${DELETE_URL}${id}/delete_user/`;
+      console.log("Delete URL:", deleteUrl);
+
+      const response = await axios.delete(deleteUrl, {
+        headers: authHeaders()
+      });
+
+      console.log("Delete response:", response);
+
+      // Update the parents list by removing the deleted parent
+      setParents((prev) => {
+        const updated = prev.filter((p) => p.user_id !== id);
+        console.log("Parents before delete:", prev.length);
+        console.log("Parents after delete:", updated.length);
+        return updated;
+      });
+
       showToast("Parent deleted successfully.", "success");
+
+      // Refresh the list to ensure consistency
+      fetchParents();
+
     } catch (error) {
-      console.error("Error deleting parent:", error.response?.data || error.message);
-      showToast(
-        "Failed to delete parent: " +
-        (error.response?.data?.message || error.message),
-        "error"
-      );
+      console.error("Error deleting parent:", error);
+      console.error("Error response:", error.response?.data);
+
+      let errorMessage = "Failed to delete parent: ";
+      if (error.response?.status === 404) {
+        errorMessage += "Parent not found.";
+      } else if (error.response?.status === 403) {
+        errorMessage += "Permission denied.";
+      } else if (error.response?.status === 400) {
+        errorMessage += "Invalid request.";
+      } else {
+        errorMessage += (error.response?.data?.message || error.message);
+      }
+
+      showToast(errorMessage, "error");
     }
   };
+
 
   const updateParent = async () => {
     if (!selectedParent?.user_id) {
@@ -265,13 +278,16 @@ const ParentAccount = () => {
     }).join(", ");
   };
 
+
   return (
     <div className="p-2 md:p-3 min-h-screen flex-1">
       <Toaster
         message={toaster.message}
         type={toaster.type}
-        duration={toaster.type === "confirmation" ? 5000 : 3000}
+        duration={toaster.type === "confirmation" ? 10000 : 3000} // Longer duration for confirmations
         onClose={() => setToaster({ message: "", type: "success" })}
+        onConfirm={toaster.onConfirm} // Pass the confirm handler
+        onCancel={toaster.onCancel}   // Pass the cancel handler
       />
 
       {/* Header */}
@@ -502,206 +518,206 @@ const ParentAccount = () => {
 
       {/* Edit Modal (compact & scrollable) */}
       {isEditModalOpen && selectedParent && (
-  <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-60 px-4 z-50">
-    <div className="bg-white w-full max-w-2xl rounded-xl shadow-2xl border border-gray-200 overflow-hidden">
-      
-      {/* Header */}
-      <div className="px-6 py-4 bg-blue-600 text-white flex justify-between items-center">
-        <h2 className="text-lg md:text-xl font-bold">Edit Parent Profile</h2>
-        <button
-          onClick={() => setIsEditModalOpen(false)}
-          className="text-white hover:text-gray-200 text-2xl font-bold"
-        >
-          ×
-        </button>
-      </div>
+        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-60 px-4 z-50">
+          <div className="bg-white w-full max-w-2xl rounded-xl shadow-2xl border border-gray-200 overflow-hidden">
 
-      {/* Content */}
-      <div className="px-6 py-4 overflow-y-auto max-h-[70vh] space-y-4">
-        {/* Username */}
-        <div>
-          <label className="block text-sm font-semibold text-gray-700 mb-1">
-            Username
-          </label>
-          <input
-            type="text"
-            value={selectedParent.username || ""}
-            onChange={(e) =>
-              setSelectedParent({ ...selectedParent, username: e.target.value })
-            }
-            className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
-          />
-        </div>
+            {/* Header */}
+            <div className="px-6 py-4 bg-blue-600 text-white flex justify-between items-center">
+              <h2 className="text-lg md:text-xl font-bold">Edit Parent Profile</h2>
+              <button
+                onClick={() => setIsEditModalOpen(false)}
+                className="text-white hover:text-gray-200 text-2xl font-bold"
+              >
+                ×
+              </button>
+            </div>
 
-        {/* First + Last Name */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-1">
-              First Name
-            </label>
-            <input
-              type="text"
-              value={selectedParent.first_name || ""}
-              onChange={(e) =>
-                setSelectedParent({ ...selectedParent, first_name: e.target.value })
-              }
-              className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-1">
-              Last Name
-            </label>
-            <input
-              type="text"
-              value={selectedParent.last_name || ""}
-              onChange={(e) =>
-                setSelectedParent({ ...selectedParent, last_name: e.target.value })
-              }
-              className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
-            />
-          </div>
-        </div>
-
-        {/* Phone + Email */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-1">
-              Phone Number
-            </label>
-            <input
-              type="text"
-              value={selectedParent.phone_number || ""}
-              onChange={(e) =>
-                setSelectedParent({ ...selectedParent, phone_number: e.target.value })
-              }
-              className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-1">
-              Email
-            </label>
-            <input
-              type="email"
-              value={selectedParent.email || ""}
-              onChange={(e) =>
-                setSelectedParent({ ...selectedParent, email: e.target.value })
-              }
-              className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
-            />
-          </div>
-        </div>
-
-        {/* Address */}
-        <div>
-          <label className="block text-sm font-semibold text-gray-700 mb-1">
-            Address
-          </label>
-          <input
-            type="text"
-            value={selectedParent.address || ""}
-            onChange={(e) =>
-              setSelectedParent({ ...selectedParent, address: e.target.value })
-            }
-            className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
-          />
-        </div>
-
-        {/* Gender + DOB */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-1">
-              Gender
-            </label>
-            <select
-              value={selectedParent.gender || ""}
-              onChange={(e) =>
-                setSelectedParent({ ...selectedParent, gender: e.target.value })
-              }
-              className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white"
-            >
-              <option value="">Select Gender</option>
-              <option value="Male">Male</option>
-              <option value="Female">Female</option>
-            </select>
-          </div>
-          <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-1">
-              Date of Birth
-            </label>
-            <input
-              type="date"
-              value={selectedParent.dob || ""}
-              onChange={(e) =>
-                setSelectedParent({ ...selectedParent, dob: e.target.value })
-              }
-              className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
-            />
-          </div>
-        </div>
-
-        {/* Children with checkboxes */}
-        <div>
-          <label className="block text-sm font-semibold text-gray-700 mb-2">
-            Linked Children
-          </label>
-          <div className="space-y-2 max-h-40 overflow-y-auto border rounded-md p-3 bg-gray-50">
-            {students.map((s) => {
-              const isChecked = (selectedParent.children || []).includes(s.profile_id);
-              return (
-                <label
-                  key={s.profile_id}
-                  className="flex items-start space-x-2 cursor-pointer"
-                >
-                  <input
-                    type="checkbox"
-                    checked={isChecked}
-                    onChange={(e) => {
-                      let updated = [...(selectedParent.children || [])];
-                      if (e.target.checked) {
-                        updated.push(s.profile_id);
-                      } else {
-                        updated = updated.filter((id) => id !== s.profile_id);
-                      }
-                      setSelectedParent({ ...selectedParent, children: updated });
-                    }}
-                    className="mt-1"
-                  />
-                  <span className="text-sm">
-                    <span className="font-semibold">{s.first_name} {s.last_name}</span>{" "}
-                    {s.registration_no && (
-                      <span className="text-gray-600">(Reg: {s.registration_no})</span>
-                    )}{" "}
-                    {s.class_name && (
-                      <span className="text-blue-700 font-medium">– {s.class_name}</span>
-                    )}
-                  </span>
+            {/* Content */}
+            <div className="px-6 py-4 overflow-y-auto max-h-[70vh] space-y-4">
+              {/* Username */}
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-1">
+                  Username
                 </label>
-              );
-            })}
+                <input
+                  type="text"
+                  value={selectedParent.username || ""}
+                  onChange={(e) =>
+                    setSelectedParent({ ...selectedParent, username: e.target.value })
+                  }
+                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+                />
+              </div>
+
+              {/* First + Last Name */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1">
+                    First Name
+                  </label>
+                  <input
+                    type="text"
+                    value={selectedParent.first_name || ""}
+                    onChange={(e) =>
+                      setSelectedParent({ ...selectedParent, first_name: e.target.value })
+                    }
+                    className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1">
+                    Last Name
+                  </label>
+                  <input
+                    type="text"
+                    value={selectedParent.last_name || ""}
+                    onChange={(e) =>
+                      setSelectedParent({ ...selectedParent, last_name: e.target.value })
+                    }
+                    className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+                  />
+                </div>
+              </div>
+
+              {/* Phone + Email */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1">
+                    Phone Number
+                  </label>
+                  <input
+                    type="text"
+                    value={selectedParent.phone_number || ""}
+                    onChange={(e) =>
+                      setSelectedParent({ ...selectedParent, phone_number: e.target.value })
+                    }
+                    className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1">
+                    Email
+                  </label>
+                  <input
+                    type="email"
+                    value={selectedParent.email || ""}
+                    onChange={(e) =>
+                      setSelectedParent({ ...selectedParent, email: e.target.value })
+                    }
+                    className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+                  />
+                </div>
+              </div>
+
+              {/* Address */}
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-1">
+                  Address
+                </label>
+                <input
+                  type="text"
+                  value={selectedParent.address || ""}
+                  onChange={(e) =>
+                    setSelectedParent({ ...selectedParent, address: e.target.value })
+                  }
+                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+                />
+              </div>
+
+              {/* Gender + DOB */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1">
+                    Gender
+                  </label>
+                  <select
+                    value={selectedParent.gender || ""}
+                    onChange={(e) =>
+                      setSelectedParent({ ...selectedParent, gender: e.target.value })
+                    }
+                    className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white"
+                  >
+                    <option value="">Select Gender</option>
+                    <option value="Male">Male</option>
+                    <option value="Female">Female</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1">
+                    Date of Birth
+                  </label>
+                  <input
+                    type="date"
+                    value={selectedParent.dob || ""}
+                    onChange={(e) =>
+                      setSelectedParent({ ...selectedParent, dob: e.target.value })
+                    }
+                    className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+                  />
+                </div>
+              </div>
+
+              {/* Children with checkboxes */}
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  Linked Children
+                </label>
+                <div className="space-y-2 max-h-40 overflow-y-auto border rounded-md p-3 bg-gray-50">
+                  {students.map((s) => {
+                    const isChecked = (selectedParent.children || []).includes(s.profile_id);
+                    return (
+                      <label
+                        key={s.profile_id}
+                        className="flex items-start space-x-2 cursor-pointer"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={isChecked}
+                          onChange={(e) => {
+                            let updated = [...(selectedParent.children || [])];
+                            if (e.target.checked) {
+                              updated.push(s.profile_id);
+                            } else {
+                              updated = updated.filter((id) => id !== s.profile_id);
+                            }
+                            setSelectedParent({ ...selectedParent, children: updated });
+                          }}
+                          className="mt-1"
+                        />
+                        <span className="text-sm">
+                          <span className="font-semibold">{s.first_name} {s.last_name}</span>{" "}
+                          {s.registration_no && (
+                            <span className="text-gray-600">(Reg: {s.registration_no})</span>
+                          )}{" "}
+                          {s.class_name && (
+                            <span className="text-blue-700 font-medium">– {s.class_name}</span>
+                          )}
+                        </span>
+                      </label>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="flex justify-end gap-3 px-6 py-4 bg-gray-50">
+              <button
+                onClick={() => setIsEditModalOpen(false)}
+                className="px-5 py-2 bg-gray-200 hover:bg-gray-300 text-gray-800 rounded-md text-sm font-medium"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={updateParent}
+                className="px-5 py-2 bg-green-600 hover:bg-green-700 text-white rounded-md text-sm font-semibold shadow-md"
+              >
+                Save
+              </button>
+            </div>
           </div>
         </div>
-      </div>
-
-      {/* Footer */}
-      <div className="flex justify-end gap-3 px-6 py-4 bg-gray-50">
-        <button
-          onClick={() => setIsEditModalOpen(false)}
-          className="px-5 py-2 bg-gray-200 hover:bg-gray-300 text-gray-800 rounded-md text-sm font-medium"
-        >
-          Cancel
-        </button>
-        <button
-          onClick={updateParent}
-          className="px-5 py-2 bg-green-600 hover:bg-green-700 text-white rounded-md text-sm font-semibold shadow-md"
-        >
-          Save
-        </button>
-      </div>
-    </div>
-  </div>
-)}
+      )}
 
     </div>
   );

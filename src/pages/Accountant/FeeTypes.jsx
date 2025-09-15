@@ -14,18 +14,22 @@ const FeeTypes = () => {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
   const [totalPages, setTotalPages] = useState(1);
-  const [toaster, setToaster] = useState({ message: '', type: 'success' });
+  const [toaster, setToaster] = useState({ message: "", type: "success", onConfirm: null, onCancel: null });
 
   const API = import.meta.env.VITE_SERVER_URL;
   const API_URL = `${API}fee-types/`;
 
-  const showToast = (message, type = 'success') => {
-    setToaster({ message, type });
+  const showToast = (message, type = "success", onConfirm = null, onCancel = null) => {
+    setToaster({ message, type, onConfirm, onCancel });
   };
 
   const fetchFeeTypes = async () => {
     try {
       const token = Cookies.get("access_token");
+      if (!token) {
+        showToast("User is not authenticated.", "error", null, null);
+        return;
+      }
       const response = await axios.get(`${API_URL}?page=${page}&page_size=${pageSize}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -39,18 +43,28 @@ const FeeTypes = () => {
         throw new Error("Unexpected API response format.");
       }
     } catch (error) {
-      showToast("Failed to fetch fee types.", "error");
+      console.error("Error fetching fee types:", error.response?.data || error.message);
+      showToast(
+        error.response?.data?.message || "Failed to fetch fee types.",
+        "error",
+        null,
+        null
+      );
     }
   };
 
   const handleSaveFeeType = async () => {
     if (!newFeeType.name || !newFeeType.description) {
-      showToast("Name and Description are required.", "error");
+      showToast("Name and Description are required.", "error", null, null);
       return;
     }
 
     try {
       const token = Cookies.get("access_token");
+      if (!token) {
+        showToast("User is not authenticated.", "error", null, null);
+        return;
+      }
 
       if (editingFeeType) {
         const response = await axios.put(
@@ -60,7 +74,7 @@ const FeeTypes = () => {
             headers: { Authorization: `Bearer ${token}` },
           }
         );
-        showToast("Fee Type updated!", "success");
+        showToast("Fee Type updated!", "success", null, null);
         setFeeTypes((prev) =>
           prev.map((f) =>
             f.id === editingFeeType.id ? response.data.data : f
@@ -70,7 +84,7 @@ const FeeTypes = () => {
         const response = await axios.post(API_URL, newFeeType, {
           headers: { Authorization: `Bearer ${token}` },
         });
-        showToast("Fee Type created!", "success");
+        showToast("Fee Type created!", "success", null, null);
         setFeeTypes((prev) => [...prev, response.data.data]);
       }
 
@@ -78,35 +92,51 @@ const FeeTypes = () => {
       setEditingFeeType(null);
       setShowForm(false);
     } catch (error) {
-      showToast("Failed to save fee type.", "error");
+      console.error("Error saving fee type:", error.response?.data || error.message);
+      showToast(
+        error.response?.data?.message || "Failed to save fee type.",
+        "error",
+        null,
+        null
+      );
     }
   };
 
-  const handleDeleteFeeType = async (id) => {
+  const handleDeleteFeeType = (id) => {
     if (!canDelete) {
-      showToast("You do not have permission to delete fee types.", "error");
+      showToast("You do not have permission to delete fee types.", "error", null, null);
       return;
     }
 
     showToast(
-      {
-        message: "Delete this Fee Type?",
-        type: "confirm",
-        onConfirm: async () => {
-          try {
-            const token = Cookies.get("access_token");
-            await axios.delete(`${API_URL}${id}/`, {
-              headers: { Authorization: `Bearer ${token}` },
-            });
-            showToast("Deleted!", "success");
-            setFeeTypes((prev) => prev.filter((f) => f.id !== id));
-          } catch (error) {
-            showToast("Failed to delete.", "error");
+      "Delete this Fee Type?",
+      "confirmation",
+      async () => {
+        try {
+          const token = Cookies.get("access_token");
+          if (!token) {
+            showToast("User is not authenticated.", "error", null, null);
+            return;
           }
-        },
-        onCancel: () => setToaster({ message: "", type: "success" })
+          await axios.delete(`${API_URL}${id}/`, {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+          showToast("Fee Type deleted successfully!", "success", null, null);
+          setFeeTypes((prev) => prev.filter((f) => f.id !== id));
+          fetchFeeTypes(); // Refresh to handle pagination
+        } catch (error) {
+          console.error("Error deleting fee type:", error.response?.data || error.message);
+          showToast(
+            error.response?.data?.message || "Failed to delete fee type.",
+            "error",
+            null,
+            null
+          );
+        }
       },
-      "confirm"
+      () => {
+        showToast("", "success", null, null); // Clear the toaster
+      }
     );
   };
 
@@ -143,9 +173,10 @@ const FeeTypes = () => {
         message={toaster.message}
         type={toaster.type}
         duration={3000}
-        onClose={() => setToaster({ message: "", type: "success" })}
+        onClose={() => setToaster({ message: "", type: "success", onConfirm: null, onCancel: null })}
         onConfirm={toaster.onConfirm}
         onCancel={toaster.onCancel}
+        allowNoDataErrors={true}
       />
       <div className="bg-blue-900 text-white py-2 px-6 rounded-md flex justify-between items-center mt-5">
         <h1 className="text-xl font-bold">Manage Fee Types</h1>
@@ -232,7 +263,6 @@ const FeeTypes = () => {
               <tbody>
                 {feeTypes.map((f, index) => (
                   <tr key={f.id}>
-                    {/* Sequence number */}
                     <td className="border border-gray-300 p-2 text-center">
                       {(page - 1) * pageSize + index + 1}
                     </td>

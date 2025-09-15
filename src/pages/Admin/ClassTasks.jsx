@@ -35,9 +35,7 @@ const ClassTasks = () => {
   const API_URL = `${API}class-tasks/`;
 
   // Custom toast function
-  const showToast = (message, type = 'success') => {
-    setToaster({ message, type });
-  };
+
 
   // Get permissions and auth token
   const getAuthToken = () => {
@@ -191,34 +189,39 @@ const ClassTasks = () => {
     }
   };
 
+  const showToast = (message, type = 'success', onConfirm, onCancel) => {
+    setToaster({ message, type, onConfirm, onCancel });
+  };
+
   const handleDelete = async (id) => {
     if (!canDelete) {
       showToast("You do not have permission to delete tasks.", "error");
       return;
     }
 
-    // Using custom confirmation toast
-    showToast(
-      {
-        message: "Are you sure you want to delete this task?",
-        type: "confirm",
-        onConfirm: async () => {
-          try {
-            const token = getAuthToken();
-            await axios.delete(`${API_URL}${id}/`, {
-              headers: { Authorization: `Bearer ${token}` },
-            });
-            showToast("Task deleted successfully!", "success");
-            fetchTasks();
-          } catch (err) {
-            console.error("Delete error:", err.response?.data || err.message);
-            showToast(err.response?.data?.message || "Failed to delete task.", "error");
-          }
-        },
-        onCancel: () => setToaster({ message: "", type: "success" })
+    setToaster({
+      message: "Are you sure you want to delete this task?",
+      type: "confirmation",
+      onConfirm: async () => {
+        try {
+          const token = getAuthToken();
+          await axios.delete(`${API_URL}${id}/`, {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+          setToaster({ message: "Task deleted successfully!", type: "success" });
+          fetchTasks();
+        } catch (err) {
+          setToaster({
+            message: "Failed to delete task: " + (err.response?.data?.message || err.message),
+            type: "error"
+          });
+          console.error("Delete error:", err.response?.data || err.message);
+        }
       },
-      "confirmation"
-    );
+      onCancel: () => {
+        setToaster({ message: "Delete cancelled", type: "error" });
+      }
+    });
   };
 
   const handleFileChange = (e) => {
@@ -557,83 +560,99 @@ const ClassTasks = () => {
       />
 
       {selectedTask && (
-        <div className="fixed inset-0 bg-black bg-opacity-40 backdrop-blur-sm flex items-center justify-center z-50 px-4">
-          <div className="bg-white p-6 rounded-xl shadow-2xl w-full max-w-lg border border-gray-200">
-            <div className="flex justify-between items-center border-b pb-3">
-              <h2 className="text-xl font-bold text-blue-800">📋 Task Details</h2>
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 px-4">
+          <div className="bg-white w-full max-w-lg rounded-2xl shadow-2xl border border-gray-200 overflow-hidden animate-fadeIn">
+
+            {/* Header */}
+            <div className="flex justify-between items-center px-5 py-3 border-b bg-blue-50">
+              <h2 className="text-lg font-bold text-blue-800 flex items-center gap-2">
+                📋 Task Details
+              </h2>
               <button
                 onClick={() => setSelectedTask(null)}
-                className="text-gray-500 hover:text-red-600 text-lg font-semibold"
+                className="w-7 h-7 flex items-center justify-center rounded-full bg-red-100 text-red-600 hover:bg-red-200 transition"
                 aria-label="Close"
               >
                 ✖
               </button>
             </div>
 
-            <div className="mt-5 space-y-4 text-sm text-gray-700">
-              <div>
-                <span className="font-semibold text-gray-800">📌 Title:</span><br />
-                <span className="ml-1">{selectedTask.title}</span>
+            {/* Content */}
+            <div className="px-5 py-4 overflow-y-auto max-h-[65vh] text-sm text-gray-700 space-y-4">
+
+              {/* Title */}
+              <div className="flex justify-between border-b pb-2">
+                <span className="font-medium text-gray-500">📌 Title</span>
+                <span className="font-semibold text-gray-800 text-right">{selectedTask.title}</span>
               </div>
 
+              {/* Description */}
               <div>
-                <span className="font-semibold text-gray-800">📝 Description:</span>
-                <div className="bg-gray-50 border border-gray-200 rounded-md p-3 mt-1 text-gray-800">
-                  {selectedTask.description}
+                <span className="font-medium text-gray-500 block mb-1">📝 Description</span>
+                <div className="bg-gray-50 border border-gray-200 rounded-md p-3 text-gray-800 leading-relaxed">
+                  {selectedTask.description || "—"}
                 </div>
               </div>
 
+              {/* Dates */}
               <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <span className="font-semibold text-gray-800">📅 Start Date:</span><br />
-                  <span className="ml-1">{selectedTask.start_date ? new Date(selectedTask.start_date).toLocaleDateString() : "N/A"}</span>
+                <div className="flex flex-col">
+                  <span className="font-medium text-gray-500">📅 Start Date</span>
+                  <span className="font-semibold text-gray-800">
+                    {selectedTask.start_date ? new Date(selectedTask.start_date).toLocaleDateString() : "N/A"}
+                  </span>
                 </div>
-
-                <div>
-                  <span className="font-semibold text-gray-800">⏰ Due Date:</span><br />
-                  <span className="ml-1">{selectedTask.due_date ? new Date(selectedTask.due_date).toLocaleDateString() : "N/A"}</span>
+                <div className="flex flex-col">
+                  <span className="font-medium text-gray-500">⏰ Due Date</span>
+                  <span className="font-semibold text-gray-800">
+                    {selectedTask.due_date ? new Date(selectedTask.due_date).toLocaleDateString() : "N/A"}
+                  </span>
                 </div>
               </div>
 
-              <div>
-                <span className="font-semibold text-gray-800">👨‍🏫 Teacher:</span><br />
-                <span className="ml-1">{selectedTask.teacher_name || "N/A"}</span>
+              {/* Teacher */}
+              <div className="flex justify-between border-b pb-2">
+                <span className="font-medium text-gray-500">👨‍🏫 Teacher</span>
+                <span className="font-semibold text-gray-800">{selectedTask.teacher_name || "N/A"}</span>
               </div>
 
-              <div>
-                <span className="font-semibold text-gray-800">🏫 School:</span><br />
-                <span className="ml-1">{selectedTask.school || "N/A"}</span>
+              {/* School */}
+              <div className="flex justify-between border-b pb-2">
+                <span className="font-medium text-gray-500">🏫 School</span>
+                <span className="font-semibold text-gray-800">{selectedTask.school || "N/A"}</span>
               </div>
 
+              {/* Attachment */}
               {selectedTask.file && (
-                <div>
-                  <span className="font-semibold text-gray-800">📎 Attachment:</span><br />
+                <div className="flex justify-between items-center border-b pb-2">
+                  <span className="font-medium text-gray-500">📎 Attachment</span>
                   <a
                     href={selectedTask.file}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="ml-1 text-blue-600 hover:text-blue-800 underline"
+                    className="text-blue-600 hover:text-blue-800 font-medium text-sm underline"
                   >
                     Download File
                   </a>
                 </div>
               )}
 
-              <div>
-                <span className="font-semibold text-gray-800">📅 Created:</span><br />
-                <span className="ml-1">{selectedTask.created ? new Date(selectedTask.created).toLocaleString() : "N/A"}</span>
+              {/* Created */}
+              <div className="flex justify-between border-b pb-2">
+                <span className="font-medium text-gray-500">📅 Created</span>
+                <span className="font-semibold text-gray-800">
+                  {selectedTask.created ? new Date(selectedTask.created).toLocaleString() : "N/A"}
+                </span>
               </div>
 
-              <div>
-                <span className="font-semibold text-gray-800">🆔 ID:</span><br />
-                <span className="ml-1 font-mono text-xs bg-gray-100 px-2 py-1 rounded">{selectedTask.id}</span>
-              </div>
+             
             </div>
 
-            <div className="mt-6 flex justify-end">
+            {/* Footer */}
+            <div className="flex justify-end px-5 py-3 border-t bg-gray-50">
               <button
                 onClick={() => setSelectedTask(null)}
-                className="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-6 py-2 rounded-md shadow text-xs"
+                className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2 rounded-lg shadow text-sm font-medium transition"
               >
                 Close
               </button>
@@ -641,6 +660,7 @@ const ClassTasks = () => {
           </div>
         </div>
       )}
+
     </div>
   );
 };

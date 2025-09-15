@@ -27,10 +27,6 @@ const ClassAnnouncements = () => {
     const API = import.meta.env.VITE_SERVER_URL;
     const API_URL = `${API}class-announcements/`;
 
-    const showToast = (message, type = "success") => {
-        setToaster({ message, type });
-        setTimeout(() => setToaster({ message: "", type: "success" }), 3000);
-    };
 
     // 🔹 Fetch classes for class_schedule dropdown
     const fetchClasses = async () => {
@@ -113,22 +109,46 @@ const ClassAnnouncements = () => {
     };
 
     // 🔹 Delete announcement
-    const handleDelete = async (uuid) => {
-        try {
-            const token = Cookies.get("access_token");
-            if (!token) {
-                showToast("No authentication token found.", "error");
-                return;
-            }
-            await axios.delete(`${API_URL}${uuid}/`, {
-                headers: { Authorization: `Bearer ${token}` },
-            });
-            showToast("Announcement deleted successfully!", "success");
-            fetchData();
-        } catch (err) {
-            console.error("Delete error:", err.response?.data || err.message);
-            showToast(`Failed to delete announcement: ${err.message}`, "error");
+    const showToast = (message, type = "success", onConfirm, onCancel) => {
+        setToaster({ message, type, onConfirm, onCancel });
+        if (type !== "confirmation") {
+            setTimeout(() => setToaster({ message: "", type: "success" }), 3000);
         }
+    };
+
+    const handleDelete = (uuid) => {
+        if (!canDelete) {
+            showToast("You do not have permission to delete announcements.", "error");
+            return;
+        }
+
+        setToaster({
+            message: "Are you sure you want to delete this announcement?",
+            type: "confirmation",
+            onConfirm: async () => {
+                try {
+                    const token = Cookies.get("access_token");
+                    if (!token) {
+                        setToaster({ message: "No authentication token found.", type: "error" });
+                        return;
+                    }
+                    await axios.delete(`${API_URL}${uuid}/`, {
+                        headers: { Authorization: `Bearer ${token}` },
+                    });
+                    setToaster({ message: "Announcement deleted successfully!", type: "success" });
+                    fetchData();
+                } catch (err) {
+                    setToaster({
+                        message: `Failed to delete announcement: ${err.response?.data?.message || err.message}`,
+                        type: "error",
+                    });
+                    console.error("Delete error:", err.response?.data || err.message);
+                }
+            },
+            onCancel: () => {
+                setToaster({ message: "Delete cancelled", type: "error" });
+            },
+        });
     };
 
     // 🔹 Effects
@@ -352,42 +372,72 @@ const ClassAnnouncements = () => {
 
             {/* Modal View */}
             {selectedItem && (
-                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 px-4">
-                    <div className="bg-white p-6 rounded-xl shadow-2xl w-full max-w-lg">
-                        <div className="flex justify-between items-center border-b pb-3">
-                            <h2 className="text-xl font-bold text-blue-800">📢 Announcement Details</h2>
+                <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 px-4">
+                    <div className="bg-white w-full max-w-lg rounded-2xl shadow-2xl border border-gray-200 overflow-hidden animate-fadeIn">
+
+                        {/* Header */}
+                        <div className="flex justify-between items-center px-5 py-3 border-b bg-blue-50">
+                            <h2 className="text-lg font-bold text-blue-800 flex items-center gap-2">
+                                📢 Announcement Details
+                            </h2>
                             <button
                                 onClick={() => setSelectedItem(null)}
-                                className="text-gray-500 hover:text-red-600 text-lg font-semibold"
+                                className="w-7 h-7 flex items-center justify-center rounded-full bg-red-100 text-red-600 hover:bg-red-200 transition"
                             >
                                 ✕
                             </button>
                         </div>
-                        <div className="mt-5 space-y-4 text-sm text-gray-700">
-                            <p>
-                                <b>Title:</b> {selectedItem.title}
-                            </p>
-                            <p>
-                                <b>Description:</b> {selectedItem.description}
-                            </p>
-                            <p>
-                                <b>Teacher:</b> {selectedItem.teacher_name || "N/A"}
-                            </p>
-                            <p>
-                                <b>School:</b> {selectedItem.school || "N/A"}
-                            </p>
-                            <p>
-                                <b>Created:</b>{" "}
-                                {selectedItem.created ? new Date(selectedItem.created).toLocaleString() : "N/A"}
-                            </p>
-                            <p>
-                                <b>UUID:</b> {selectedItem.uuid}
-                            </p>
+
+                        {/* Content in column form */}
+                        <div className="px-5 py-4 overflow-y-auto max-h-[60vh]">
+                            <div className="grid grid-cols-1 gap-3 text-sm">
+
+                                <div className="flex justify-between border-b pb-1">
+                                    <span className="text-gray-500 font-medium">📌 Title</span>
+                                    <span className="font-semibold text-gray-800 text-right">
+                                        {selectedItem.title || "—"}
+                                    </span>
+                                </div>
+
+                                <div className="flex justify-between border-b pb-1">
+                                    <span className="text-gray-500 font-medium">📝 Description</span>
+                                    <span className="font-semibold text-gray-800 text-right">
+                                        {selectedItem.description || "—"}
+                                    </span>
+                                </div>
+
+                                <div className="flex justify-between border-b pb-1">
+                                    <span className="text-gray-500 font-medium">👨‍🏫 Teacher</span>
+                                    <span className="font-semibold text-gray-800 text-right">
+                                        {selectedItem.teacher_name || "N/A"}
+                                    </span>
+                                </div>
+
+                                <div className="flex justify-between border-b pb-1">
+                                    <span className="text-gray-500 font-medium">🏫 School</span>
+                                    <span className="font-semibold text-gray-800 text-right">
+                                        {selectedItem.school || "N/A"}
+                                    </span>
+                                </div>
+
+                                <div className="flex justify-between border-b pb-1">
+                                    <span className="text-gray-500 font-medium">📅 Created</span>
+                                    <span className="font-semibold text-gray-800 text-right">
+                                        {selectedItem.created
+                                            ? new Date(selectedItem.created).toLocaleString()
+                                            : "N/A"}
+                                    </span>
+                                </div>
+
+                                
+                            </div>
                         </div>
-                        <div className="mt-6 flex justify-end">
+
+                        {/* Footer */}
+                        <div className="flex justify-end px-5 py-3 border-t bg-gray-50">
                             <button
                                 onClick={() => setSelectedItem(null)}
-                                className="bg-blue-600 text-white px-6 py-2 rounded-md hover:bg-blue-700 text-sm"
+                                className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2 rounded-lg shadow text-sm font-medium transition"
                             >
                                 Close
                             </button>
@@ -395,6 +445,7 @@ const ClassAnnouncements = () => {
                     </div>
                 </div>
             )}
+
         </div>
     );
 };

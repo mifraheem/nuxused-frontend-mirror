@@ -40,9 +40,7 @@ const TimetableManagement = () => {
   const token = Cookies.get("access_token");
   const headers = token ? { Authorization: `Bearer ${token}` } : {};
 
-  const showToast = (message, type = 'success') => {
-    setToaster({ message, type });
-  };
+
 
   // Fetch current user's profile and school information
   // Inside TimetableManagement component
@@ -275,30 +273,36 @@ const TimetableManagement = () => {
   };
 
   // ✅ Delete with Confirmation
+  const showToast = (message, type = 'success', onConfirm, onCancel) => {
+    setToaster({ message, type, onConfirm, onCancel });
+  };
+
   const handleDelete = (id) => {
     if (!canDelete) {
       showToast("You do not have permission to delete timetables.", "error");
       return;
     }
 
-    showToast(
-      {
-        message: "Are you sure you want to delete this timetable?",
-        type: "confirm",
-        onConfirm: async () => {
-          try {
-            await axios.delete(`${API_URL}${id}/`, { headers });
-            showToast("Timetable deleted successfully", "success");
-            fetchData();
-          } catch (error) {
-            showToast("Failed to delete timetable", "error");
-            console.error("❌ Error deleting timetable:", error);
-          }
-        },
-        onCancel: () => setToaster({ message: "", type: "success" })
+    setToaster({
+      message: "Are you sure you want to delete this timetable?",
+      type: "confirmation",
+      onConfirm: async () => {
+        try {
+          await axios.delete(`${API_URL}${id}/`, { headers });
+          setToaster({ message: "Timetable deleted successfully", type: "success" });
+          fetchData();
+        } catch (error) {
+          setToaster({
+            message: "Failed to delete timetable: " + (error.response?.data?.message || error.message),
+            type: "error"
+          });
+          console.error("❌ Error deleting timetable:", error);
+        }
       },
-      "confirm"
-    );
+      onCancel: () => {
+        setToaster({ message: "Delete cancelled", type: "error" });
+      },
+    });
   };
 
   // ✅ View Details in Modal
@@ -620,7 +624,7 @@ const TimetableManagement = () => {
                 <table className="min-w-full text-sm text-gray-700">
                   <tbody className="divide-y divide-gray-200">
                     {[
-                      ["🆔 ID", selectedTimetable.id],
+                      // ["🆔 ID", selectedTimetable.id],
                       ["👨‍🏫 Teacher", selectedTimetable.teacher_name],
                       ["📘 Subject", selectedTimetable.subject_name],
                       ["🏫 Class", selectedTimetable.class_name],

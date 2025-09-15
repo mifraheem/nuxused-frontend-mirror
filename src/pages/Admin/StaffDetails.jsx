@@ -44,42 +44,42 @@ const StaffDetails = () => {
   };
 
   const showToast = (message, type = "success") => {
-    setToaster({ message, type });
+    setToaster({ message, type});
   };
 
-  const confirmToast = (message = "Delete this staff member?") => {
-    return new Promise((resolve) => {
-      setConfirmResolve(() => resolve); // Store the resolve function
-      setToaster({
-        message: (
-          <div className="flex flex-col gap-4">
-            <p className="text-lg font-medium">{message}</p>
-            <div className="flex justify-end gap-2">
-              <button
-                onClick={() => {
-                  setToaster({ message: "", type: "success" });
-                  resolve(true);
-                }}
-                className="px-3 py-1.5 rounded-md bg-red-600 text-white text-sm hover:bg-red-700"
-              >
-                Yes
-              </button>
-              <button
-                onClick={() => {
-                  setToaster({ message: "", type: "success" });
-                  resolve(false);
-                }}
-                className="px-3 py-1.5 rounded-md border border-gray-300 text-sm hover:bg-gray-50"
-              >
-                No
-              </button>
-            </div>
-          </div>
-        ),
-        type: "confirmation",
-      });
-    });
-  };
+  // const confirmToast = (message = "Delete this staff member?") => {
+  //   return new Promise((resolve) => {
+  //     setConfirmResolve(() => resolve); // Store the resolve function
+  //     setToaster({
+  //       message: (
+  //         <div className="flex flex-col gap-4">
+  //           <p className="text-lg font-medium">{message}</p>
+  //           <div className="flex justify-end gap-2">
+  //             <button
+  //               onClick={() => {
+  //                 setToaster({ message: "", type: "success" });
+  //                 resolve(true);
+  //               }}
+  //               className="px-3 py-1.5 rounded-md bg-red-600 text-white text-sm hover:bg-red-700"
+  //             >
+  //               Yes
+  //             </button>
+  //             <button
+  //               onClick={() => {
+  //                 setToaster({ message: "", type: "success" });
+  //                 resolve(false);
+  //               }}
+  //               className="px-3 py-1.5 rounded-md border border-gray-300 text-sm hover:bg-gray-50"
+  //             >
+  //               No
+  //             </button>
+  //           </div>
+  //         </div>
+  //       ),
+  //       type: "confirmation",
+  //     });
+  //   });
+  // };
 
   // Fetch
   const fetchStaff = async (page = currentPage, size = pageSize) => {
@@ -123,7 +123,7 @@ const StaffDetails = () => {
   }, [currentPage, pageSize]);
 
   // Actions
-  const confirmDelete = async (id) => {
+  const confirmDelete = (id) => {
     if (!canDelete) {
       showToast("You do not have permission to delete staff profiles.", "error");
       return;
@@ -133,11 +133,14 @@ const StaffDetails = () => {
       return;
     }
 
-    const ok = await confirmToast("Delete this staff member?");
-    if (ok) {
-      deleteStaff(id);
-    }
+    setToaster({
+      message: "Are you sure you want to delete this staff member?",
+      type: "confirmation",
+      onConfirm: () => deleteStaff(id),
+      onCancel: () => showToast("Delete cancelled", "error"),
+    });
   };
+
 
   const deleteStaff = async (id) => {
     try {
@@ -237,9 +240,13 @@ const StaffDetails = () => {
       <Toaster
         message={toaster.message}
         type={toaster.type}
-        duration={toaster.type === "confirmation" ? 5000 : 3000}
+        // duration={toaster.type === "confirmation" ? 5000 : 3000}
+        duration={3000}
         onClose={() => setToaster({ message: "", type: "success" })}
+        onConfirm={toaster.onConfirm}
+        onCancel={toaster.onCancel}
       />
+
 
       {/* Header bar (compact) */}
       <div className="bg-blue-900 text-white rounded-md flex items-center justify-between px-2 py-2 mt-2">

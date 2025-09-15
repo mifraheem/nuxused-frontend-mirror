@@ -15,7 +15,7 @@ const FeeStructures = () => {
     const [page, setPage] = useState(1);
     const [pageSize, setPageSize] = useState(10);
     const [totalPages, setTotalPages] = useState(1);
-    const [toaster, setToaster] = useState({ message: '', type: 'success' });
+    const [toaster, setToaster] = useState({ message: "", type: "success", onConfirm: null, onCancel: null });
 
     const [newFeeStructure, setNewFeeStructure] = useState({
         class_assigned_id: "",
@@ -31,13 +31,17 @@ const FeeStructures = () => {
     const API = import.meta.env.VITE_SERVER_URL;
     const API_URL = `${API}fee-structures/`;
 
-    const showToast = (message, type = 'success') => {
-        setToaster({ message, type });
+    const showToast = (message, type = "success", onConfirm = null, onCancel = null) => {
+        setToaster({ message, type, onConfirm, onCancel });
     };
 
     const fetchFeeStructures = async () => {
         try {
             const token = Cookies.get("access_token");
+            if (!token) {
+                showToast("User is not authenticated.", "error", null, null);
+                return;
+            }
             const res = await axios.get(`${API_URL}?page=${page}&page_size=${pageSize}`, {
                 headers: { Authorization: `Bearer ${token}` },
             });
@@ -50,39 +54,59 @@ const FeeStructures = () => {
             } else {
                 throw new Error("Unexpected API response");
             }
-        } catch {
-            showToast("Failed to fetch fee structures.", "error");
+        } catch (error) {
+            console.error("Error fetching fee structures:", error.response?.data || error.message);
+            showToast(
+                error.response?.data?.message || "Failed to fetch fee structures.",
+                "error",
+                null,
+                null
+            );
         }
     };
 
     const getClasses = async () => {
         try {
-            const res = await apiRequest('/classes');
+            const res = await apiRequest('classes');
             setClasses(res.data.results || res.data);
         } catch (err) {
-            console.error('Error fetching classes:', err);
-            showToast("Failed to fetch classes.", "error");
+            console.error('Error fetching classes:', err.response?.data || err.message);
+            showToast(
+                err.response?.data?.message || "Failed to fetch classes.",
+                "error",
+                null,
+                null
+            );
         }
     };
 
     const getFeeTypes = async () => {
         try {
-            const res = await apiRequest('/fee-types');
+            const res = await apiRequest('fee-types');
             setFeeTypes(res.data.results || res.data);
         } catch (err) {
-            console.error('Error fetching fee types:', err);
-            showToast("Failed to fetch fee types.", "error");
+            console.error('Error fetching fee types:', err.response?.data || err.message);
+            showToast(
+                err.response?.data?.message || "Failed to fetch fee types.",
+                "error",
+                null,
+                null
+            );
         }
     };
 
     const handleSaveStructure = async () => {
         if (!newFeeStructure.class_assigned_id || !newFeeStructure.fee_type_id || !newFeeStructure.amount || !newFeeStructure.due_date) {
-            showToast("All fields are required.", "error");
+            showToast("All fields are required.", "error", null, null);
             return;
         }
 
         try {
             const token = Cookies.get("access_token");
+            if (!token) {
+                showToast("User is not authenticated.", "error", null, null);
+                return;
+            }
 
             if (editingStructure) {
                 const res = await axios.put(
@@ -90,7 +114,7 @@ const FeeStructures = () => {
                     { amount: newFeeStructure.amount },
                     { headers: { Authorization: `Bearer ${token}` } }
                 );
-                showToast("Fee structure updated!", "success");
+                showToast("Fee structure updated!", "success", null, null);
                 setFeeStructures((prev) =>
                     prev.map((f) =>
                         f.id === editingStructure.id ? { ...f, amount: res.data.data.amount } : f
@@ -100,7 +124,7 @@ const FeeStructures = () => {
                 const res = await axios.post(API_URL, newFeeStructure, {
                     headers: { Authorization: `Bearer ${token}` },
                 });
-                showToast("Fee structure created!", "success");
+                showToast("Fee structure created!", "success", null, null);
                 setFeeStructures((prev) => [...prev, res.data.data]);
             }
 
@@ -113,36 +137,52 @@ const FeeStructures = () => {
             });
             setEditingStructure(null);
             setShowForm(false);
-        } catch {
-            showToast("Failed to save fee structure.", "error");
+        } catch (error) {
+            console.error("Error saving fee structure:", error.response?.data || error.message);
+            showToast(
+                error.response?.data?.message || "Failed to save fee structure.",
+                "error",
+                null,
+                null
+            );
         }
     };
 
     const handleDelete = (id) => {
         if (!canDelete) {
-            showToast("You do not have permission to delete fee structures.", "error");
+            showToast("You do not have permission to delete fee structures.", "error", null, null);
             return;
         }
 
         showToast(
-            {
-                message: "Delete this Fee Structure?",
-                type: "confirm",
-                onConfirm: async () => {
-                    try {
-                        const token = Cookies.get("access_token");
-                        await axios.delete(`${API_URL}${id}/`, {
-                            headers: { Authorization: `Bearer ${token}` },
-                        });
-                        showToast("Deleted successfully!", "success");
-                        setFeeStructures((prev) => prev.filter((f) => f.id !== id));
-                    } catch {
-                        showToast("Failed to delete.", "error");
+            "Delete this Fee Structure?",
+            "confirmation",
+            async () => {
+                try {
+                    const token = Cookies.get("access_token");
+                    if (!token) {
+                        showToast("User is not authenticated.", "error", null, null);
+                        return;
                     }
-                },
-                onCancel: () => setToaster({ message: "", type: "success" })
+                    await axios.delete(`${API_URL}${id}/`, {
+                        headers: { Authorization: `Bearer ${token}` },
+                    });
+                    showToast("Fee Structure deleted successfully!", "success", null, null);
+                    setFeeStructures((prev) => prev.filter((f) => f.id !== id));
+                    fetchFeeStructures();
+                } catch (error) {
+                    console.error("Error deleting fee structure:", error.response?.data || error.message);
+                    showToast(
+                        error.response?.data?.message || "Failed to delete fee structure.",
+                        "error",
+                        null,
+                        null
+                    );
+                }
             },
-            "confirm"
+            () => {
+                showToast("", "success", null, null);
+            }
         );
     };
 
@@ -187,9 +227,10 @@ const FeeStructures = () => {
                 message={toaster.message}
                 type={toaster.type}
                 duration={3000}
-                onClose={() => setToaster({ message: "", type: "success" })}
+                onClose={() => setToaster({ message: "", type: "success", onConfirm: null, onCancel: null })}
                 onConfirm={toaster.onConfirm}
                 onCancel={toaster.onCancel}
+                allowNoDataErrors={true}
             />
             <div className="bg-blue-900 text-white py-1 px-2 rounded-md flex justify-between items-center mt-2">
                 <h1 className="text-lg font-bold">Manage Fee Structures</h1>

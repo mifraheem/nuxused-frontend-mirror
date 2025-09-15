@@ -456,8 +456,6 @@ const AttendanceStd = () => {
       return;
     }
 
-
-
     const payload = {
       student: studentUUID,
       student_uuid: studentUUID,
@@ -621,6 +619,7 @@ const AttendanceStd = () => {
   };
 
   // Fetch attendance report
+  // Replace your existing handleFetchAttendance function with this fixed version
   const handleFetchAttendance = async () => {
     if (!reportFilters.classId && !reportFilters.studentId) {
       showToast('Please select a class or student', 'error');
@@ -630,20 +629,19 @@ const AttendanceStd = () => {
       showToast('Please select a report type', 'error');
       return;
     }
-    if (!reportFilters.studentId) {
-      // Validation for class-based reports
-      if (reportFilters.type === 'Daily' && !reportFilters.date) {
-        showToast('Please select a date for daily report', 'error');
-        return;
-      }
-      if (reportFilters.type === 'Weekly' && !reportFilters.date) {
-        showToast('Please select a date for weekly report', 'error');
-        return;
-      }
-      if (reportFilters.type === 'Monthly' && (!reportFilters.month || !reportFilters.year)) {
-        showToast('Please select month and year for monthly report', 'error');
-        return;
-      }
+
+    // Validation based on report type
+    if (reportFilters.type === 'Daily' && !reportFilters.date) {
+      showToast('Please select a date for daily report', 'error');
+      return;
+    }
+    if (reportFilters.type === 'Weekly' && !reportFilters.date) {
+      showToast('Please select a date for weekly report', 'error');
+      return;
+    }
+    if (reportFilters.type === 'Monthly' && (!reportFilters.month || !reportFilters.year)) {
+      showToast('Please select month and year for monthly report', 'error');
+      return;
     }
 
     try {
@@ -654,33 +652,33 @@ const AttendanceStd = () => {
         return;
       }
 
-      let url;
+      let url = `${API_BASE_URL}report/`;
       let params = [];
 
       if (reportFilters.studentId) {
-        // Student-specific report (monthly only)
-        if (reportFilters.type !== 'Monthly') {
-          showToast('Student-specific reports are only available for Monthly type', 'error');
-          return;
-        }
-        url = API_BASE_URL;
+        // Student-specific report - use the correct structure
         params = [
-          `report_type=monthly`,
-          `student_id=${reportFilters.studentId}`
+          `class_id=${reportFilters.classId}`,
+          `student_id=${reportFilters.studentId}`,
+          `report_type=${reportFilters.type.toLowerCase()}`
         ];
+        if (reportFilters.type === 'Daily' || reportFilters.type === 'Weekly') {
+          params.push(`date=${reportFilters.date}`);
+        } else if (reportFilters.type === 'Monthly') {
+          const formattedDate = `${reportFilters.year}-${reportFilters.month.padStart(2, '0')}-01`;
+          params.push(`date=${formattedDate}`);
+        }
       } else {
         // Class-based report
-        url = `${API_BASE_URL}report/`;
         params = [
           `class_id=${reportFilters.classId}`,
           `report_type=${reportFilters.type.toLowerCase()}`
         ];
-        if (reportFilters.type === 'Monthly') {
-          // Construct date as YYYY-MM-01
+        if (reportFilters.type === 'Daily' || reportFilters.type === 'Weekly') {
+          params.push(`date=${reportFilters.date}`);
+        } else if (reportFilters.type === 'Monthly') {
           const formattedDate = `${reportFilters.year}-${reportFilters.month.padStart(2, '0')}-01`;
           params.push(`date=${formattedDate}`);
-        } else {
-          params.push(`date=${reportFilters.date}`);
         }
       }
 
@@ -693,25 +691,29 @@ const AttendanceStd = () => {
       let records = [];
 
       if (reportFilters.studentId) {
-        // Student-specific monthly report
-        const results = response.data.results || [];
-        records = results.map(entry => ({
-          id: entry.data.id,
-          student_name: entry.data.student || 'Unknown',
-          registration_number: getStudentRegNumber({}), // No reg number in student-specific response
-          class_name: entry.data.class_schedule || 'N/A',
-          subject: entry.data.subject || 'N/A',
-          date: entry.data.date,
-          status: entry.data.status,
-          remarks: entry.data.remarks || '—'
-        }));
+        // Handle student-specific reports - FIXED STRUCTURE
+        const results = response.data.data?.records || [];
+        records = results.map(recordWrapper => {
+          // Each record is wrapped in its own response structure
+          const entry = recordWrapper.data || recordWrapper;
+          return {
+            id: entry.id,
+            student_name: entry.student || 'Unknown',
+            registration_number: 'N/A', // Not provided in response
+            class_name: entry.class_schedule || 'N/A',
+            subject: entry.subject || 'N/A',
+            date: entry.date,
+            status: entry.status,
+            remarks: entry.remarks || '—'
+          };
+        });
       } else if (reportFilters.type === 'Monthly') {
         // Class-based monthly report
         const students = response.data.data.students || [];
         records = students.map(student => ({
           id: student.student_id,
           student_name: student.student_name,
-          registration_number: getStudentRegNumber({}), // Not provided in response
+          registration_number: 'N/A', // Not provided in response
           class_name: response.data.data.class_id,
           subject: 'N/A', // Not provided in monthly report
           date: response.data.data.month,
@@ -719,18 +721,21 @@ const AttendanceStd = () => {
           remarks: '—'
         }));
       } else {
-        // Daily or Weekly report
+        // Daily or Weekly class-based report
         const results = response.data.data.records || [];
-        records = results.map(entry => ({
-          id: entry.data.id,
-          student_name: entry.data.student,
-          registration_number: getStudentRegNumber({}), // Not provided in response
-          class_name: entry.data.class_schedule || 'N/A',
-          subject: entry.data.subject || 'N/A',
-          date: entry.data.date,
-          status: entry.data.status,
-          remarks: entry.data.remarks || '—'
-        }));
+        records = results.map(recordWrapper => {
+          const entry = recordWrapper.data || recordWrapper;
+          return {
+            id: entry.id,
+            student_name: entry.student,
+            registration_number: 'N/A', // Not provided in response
+            class_name: entry.class_schedule || 'N/A',
+            subject: entry.subject || 'N/A',
+            date: entry.date,
+            status: entry.status,
+            remarks: entry.remarks || '—'
+          };
+        });
       }
 
       console.log('Processed records:', records);
@@ -859,7 +864,7 @@ const AttendanceStd = () => {
   ];
 
   return (
-    <div className="container mx-auto px-2 sm:px-6 lg:px-3 py-6 sm:py-8  min-h-screen">
+    <div className="container mx-auto px-2 sm:px-6 lg:px-3 py-6 sm:py-8 min-h-screen">
       <Toaster
         message={toaster.message}
         type={toaster.type}
@@ -1281,10 +1286,10 @@ const AttendanceStd = () => {
                 value={filteredStudents.find(s => s.value === reportFilters.studentId) || null}
                 onChange={(selected) => {
                   handleReportFilterChange('studentId', selected?.value || '');
-                  // Reset report type to Monthly for student-specific reports
-                  if (selected?.value) {
-                    handleReportFilterChange('type', 'Monthly');
-                  }
+                  // Optionally set type to Monthly if preferred for students
+                  // if (selected?.value) {
+                  //   handleReportFilterChange('type', 'Monthly');
+                  // }
                 }}
                 options={filteredStudents}
                 placeholder="Select Student"
@@ -1300,7 +1305,7 @@ const AttendanceStd = () => {
                 name="type"
                 value={['Daily', 'Weekly', 'Monthly'].map(v => ({ value: v, label: v })).find(opt => opt.value === reportFilters.type) || null}
                 onChange={(selected) => handleReportFilterChange('type', selected?.value || 'Daily')}
-                options={reportFilters.studentId ? [{ value: 'Monthly', label: 'Monthly' }] : [
+                options={[
                   { value: 'Daily', label: 'Daily' },
                   { value: 'Weekly', label: 'Weekly' },
                   { value: 'Monthly', label: 'Monthly' },
@@ -1308,10 +1313,11 @@ const AttendanceStd = () => {
                 placeholder="Select Report Type"
                 isSearchable={false}
                 styles={selectStyles}
-                isDisabled={reportFilters.studentId} // Disable report type selection for student-specific reports
+                isDisabled={false}
               />
             </div>
-            {!reportFilters.studentId && reportFilters.type === 'Daily' && (
+            {/* Conditionally render date fields based on report type, without studentId restriction */}
+            {reportFilters.type === 'Daily' && (
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Select Date</label>
                 <input
@@ -1323,7 +1329,7 @@ const AttendanceStd = () => {
                 />
               </div>
             )}
-            {!reportFilters.studentId && reportFilters.type === 'Weekly' && (
+            {reportFilters.type === 'Weekly' && (
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Select Date in Week</label>
                 <input
@@ -1335,7 +1341,7 @@ const AttendanceStd = () => {
                 />
               </div>
             )}
-            {!reportFilters.studentId && reportFilters.type === 'Monthly' && (
+            {reportFilters.type === 'Monthly' && (
               <>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Select Month</label>
@@ -1345,7 +1351,7 @@ const AttendanceStd = () => {
                     onChange={(selected) => handleReportFilterChange('month', selected?.value || '')}
                     options={Array.from({ length: 12 }, (_, i) => ({
                       value: `${i + 1}`,
-                      label: `${i + 1}`
+                      label: new Date(0, i).toLocaleString('default', { month: 'long' })
                     }))}
                     placeholder="Select Month"
                     isSearchable={false}
@@ -1361,6 +1367,8 @@ const AttendanceStd = () => {
                     value={reportFilters.year}
                     onChange={(e) => handleReportFilterChange('year', e.target.value)}
                     className="w-full border border-gray-300 p-3 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    min="2000"
+                    max="2100"
                   />
                 </div>
               </>

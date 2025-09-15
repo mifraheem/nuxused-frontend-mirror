@@ -46,39 +46,39 @@ const TeacherDetails = () => {
     setToaster({ message, type });
   };
 
-  const confirmToast = (message = "Delete this teacher?") => {
-    return new Promise((resolve) => {
-      setConfirmResolve(() => resolve); // Store the resolve function
-      setToaster({
-        message: (
-          <div className="flex flex-col gap-4">
-            <p className="text-lg font-medium">{message}</p>
-            <div className="flex justify-end gap-2">
-              <button
-                onClick={() => {
-                  setToaster({ message: "", type: "success" });
-                  resolve(true);
-                }}
-                className="px-3 py-1.5 rounded-md bg-red-600 text-white text-sm hover:bg-red-700"
-              >
-                Yes
-              </button>
-              <button
-                onClick={() => {
-                  setToaster({ message: "", type: "success" });
-                  resolve(false);
-                }}
-                className="px-3 py-1.5 rounded-md border border-gray-300 text-sm hover:bg-gray-50"
-              >
-                No
-              </button>
-            </div>
-          </div>
-        ),
-        type: "confirmation",
-      });
-    });
-  };
+  // const confirmToast = (message = "Delete this teacher?") => {
+  //   return new Promise((resolve) => {
+  //     setConfirmResolve(() => resolve); // Store the resolve function
+  //     setToaster({
+  //       message: (
+  //         <div className="flex flex-col gap-4">
+  //           <p className="text-lg font-medium">{message}</p>
+  //           <div className="flex justify-end gap-2">
+  //             <button
+  //               onClick={() => {
+  //                 setToaster({ message: "", type: "success" });
+  //                 resolve(true);
+  //               }}
+  //               className="px-3 py-1.5 rounded-md bg-red-600 text-white text-sm hover:bg-red-700"
+  //             >
+  //               Yes
+  //             </button>
+  //             <button
+  //               onClick={() => {
+  //                 setToaster({ message: "", type: "success" });
+  //                 resolve(false);
+  //               }}
+  //               className="px-3 py-1.5 rounded-md border border-gray-300 text-sm hover:bg-gray-50"
+  //             >
+  //               No
+  //             </button>
+  //           </div>
+  //         </div>
+  //       ),
+  //       type: "confirmation",
+  //     });
+  //   });
+  // };
 
   const fetchTeachers = async (page = currentPage, size = pageSize) => {
     try {
@@ -120,35 +120,42 @@ const TeacherDetails = () => {
     fetchTeachers();
   }, [currentPage, pageSize]);
 
-  const confirmDeleteTeacher = async (id) => {
-    if (!canDelete) {
-      showToast("You do not have permission to delete teacher profiles.", "error");
-      return;
-    }
-    if (!isValidId(id)) {
-      showToast("Invalid teacher ID format.", "error");
-      return;
-    }
+const confirmDeleteTeacher = (id) => {
+  if (!canDelete) {
+    showToast("You do not have permission to delete teacher profiles.", "error");
+    return;
+  }
+  if (!isValidId(id)) {
+    showToast("Invalid teacher ID format.", "error");
+    return;
+  }
 
-    const ok = await confirmToast("Delete this teacher?");
-    if (ok) {
-      deleteTeacher(id);
-    }
-  };
+  setToaster({
+    message: "Are you sure you want to delete this teacher?",
+    type: "confirmation",
+    onConfirm: async () => {
+      await deleteTeacher(id); // Call deleteTeacher directly
+    },
+    onCancel: () => {
+      showToast("Delete cancelled", "error");
+    },
+  });
+};
 
-  const deleteTeacher = async (id) => {
-    try {
-      await axios.delete(`${DELETE_URL}${id}/delete_user/`, { headers: authHeaders() });
-      showToast("Teacher deleted successfully.", "success");
-      setTeachers((prev) => prev.filter((t) => t.user_id != id));
-    } catch (error) {
-      console.error("Error deleting teacher:", error.response?.data || error.message);
-      showToast(
-        "Failed to delete teacher: " + (error.response?.data?.message || error.message),
-        "error"
-      );
-    }
-  };
+const deleteTeacher = async (id) => {
+  try {
+    await axios.delete(`${DELETE_URL}${id}/delete_user/`, { headers: authHeaders() });
+    setTeachers((prev) => prev.filter((t) => t.user_id !== id));
+    showToast("Teacher deleted successfully.", "success");
+  } catch (error) {
+    console.error("Error deleting teacher:", error.response?.data || error.message);
+    showToast(
+      "Failed to delete teacher: " + (error.response?.data?.message || error.message),
+      "error"
+    );
+  }
+};
+
 
   const openEditModal = (teacher) => {
     setSelectedTeacher(teacher);
@@ -244,9 +251,13 @@ const TeacherDetails = () => {
       <Toaster
         message={toaster.message}
         type={toaster.type}
-        duration={toaster.type === "confirmation" ? 5000 : 3000}
+        duration={3000}
+        // duration={toaster.type === "confirmation" ? 5000 : 3000}
         onClose={() => setToaster({ message: "", type: "success" })}
+        onConfirm={toaster.onConfirm}
+        onCancel={toaster.onCancel}
       />
+
 
       {/* Header bar (compact) */}
       <div className="bg-blue-900 text-white rounded-md flex items-center justify-between px-2 py-2 mt-2">

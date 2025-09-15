@@ -643,7 +643,7 @@ const StudentResults = () => {
               {showForm ? "Close Form" : "Add New Result"}
             </button>
           )}
-         
+
         </div>
       </div>
 
@@ -1174,52 +1174,75 @@ const StudentResults = () => {
       )}
 
       {viewModalData && canView && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 backdrop-blur-sm flex items-center justify-center z-50 px-2">
-          <div className="bg-white rounded-xl shadow-2xl w-full max-w-sm max-h-[70vh] border border-gray-200 p-3 overflow-y-auto">
-            <div className="mb-3 border-b pb-1">
-              <h3 className="text-lg font-bold text-blue-800 text-center">
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 px-3">
+          <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl border border-gray-200 overflow-hidden animate-fadeIn">
+
+            {/* Header */}
+            <div className="px-5 py-3 border-b bg-blue-50 text-center">
+              <h3 className="text-lg font-bold text-blue-800 flex items-center justify-center gap-2">
                 📄 Student Result Details
               </h3>
             </div>
-            <div className="grid grid-cols-1 gap-y-1 text-xs text-gray-700">
-              <div className="font-semibold text-blue-900 border-b pb-0.5">
-                👤 Student Information
-              </div>
+
+            {/* Content */}
+            <div className="px-5 py-4 overflow-y-auto max-h-[65vh] text-sm text-gray-700 space-y-4">
+
+              {/* Student Info Section */}
               <div>
-                <span className="font-semibold">Student Name:</span>{" "}
-                {viewModalData.student_name}
+                <h4 className="text-sm font-semibold text-blue-900 border-b pb-1 mb-2">
+                  👤 Student Information
+                </h4>
+                <div className="space-y-2">
+                  <div className="flex justify-between border-b pb-1">
+                    <span className="text-gray-500 font-medium">Student Name</span>
+                    <span className="font-semibold text-gray-800">{viewModalData.student_name}</span>
+                  </div>
+                  <div className="flex justify-between border-b pb-1">
+                    <span className="text-gray-500 font-medium">Class</span>
+                    <span className="font-semibold text-gray-800">{viewModalData.class_name}</span>
+                  </div>
+                  <div className="flex justify-between border-b pb-1">
+                    <span className="text-gray-500 font-medium">Exam</span>
+                    <span className="font-semibold text-gray-800">{viewModalData.exam_term}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-500 font-medium">Subject</span>
+                    <span className="font-semibold text-gray-800">{viewModalData.subject_name}</span>
+                  </div>
+                </div>
               </div>
+
+              {/* Result Section */}
               <div>
-                <span className="font-semibold">Class:</span> {viewModalData.class_name}
-              </div>
-              <div>
-                <span className="font-semibold">Exam:</span> {viewModalData.exam_term}
-              </div>
-              <div>
-                <span className="font-semibold">Subject:</span> {viewModalData.subject_name}
-              </div>
-              <div className="font-semibold text-blue-900 border-b pt-1 pb-0.5">
-                📋 Result Details
-              </div>
-              <div>
-                <span className="font-semibold">Marks Obtained:</span>{" "}
-                {viewModalData.marks_obtained}
-              </div>
-              <div>
-                <span className="font-semibold">Total Marks:</span> {viewModalData.total_marks}
-              </div>
-              <div>
-                <span className="font-semibold">Grade:</span> {viewModalData.grade}
-              </div>
-              <div>
-                <span className="font-semibold">Remarks:</span>{" "}
-                {viewModalData.remarks || "—"}
+                <h4 className="text-sm font-semibold text-blue-900 border-b pb-1 mb-2">
+                  📋 Result Details
+                </h4>
+                <div className="space-y-2">
+                  <div className="flex justify-between border-b pb-1">
+                    <span className="text-gray-500 font-medium">Marks Obtained</span>
+                    <span className="font-semibold text-green-700">{viewModalData.marks_obtained}</span>
+                  </div>
+                  <div className="flex justify-between border-b pb-1">
+                    <span className="text-gray-500 font-medium">Total Marks</span>
+                    <span className="font-semibold text-gray-800">{viewModalData.total_marks}</span>
+                  </div>
+                  <div className="flex justify-between border-b pb-1">
+                    <span className="text-gray-500 font-medium">Grade</span>
+                    <span className="font-semibold text-blue-700">{viewModalData.grade}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-500 font-medium">Remarks</span>
+                    <span className="font-semibold text-gray-800">{viewModalData.remarks || "—"}</span>
+                  </div>
+                </div>
               </div>
             </div>
-            <div className="mt-2 text-center">
+
+            {/* Footer */}
+            <div className="flex justify-center px-5 py-3 border-t bg-gray-50">
               <button
                 onClick={() => setViewModalData(null)}
-                className="px-3 py-1 bg-blue-700 text-white rounded-full shadow text-xs hover:bg-blue-800 transition"
+                className="bg-blue-700 hover:bg-blue-800 text-white px-6 py-2 rounded-lg shadow text-sm font-medium transition"
               >
                 Close
               </button>
@@ -1227,6 +1250,7 @@ const StudentResults = () => {
           </div>
         </div>
       )}
+
     </div>
   );
 };

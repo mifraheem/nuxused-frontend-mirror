@@ -21,13 +21,13 @@ const Noticeboard = () => {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
   const [totalPages, setTotalPages] = useState(1);
-  const [toaster, setToaster] = useState({ message: '', type: 'success' });
+  const [toaster, setToaster] = useState({ message: "", type: "success", onConfirm: null, onCancel: null });
 
   const API = import.meta.env.VITE_SERVER_URL;
   const API_URL = `${API}announcements/`;
 
-  const showToast = (message, type = 'success') => {
-    setToaster({ message, type });
+  const showToast = (message, type = "success", onConfirm = null, onCancel = null) => {
+    setToaster({ message, type, onConfirm, onCancel });
   };
 
   // Fetch notices from the API
@@ -37,7 +37,10 @@ const Noticeboard = () => {
 
     try {
       const token = Cookies.get("access_token");
-      if (!token) throw new Error("User is not authenticated.");
+      if (!token) {
+        showToast("User is not authenticated.", "error", null, null);
+        return;
+      }
 
       const response = await axios.get(
         `${API_URL}?page=${page}&page_size=${pageSize}`,
@@ -55,9 +58,14 @@ const Noticeboard = () => {
         throw new Error("Unexpected API response format.");
       }
     } catch (error) {
-      console.error("Error fetching notices:", error.response || error.message);
+      console.error("Error fetching notices:", error.response?.data || error.message);
       setError("Failed to fetch notices. Please try again later.");
-      showToast("Failed to fetch notices.", "error");
+      showToast(
+        error.response?.data?.message || "Failed to fetch notices.",
+        "error",
+        null,
+        null
+      );
     } finally {
       setLoading(false);
     }
@@ -66,14 +74,14 @@ const Noticeboard = () => {
   // Create a new notice
   const handleAddNotice = async () => {
     if (!newNotice.title || !newNotice.description) {
-      showToast("All fields are required!", "error");
+      showToast("All fields are required!", "error", null, null);
       return;
     }
 
     try {
       const token = Cookies.get("access_token");
       if (!token) {
-        showToast("User is not authenticated.", "error");
+        showToast("User is not authenticated.", "error", null, null);
         return;
       }
 
@@ -85,10 +93,8 @@ const Noticeboard = () => {
         }
       );
 
-      console.log("Create Notice Response:", response.data);
-
       if (response.status === 201) {
-        showToast("Notice created successfully!", "success");
+        showToast("Notice created successfully!", "success", null, null);
         fetchNotices();
         setNewNotice({ title: "", description: "", announced_for: "all" });
         setShowForm(false);
@@ -96,65 +102,53 @@ const Noticeboard = () => {
         throw new Error("Unexpected server response.");
       }
     } catch (error) {
-      console.error("Error creating notice:", error.response || error.message);
+      console.error("Error creating notice:", error.response?.data || error.message);
       showToast(
         error.response?.data?.message || "Failed to create notice. Please try again.",
-        "error"
+        "error",
+        null,
+        null
       );
     }
   };
 
   // Delete a notice with confirmation
-  const handleDeleteNotice = async (id) => {
+  const handleDeleteNotice = (id) => {
     if (!canDelete) {
-      showToast("You do not have permission to delete announcements.", "error");
+      showToast("You do not have permission to delete announcements.", "error", null, null);
       return;
     }
 
     showToast(
-      {
-        message: "Are you sure you want to delete this notice?",
-        type: "confirm",
-        onConfirm: async () => {
-          try {
-            const token = Cookies.get("access_token");
-            if (!token) {
-              throw new Error("User is not authenticated.");
-            }
-            await axios.delete(`${API_URL}${id}/`, {
-              headers: { Authorization: `Bearer ${token}` },
-            });
-            showToast("Notice deleted successfully!", "success");
-            setNotices((prevNotices) => prevNotices.filter((notice) => notice.id !== id));
-          } catch (error) {
-            console.error("Error deleting notice:", error.response || error.message);
-            showToast("Failed to delete notice. Please try again.", "error");
+      "Are you sure you want to delete this notice?",
+      "confirmation",
+      async () => {
+        try {
+          const token = Cookies.get("access_token");
+          if (!token) {
+            showToast("User is not authenticated.", "error", null, null);
+            return;
           }
-        },
-        onCancel: () => setToaster({ message: "", type: "success" })
+          await axios.delete(`${API_URL}${id}/`, {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+          showToast("Notice deleted successfully!", "success", null, null);
+          setNotices((prevNotices) => prevNotices.filter((notice) => notice.id !== id));
+          fetchNotices();
+        } catch (error) {
+          console.error("Error deleting notice:", error.response?.data || error.message);
+          showToast(
+            error.response?.data?.message || "Failed to delete notice. Please try again.",
+            "error",
+            null,
+            null
+          );
+        }
       },
-      "confirm"
-    );
-  };
-
-  // Function to delete notice (called within handleDeleteNotice)
-  const deleteNotice = async (id) => {
-    try {
-      const token = Cookies.get("access_token");
-      if (!token) {
-        throw new Error("User is not authenticated.");
+      () => {
+        showToast("", "success", null, null);
       }
-
-      await axios.delete(`${API_URL}${id}/`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-
-      showToast("Notice deleted successfully!", "success");
-      setNotices((prevNotices) => prevNotices.filter((notice) => notice.id !== id));
-    } catch (error) {
-      console.error("Error deleting notice:", error.response || error.message);
-      showToast("Failed to delete notice. Please try again.", "error");
-    }
+    );
   };
 
   // Handle Edit Notice
@@ -172,14 +166,14 @@ const Noticeboard = () => {
   // Update Notice
   const handleUpdateNotice = async () => {
     if (!newNotice.title || !newNotice.description) {
-      showToast("All fields are required!", "error");
+      showToast("All fields are required!", "error", null, null);
       return;
     }
 
     try {
       const token = Cookies.get("access_token");
       if (!token) {
-        showToast("User is not authenticated.", "error");
+        showToast("User is not authenticated.", "error", null, null);
         return;
       }
 
@@ -192,7 +186,7 @@ const Noticeboard = () => {
       );
 
       if (response.status === 200) {
-        showToast("Notice updated successfully!", "success");
+        showToast("Notice updated successfully!", "success", null, null);
         fetchNotices();
         setShowForm(false);
         setNewNotice({ title: "", description: "", announced_for: "all" });
@@ -201,8 +195,13 @@ const Noticeboard = () => {
         throw new Error("Failed to update notice");
       }
     } catch (error) {
-      console.error("Error updating notice:", error);
-      showToast("Failed to update notice. Please try again.", "error");
+      console.error("Error updating notice:", error.response?.data || error.message);
+      showToast(
+        error.response?.data?.message || "Failed to update notice. Please try again.",
+        "error",
+        null,
+        null
+      );
     }
   };
 
@@ -223,9 +222,10 @@ const Noticeboard = () => {
         message={toaster.message}
         type={toaster.type}
         duration={3000}
-        onClose={() => setToaster({ message: "", type: "success" })}
+        onClose={() => setToaster({ message: "", type: "success", onConfirm: null, onCancel: null })}
         onConfirm={toaster.onConfirm}
         onCancel={toaster.onCancel}
+        allowNoDataErrors={true}
       />
       <div className="bg-blue-900 text-white py-2 px-6 rounded-md flex justify-between items-center mt-5">
         <h1 className="text-xl font-bold">School Noticeboard</h1>
@@ -324,7 +324,7 @@ const Noticeboard = () => {
             </div>
           </div>
         )}
-        {/* data table */}
+        {/* Data table */}
         {loading ? (
           <p className="text-center text-gray-500">Loading...</p>
         ) : error ? (
@@ -332,7 +332,7 @@ const Noticeboard = () => {
         ) : notices.length > 0 ? (
           <div className="mt-6">
             <Buttons
-              data={notices.map((n,index) => ({
+              data={notices.map((n, index) => ({
                 "S.No": (page - 1) * pageSize + index + 1,
                 Title: n.title,
                 Description: n.description,

@@ -44,13 +44,9 @@ const CreateExam = () => {
 
   const printRef = useRef();
 
-  const API = import.meta.env.VITE_SERVER_URL ;
+  const API = import.meta.env.VITE_SERVER_URL;
   const API_URL = `${API}exams/`;
 
-  // Toast helper
-  const showToast = (message, type = 'success') => {
-    setToaster({ message, type });
-  };
 
   const getClasses = async () => {
     try {
@@ -106,7 +102,7 @@ const CreateExam = () => {
       if (filters.term_name) url += `&term_name=${filters.term_name}`;
       if (filters.session) url += `&session=${filters.session}`;
       if (filters.class_id) url += `&class_id=${filters.class_id}`;
-      
+
       const res = await apiRequest(url);
       const data = res.data || res;
 
@@ -204,6 +200,10 @@ const CreateExam = () => {
     }
   };
 
+  const showToast = (message, type = 'success', onConfirm, onCancel) => {
+    setToaster({ message, type, onConfirm, onCancel });
+  };
+
   const handleDeleteExam = (id) => {
     const permissions = JSON.parse(localStorage.getItem('user_permissions') || '[]');
     const canDelete = permissions.includes('users.delete_exam');
@@ -213,27 +213,29 @@ const CreateExam = () => {
       return;
     }
 
-    showToast(
-      {
-        message: 'Are you sure you want to delete this exam?',
-        type: 'confirm',
-        onConfirm: async () => {
-          try {
-            const token = Cookies.get('access_token');
-            await axios.delete(`${API_URL}${id}/`, {
-              headers: { Authorization: `Bearer ${token}` }
-            });
-            showToast('Exam deleted successfully!', 'success');
-            setExams((prev) => prev.filter((exam) => exam.id !== id));
-          } catch (error) {
-            showToast('Failed to delete exam', 'error');
-            console.error(error);
-          }
-        },
-        onCancel: () => setToaster({ message: '', type: 'success' })
+    setToaster({
+      message: 'Are you sure you want to delete this exam?',
+      type: 'confirmation',
+      onConfirm: async () => {
+        try {
+          const token = Cookies.get('access_token');
+          await axios.delete(`${API_URL}${id}/`, {
+            headers: { Authorization: `Bearer ${token}` }
+          });
+          setToaster({ message: 'Exam deleted successfully!', type: 'success' });
+          setExams((prev) => prev.filter((exam) => exam.id !== id));
+        } catch (error) {
+          setToaster({
+            message: 'Failed to delete exam: ' + (error.response?.data?.message || error.message),
+            type: 'error'
+          });
+          console.error(error);
+        }
       },
-      'confirm'
-    );
+      onCancel: () => {
+        setToaster({ message: 'Delete cancelled', type: 'error' });
+      }
+    });
   };
 
   const handleFilterChange = (field, value) => {

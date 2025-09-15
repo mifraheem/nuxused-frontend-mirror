@@ -13,7 +13,12 @@ const StudentInfo = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [pageSize, setPageSize] = useState(10);
-  const [toaster, setToaster] = useState({ message: "", type: "success" });
+  const [toaster, setToaster] = useState({
+    message: "",
+    type: "success",
+    onConfirm: null,
+    onCancel: null
+  });
   const [confirmResolve, setConfirmResolve] = useState(null);
 
   const API = import.meta.env.VITE_SERVER_URL;
@@ -34,37 +39,19 @@ const StudentInfo = () => {
     setToaster({ message, type });
   };
 
-  const confirmToast = (message = "Delete this student?") => {
-    return new Promise((resolve) => {
-      setConfirmResolve(() => resolve); // Store the resolve function
-      setToaster({
-        message: (
-          <div className="flex flex-col gap-4">
-            <p className="text-lg font-medium">{message}</p>
-            <div className="flex justify-end gap-2">
-              <button
-                onClick={() => {
-                  setToaster({ message: "", type: "success" });
-                  resolve(true);
-                }}
-                className="px-3 py-1.5 rounded-md bg-red-600 text-white text-sm hover:bg-red-700"
-              >
-                Yes
-              </button>
-              <button
-                onClick={() => {
-                  setToaster({ message: "", type: "success" });
-                  resolve(false);
-                }}
-                className="px-3 py-1.5 rounded-md border border-gray-300 text-sm hover:bg-gray-50"
-              >
-                No
-              </button>
-            </div>
-          </div>
-        ),
-        type: "confirmation",
-      });
+  const confirmToast = (message, studentId) => {
+    setToaster({
+      message: message,
+      type: "confirmation",
+      onConfirm: () => {
+        console.log("User confirmed delete for ID:", studentId);
+        deleteStudent(studentId);
+        setToaster({ message: "", type: "success" }); // Clear toaster
+      },
+      onCancel: () => {
+        console.log("User cancelled delete");
+        setToaster({ message: "", type: "success" }); // Clear toaster
+      }
     });
   };
 
@@ -137,16 +124,21 @@ const StudentInfo = () => {
   };
 
   const deleteStudent = async (id) => {
+    console.log("Starting delete for ID:", id); // Debug log
     try {
       if (!id) {
         showToast("Invalid student ID.", "error");
         return;
       }
 
-      const response = await axios.delete(
-        `${API}api/auth/users/${id}/delete_user/`,
-        { headers: authHeaders() }
-      );
+      const deleteUrl = `${API}api/auth/users/${id}/delete_user/`;
+      console.log("Delete URL:", deleteUrl); // Debug log
+
+      const response = await axios.delete(deleteUrl, {
+        headers: authHeaders()
+      });
+
+      console.log("Delete response:", response); // Debug log
 
       if ([200, 202, 204].includes(response.status)) {
         if (response.status === 202) {
@@ -157,36 +149,50 @@ const StudentInfo = () => {
           }, 10000);
         } else {
           setStudents((prev) => prev.filter((s) => s.user_id !== id));
-          showToast("Student deleted.", "success");
+          showToast("Student deleted successfully.", "success");
+
+          // Refresh the list to ensure consistency
+          fetchStudents(currentPage, pageSize);
         }
       } else {
         showToast("Failed to delete student: Unexpected status code.", "error");
       }
     } catch (error) {
-      console.error("Error deleting student:", error.response || error.message);
-      showToast(
-        error.response?.data?.detail ||
-        error.response?.data?.message ||
-        "Failed to delete student.",
-        "error"
-      );
+      console.error("Error deleting student:", error);
+      console.error("Error response:", error.response?.data);
+
+      let errorMessage = "Failed to delete student: ";
+      if (error.response?.status === 404) {
+        errorMessage += "Student not found.";
+      } else if (error.response?.status === 403) {
+        errorMessage += "Permission denied.";
+      } else if (error.response?.status === 400) {
+        errorMessage += "Invalid request.";
+      } else {
+        errorMessage += (error.response?.data?.detail ||
+          error.response?.data?.message ||
+          error.message);
+      }
+
+      showToast(errorMessage, "error");
     }
   };
 
   const confirmDeleteStudent = async (id) => {
+    console.log("Delete clicked for ID:", id); // Debug log
+
     if (!id) {
       showToast("Invalid student ID.", "error");
       return;
     }
+
     if (!canDelete) {
-      showToast("You don’t have permission to delete student profiles.", "error");
+      showToast("You don't have permission to delete student profiles.", "error");
       return;
     }
 
-    const ok = await confirmToast("Delete this student?");
-    if (ok) {
-      deleteStudent(id);
-    }
+    // Use the Toaster's built-in confirmation functionality
+    confirmToast("Are you sure you want to delete this student? This action cannot be undone.", id);
   };
 
   const openViewModal = (student) => {
@@ -218,8 +224,10 @@ const StudentInfo = () => {
       <Toaster
         message={toaster.message}
         type={toaster.type}
-        duration={toaster.type === "confirmation" ? 5000 : 3000}
+        duration={toaster.type === "confirmation" ? 10000 : 3000} // Longer duration for confirmations
         onClose={() => setToaster({ message: "", type: "success" })}
+        onConfirm={toaster.onConfirm} // Pass the confirm handler
+        onCancel={toaster.onCancel}   // Pass the cancel handler
       />
 
       {/* Header bar */}

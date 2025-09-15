@@ -21,7 +21,7 @@ const FinalResults = () => {
   const [viewModalData, setViewModalData] = useState(null);
   const [toaster, setToaster] = useState({ message: "", type: "success" });
 
-  const API = import.meta.env.VITE_SERVER_URL ;
+  const API = import.meta.env.VITE_SERVER_URL;
   const API_URL = `${API}/final-results/`;
 
   const permissions = JSON.parse(localStorage.getItem("user_permissions") || "[]");
@@ -350,40 +350,90 @@ const FinalResults = () => {
       </div>
 
       {viewModalData && canView && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 backdrop-blur-sm flex items-center justify-center z-50 px-2">
-          <div className="bg-white rounded-lg shadow-2xl w-full max-w-sm max-h-[70vh] border border-gray-200 p-3 overflow-hidden">
-            <div className="overflow-y-auto max-h-[60vh] pr-1">
-              <div className="mb-2 border-b pb-1">
-                <h3 className="text-sm font-bold text-blue-800 text-center">📄 Final Result Details</h3>
-              </div>
-              <div className="grid grid-cols-1 gap-1 text-xs text-gray-700">
-                <div className="col-span-1 font-semibold text-blue-900 border-b pb-0.5">👤 Student Info</div>
-                <div><span className="font-semibold">ID:</span> {viewModalData.student}</div>
-                <div><span className="font-semibold">Name:</span> {viewModalData.student_name}</div>
-                <div><span className="font-semibold">Class:</span> {viewModalData.class_name}</div>
-                <div><span className="font-semibold">Exam ID:</span> {viewModalData.exam}</div>
-                <div><span className="font-semibold">Term:</span> {viewModalData.exam_term}</div>
-                <div className="col-span-1 font-semibold text-blue-900 border-b pt-1 pb-0.5">📋 Result</div>
-                <div><span className="font-semibold">Marks:</span> {viewModalData.total_marks_obtained}</div>
-                <div><span className="font-semibold">Total:</span> {viewModalData.total_marks}</div>
-                <div><span className="font-semibold">%</span> {viewModalData.percentage}%</div>
-                <div><span className="font-semibold">Grade:</span> {viewModalData.grade}</div>
-                <div><span className="font-semibold">Pending:</span> {viewModalData.pending_subjects}</div>
-                <div><span className="font-semibold">Status:</span>
-                  <span className={`ml-0.5 px-1 py-0.5 rounded-full text-xs font-semibold ${viewModalData.is_complete
-                    ? "bg-green-100 text-green-800"
-                    : "bg-yellow-100 text-yellow-800"
-                    }`}>
-                    {viewModalData.is_complete ? "Complete" : "Incomplete"}
-                  </span>
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 px-3">
+          <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl border border-gray-200 overflow-hidden animate-fadeIn">
+
+            {/* Header */}
+            <div className="px-5 py-3 border-b bg-blue-50 text-center">
+              <h3 className="text-base font-bold text-blue-800 flex items-center justify-center gap-2">
+                📄 Final Result Details
+              </h3>
+            </div>
+
+            {/* Content */}
+            <div className="px-5 py-4 overflow-y-auto max-h-[65vh] text-sm text-gray-700 space-y-4">
+
+              {/* Student Info */}
+              <div>
+                <h4 className="text-sm font-semibold text-blue-900 border-b pb-1 mb-2">
+                  👤 Student Information
+                </h4>
+                <div className="space-y-2">
+                  <div className="flex justify-between border-b pb-1">
+                    <span className="text-gray-500 font-medium">Name</span>
+                    <span className="font-semibold">{viewModalData.student_name}</span>
+                  </div>
+                  <div className="flex justify-between border-b pb-1">
+                    <span className="text-gray-500 font-medium">Class</span>
+                    <span className="font-semibold">{viewModalData.class_name}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-500 font-medium">Term</span>
+                    <span className="font-semibold">{viewModalData.exam_term}</span>
+                  </div>
                 </div>
-                <div className="col-span-1"><span className="font-semibold">Remarks:</span> {viewModalData.remarks || "—"}</div>
+              </div>
+
+              {/* Result */}
+              <div>
+                <h4 className="text-sm font-semibold text-blue-900 border-b pb-1 mb-2">
+                  📋 Result
+                </h4>
+                <div className="space-y-2">
+                  <div className="flex justify-between border-b pb-1">
+                    <span className="text-gray-500 font-medium">Marks Obtained</span>
+                    <span className="font-semibold text-green-700">{viewModalData.total_marks_obtained}</span>
+                  </div>
+                  <div className="flex justify-between border-b pb-1">
+                    <span className="text-gray-500 font-medium">Total Marks</span>
+                    <span className="font-semibold">{viewModalData.total_marks}</span>
+                  </div>
+                  <div className="flex justify-between border-b pb-1">
+                    <span className="text-gray-500 font-medium">Percentage</span>
+                    <span className="font-semibold text-blue-700">{viewModalData.percentage}%</span>
+                  </div>
+                  <div className="flex justify-between border-b pb-1">
+                    <span className="text-gray-500 font-medium">Grade</span>
+                    <span className="font-semibold text-purple-700">{viewModalData.grade}</span>
+                  </div>
+                  <div className="flex justify-between border-b pb-1">
+                    <span className="text-gray-500 font-medium">Pending Subjects</span>
+                    <span className="font-semibold text-red-600">{viewModalData.pending_subjects}</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-500 font-medium">Status</span>
+                    <span
+                      className={`px-2 py-0.5 rounded-full text-xs font-semibold ${viewModalData.is_complete
+                          ? "bg-green-100 text-green-800"
+                          : "bg-yellow-100 text-yellow-800"
+                        }`}
+                    >
+                      {viewModalData.is_complete ? "Complete" : "Incomplete"}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-500 font-medium">Remarks</span>
+                    <span className="font-semibold">{viewModalData.remarks || "—"}</span>
+                  </div>
+                </div>
               </div>
             </div>
-            <div className="mt-2 text-center">
+
+            {/* Footer */}
+            <div className="flex justify-center px-5 py-3 border-t bg-gray-50">
               <button
                 onClick={() => setViewModalData(null)}
-                className="px-3 py-1 bg-blue-700 text-white rounded-full shadow hover:bg-blue-800 text-xs"
+                className="bg-blue-700 hover:bg-blue-800 text-white px-6 py-2 rounded-lg shadow text-sm font-medium transition"
               >
                 Close
               </button>
@@ -391,6 +441,7 @@ const FinalResults = () => {
           </div>
         </div>
       )}
+
     </div>
   );
 };

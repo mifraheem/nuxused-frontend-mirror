@@ -26,7 +26,7 @@ const WeeklyTaskManager = () => {
     teacher: "",
   });
   const [isTeachersLoaded, setIsTeachersLoaded] = useState(false);
-  const [toaster, setToaster] = useState({ message: '', type: 'success' });
+  const [toaster, setToaster] = useState({ message: "", type: "success", onConfirm: null, onCancel: null });
   const [isLoading, setIsLoading] = useState(true);
 
   const API = import.meta.env.VITE_SERVER_URL;
@@ -40,8 +40,8 @@ const WeeklyTaskManager = () => {
     };
   };
 
-  const showToast = (message, type = 'success') => {
-    setToaster({ message, type });
+  const showToast = (message, type = "success", onConfirm = null, onCancel = null) => {
+    setToaster({ message, type, onConfirm, onCancel });
   };
 
   const fetchTeachers = async () => {
@@ -79,12 +79,12 @@ const WeeklyTaskManager = () => {
       setTeachers(normalized);
       setIsTeachersLoaded(true);
       if (normalized.length === 0) {
-        showToast("No valid teachers found with UUIDs.", "error");
+        showToast("No valid teachers found with UUIDs.", "error", null, null);
       }
       return normalized;
     } catch (e) {
       console.error("Error fetching teachers:", e.response?.data || e.message);
-      showToast(e.response?.data?.message || "Failed to load teachers.", "error");
+      showToast(e.response?.data?.message || "Failed to load teachers.", "error", null, null);
       setIsTeachersLoaded(true);
       return [];
     }
@@ -102,11 +102,11 @@ const WeeklyTaskManager = () => {
         setTasks(Array.isArray(results) ? results : []);
         setTotalPages(total_pages || 1);
       } else {
-        showToast("Unexpected API response format.", "error");
+        showToast("Unexpected API response format.", "error", null, null);
       }
     } catch (error) {
       console.error("Task fetch error:", error.response?.data || error.message);
-      showToast(error.response?.data?.message || "Failed to fetch tasks.", "error");
+      showToast(error.response?.data?.message || "Failed to fetch tasks.", "error", null, null);
     } finally {
       setIsLoading(false);
     }
@@ -123,7 +123,7 @@ const WeeklyTaskManager = () => {
 
   const handleSaveTask = async () => {
     if (!newTask.title || !newTask.description || !newTask.start_date || !newTask.due_date || !newTask.teacher) {
-      showToast("All fields are required!", "error");
+      showToast("All fields are required!", "error", null, null);
       return;
     }
 
@@ -140,14 +140,14 @@ const WeeklyTaskManager = () => {
 
       const selectedTeacher = teachers.find(t => t.value === newTask.teacher);
       if (!selectedTeacher?.value) {
-        showToast("Please select a valid teacher.", "error");
+        showToast("Please select a valid teacher.", "error", null, null);
         return;
       }
       const teacherUUID = selectedTeacher.value;
 
       const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
       if (!uuidRegex.test(teacherUUID)) {
-        showToast("Selected teacher ID is not a valid UUID.", "error");
+        showToast("Selected teacher ID is not a valid UUID.", "error", null, null);
         console.error("Invalid teacher UUID:", teacherUUID, selectedTeacher);
         return;
       }
@@ -208,10 +208,10 @@ const WeeklyTaskManager = () => {
           setTasks((prev) =>
             prev.map((task) => (task.id === updatedTask.id ? updatedTask : task))
           );
-          showToast("Task updated successfully!", "success");
+          showToast("Task updated successfully!", "success", null, null);
         } else {
           setTasks((prev) => [updatedTask, ...prev]);
-          showToast("Task created successfully!", "success");
+          showToast("Task created successfully!", "success", null, null);
         }
         await fetchTasks();
       }
@@ -240,36 +240,45 @@ const WeeklyTaskManager = () => {
         error.response?.data?.message ||
         error.response?.data?.error ||
         "Failed to save task.";
-      showToast(errorMessage, "error");
+      showToast(errorMessage, "error", null, null);
     }
   };
 
   const handleDeleteTask = (id) => {
     if (!canDelete) {
-      showToast("You do not have permission to delete faculty tasks.", "error");
+      showToast("You do not have permission to delete faculty tasks.", "error", null, null);
       return;
     }
 
     showToast(
-      {
-        message: "Are you sure you want to delete this task?",
-        type: "confirm",
-        onConfirm: async () => {
-          try {
-            await axios.delete(`${API_URL}${id}/`, {
-              headers: authHeaders(),
-            });
-            showToast("Task deleted successfully!", "success");
-            setTasks((prevTasks) =>
-              prevTasks.filter((task) => task.id !== id)
-            );
-          } catch (error) {
-            showToast(error.response?.data?.message || "Failed to delete task.", "error");
+      "Are you sure you want to delete this task?",
+      "confirmation",
+      async () => {
+        try {
+          const token = Cookies.get("access_token");
+          if (!token) {
+            showToast("User is not authenticated.", "error", null, null);
+            return;
           }
-        },
-        onCancel: () => setToaster({ message: "", type: "success" })
+          await axios.delete(`${API_URL}${id}/`, {
+            headers: authHeaders(),
+          });
+          showToast("Task deleted successfully!", "success", null, null);
+          setTasks((prevTasks) => prevTasks.filter((task) => task.id !== id));
+          fetchTasks();
+        } catch (error) {
+          console.error("Error deleting task:", error.response?.data || error.message);
+          showToast(
+            error.response?.data?.message || "Failed to delete task.",
+            "error",
+            null,
+            null
+          );
+        }
       },
-      "confirm"
+      () => {
+        showToast("", "success", null, null);
+      }
     );
   };
 
@@ -336,19 +345,19 @@ const WeeklyTaskManager = () => {
     <div className="flex flex-col items-center justify-center py-16 px-4 text-center bg-gradient-to-br from-blue-50 to-indigo-100 rounded-lg border-2 border-dashed border-blue-300 mx-2 mt-4">
       <div className="w-24 h-24 mb-6 text-blue-300">
         <svg viewBox="0 0 24 24" fill="currentColor" className="w-full h-full">
-          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6z"/>
-          <polyline points="14,2 14,8 20,8"/>
-          <line x1="16" y1="13" x2="8" y2="13"/>
-          <line x1="16" y1="17" x2="8" y2="17"/>
-          <polyline points="10,9 9,9 8,9"/>
+          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6z" />
+          <polyline points="14,2 14,8 20,8" />
+          <line x1="16" y1="13" x2="8" y2="13" />
+          <line x1="16" y1="17" x2="8" y2="17" />
+          <polyline points="10,9 9,9 8,9" />
         </svg>
       </div>
-      
+
       <h3 className="text-xl font-bold text-blue-800 mb-2">No Tasks Yet</h3>
       <p className="text-blue-600 mb-4 max-w-md">
         You haven't created any weekly tasks yet. Start by adding your first task to get organized!
       </p>
-      
+
       {canAdd && (
         <button
           onClick={handleToggleForm}
@@ -369,9 +378,10 @@ const WeeklyTaskManager = () => {
         message={toaster.message}
         type={toaster.type}
         duration={3000}
-        onClose={() => setToaster({ message: "", type: "success" })}
+        onClose={() => setToaster({ message: "", type: "success", onConfirm: null, onCancel: null })}
         onConfirm={toaster.onConfirm}
         onCancel={toaster.onCancel}
+        allowNoDataErrors={true}
       />
       <div className="bg-blue-900 text-white py-1 px-2 rounded-md flex justify-between items-center mt-2">
         <h1 className="text-lg font-bold">Weekly Task Manager</h1>
@@ -515,7 +525,7 @@ const WeeklyTaskManager = () => {
           ) : (
             <>
               <Buttons
-                data={tasks.map((task,index) => ({
+                data={tasks.map((task, index) => ({
                   "S.No": (page - 1) * pageSize + index + 1,
                   Title: task.title,
                   Description: task.description,
@@ -607,7 +617,7 @@ const WeeklyTaskManager = () => {
                   </tbody>
                 </table>
               </div>
-              
+
               <Pagination
                 currentPage={page}
                 totalPages={totalPages}
@@ -631,54 +641,74 @@ const WeeklyTaskManager = () => {
       )}
 
       {selectedTask && (
-        <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 px-2">
-          <div className="bg-white w-full max-w-sm rounded-xl shadow-2xl border border-gray-300 overflow-hidden">
-            <div className="flex items-center justify-between px-3 py-2 border-b bg-blue-50">
-              <h2 className="text-sm font-bold text-blue-700">
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 px-3">
+          <div className="bg-white w-full max-w-lg rounded-2xl shadow-2xl border border-gray-200 overflow-hidden animate-fadeIn">
+
+            {/* Header */}
+            <div className="flex items-center justify-between px-5 py-3 border-b bg-blue-50">
+              <h2 className="text-lg font-bold text-blue-700 flex items-center gap-2">
                 📋 {selectedTask.title || "Task Details"}
               </h2>
               <button
                 onClick={() => setSelectedTask(null)}
-                className="text-gray-600 hover:text-red-600 text-xl font-bold leading-none"
+                className="w-7 h-7 flex items-center justify-center rounded-full bg-red-100 text-red-600 hover:bg-red-200 transition"
               >
                 &times;
               </button>
             </div>
-            <div className="px-3 py-2 overflow-y-auto max-h-[50vh] space-y-2 text-xs text-gray-700">
-              <div>
-                <div className="text-gray-500 font-medium">📝 Description</div>
-                <div className="mt-0.5 text-gray-800">{selectedTask.description || "—"}</div>
-              </div>
-              <div>
-                <div className="text-gray-500 font-medium">👨‍🏫 Teacher</div>
-                <div className="mt-0.5 text-gray-800">{getTeacherNames(selectedTask.teachers)}</div>
-              </div>
-              <div>
-                <div className="text-gray-500 font-medium">📅 Start Date</div>
-                <div className="mt-0.5 text-gray-800">{selectedTask.start_date?.split("T")[0] || "—"}</div>
-              </div>
-              <div>
-                <div className="text-gray-500 font-medium">⏳ Due Date</div>
-                <div className="mt-0.5 text-gray-800">{selectedTask.due_date?.split("T")[0] || "—"}</div>
-              </div>
-              {selectedTask.file && (
-                <div>
-                  <div className="text-gray-500 font-medium">📎 Attachment</div>
-                  <a
-                    href={selectedTask.file}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="mt-0.5 text-blue-600 hover:underline font-medium text-xs"
-                  >
-                    Download File
-                  </a>
+
+            {/* Content in column form */}
+            <div className="px-5 py-4 overflow-y-auto max-h-[60vh]">
+              <div className="grid grid-cols-1 gap-3 text-sm">
+                <div className="flex justify-between border-b pb-1">
+                  <span className="text-gray-500 font-medium">📝 Description</span>
+                  <span className="font-semibold text-gray-800 text-right">
+                    {selectedTask.description || "—"}
+                  </span>
                 </div>
-              )}
+
+                <div className="flex justify-between border-b pb-1">
+                  <span className="text-gray-500 font-medium">👨‍🏫 Teacher</span>
+                  <span className="font-semibold text-gray-800 text-right">
+                    {getTeacherNames(selectedTask.teachers)}
+                  </span>
+                </div>
+
+                <div className="flex justify-between border-b pb-1">
+                  <span className="text-gray-500 font-medium">📅 Start Date</span>
+                  <span className="font-semibold text-gray-800 text-right">
+                    {selectedTask.start_date?.split("T")[0] || "—"}
+                  </span>
+                </div>
+
+                <div className="flex justify-between border-b pb-1">
+                  <span className="text-gray-500 font-medium">⏳ Due Date</span>
+                  <span className="font-semibold text-gray-800 text-right">
+                    {selectedTask.due_date?.split("T")[0] || "—"}
+                  </span>
+                </div>
+
+                {selectedTask.file && (
+                  <div className="flex justify-between items-center border-b pb-1">
+                    <span className="text-gray-500 font-medium">📎 Attachment</span>
+                    <a
+                      href={selectedTask.file}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="ml-2 text-blue-600 hover:underline font-medium text-sm"
+                    >
+                      Download File
+                    </a>
+                  </div>
+                )}
+              </div>
             </div>
-            <div className="flex justify-end px-3 py-2 border-t bg-gray-50">
+
+            {/* Footer */}
+            <div className="flex justify-end px-5 py-3 border-t bg-gray-50">
               <button
                 onClick={() => setSelectedTask(null)}
-                className="bg-blue-600 hover:bg-blue-700 text-white px-2 py-1 rounded-md shadow text-xs"
+                className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2 rounded-lg shadow text-sm font-medium transition"
               >
                 Close
               </button>
@@ -686,6 +716,8 @@ const WeeklyTaskManager = () => {
           </div>
         </div>
       )}
+
+
     </div>
   );
 };
