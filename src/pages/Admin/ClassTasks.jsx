@@ -1,13 +1,15 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useContext } from "react";
+import { useOutletContext } from "react-router-dom";
 import axios from "axios";
-import Cookies from 'js-cookie'; // Import js-cookie
+import Cookies from 'js-cookie';
 import { MdEdit, MdDelete, MdVisibility } from "react-icons/md";
 import Select from "react-select";
 import { Buttons } from "../../components";
-import Pagination from "../../components/Pagination";
-import Toaster from "../../components/Toaster";// Your custom toaster
+import Toaster from "../../components/Toaster";
+import TableComponent from "../../components/TableComponent"; // Adjust the import path as needed
 
 const ClassTasks = () => {
+  const { isSidebarOpen } = useOutletContext();
   const [tasks, setTasks] = useState([]);
   const [newTask, setNewTask] = useState({
     class_schedule: "",
@@ -21,21 +23,13 @@ const ClassTasks = () => {
   const [selectedTask, setSelectedTask] = useState(null);
   const [classOptions, setClassOptions] = useState([]);
   const [showForm, setShowForm] = useState(false);
-  const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(100);
-  const [totalPages, setTotalPages] = useState(1);
-  const [totalItems, setTotalItems] = useState(0);
-  const [loading, setLoading] = useState(false);
-
-  // Custom Toaster state
   const [toaster, setToaster] = useState({ message: '', type: 'success' });
+  const [loading, setLoading] = useState(false);
+  const [totalItems, setTotalItems] = useState(0);
 
   // API configuration
   const API = import.meta.env.VITE_SERVER_URL;
   const API_URL = `${API}class-tasks/`;
-
-  // Custom toast function
-
 
   // Get permissions and auth token
   const getAuthToken = () => {
@@ -80,38 +74,20 @@ const ClassTasks = () => {
       const token = getAuthToken();
       if (!token) {
         showToast("No authentication token found. Please log in again.", "error");
-        console.error("No access_token found in localStorage.");
         return;
       }
-      const url = `${API_URL}`;
-      console.log("Fetching tasks with URL:", url);
-      const res = await axios.get(url, {
+      const res = await axios.get(API_URL, {
         headers: { Authorization: `Bearer ${token}` },
       });
-      console.log("Tasks API response:", res.data);
-
       const results = res.data?.results || [];
       if (!Array.isArray(results)) {
-        console.error("API response 'results' is not an array:", results);
         showToast("Invalid API response format.", "error");
         setTasks([]);
         return;
       }
       setTasks(results);
-      console.log("Updated tasks state:", results);
-      setTotalPages(res.data?.total_pages || 1);
-      setTotalItems(res.data?.total_items || 0);
-
-      if (results.length === 0) {
-        console.warn("No tasks found in response.");
-      }
+      setTotalItems(res.data?.total_items || results.length);
     } catch (err) {
-      console.error("Fetch tasks error:", {
-        message: err.message,
-        response: err.response?.data,
-        status: err.response?.status,
-        headers: err.response?.headers,
-      });
       showToast(
         err.response?.data?.message || `Failed to fetch tasks: ${err.message}`,
         "error"
@@ -126,22 +102,17 @@ const ClassTasks = () => {
       const token = getAuthToken();
       if (!token) {
         showToast("No authentication token found. Please log in again.", "error");
-        console.error("No access_token found in localStorage.");
         return;
       }
-      console.log("Fetching class options with URL:", `${API}classes/`);
       const res = await axios.get(`${API}/classes/`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       const classes = res.data?.data?.results || res.data?.results || [];
-      console.log("Class options response:", classes);
       setClassOptions(Array.isArray(classes) ? classes : []);
       if (classes.length === 0) {
-        console.warn("No classes found in response.");
         showToast("No classes available to select.", "error");
       }
     } catch (err) {
-      console.error("Fetch classes error:", err.response?.data || err.message);
       showToast(err.response?.data?.message || "Failed to load classes.", "error");
     }
   };
@@ -169,8 +140,6 @@ const ClassTasks = () => {
         },
       };
 
-      console.log("Saving task with payload:", newTask);
-
       if (editingTask) {
         await axios.patch(`${API_URL}${editingTask.id}/`, formData, config);
         showToast("Task updated successfully!", "success");
@@ -184,7 +153,6 @@ const ClassTasks = () => {
       setNewTask({ class_schedule: "", title: "", description: "", start_date: "", due_date: "", file: null });
       setEditingTask(null);
     } catch (err) {
-      console.error("Create/Update error:", err.response?.data || err.message);
       showToast(err.response?.data?.message || "Operation failed.", "error");
     }
   };
@@ -199,29 +167,28 @@ const ClassTasks = () => {
       return;
     }
 
-    setToaster({
-      message: "Are you sure you want to delete this task?",
-      type: "confirmation",
-      onConfirm: async () => {
+    showToast(
+      "Are you sure you want to delete this task?",
+      "confirmation",
+      async () => {
         try {
           const token = getAuthToken();
           await axios.delete(`${API_URL}${id}/`, {
             headers: { Authorization: `Bearer ${token}` },
           });
-          setToaster({ message: "Task deleted successfully!", type: "success" });
+          showToast("Task deleted successfully!", "success");
           fetchTasks();
         } catch (err) {
-          setToaster({
-            message: "Failed to delete task: " + (err.response?.data?.message || err.message),
-            type: "error"
-          });
-          console.error("Delete error:", err.response?.data || err.message);
+          showToast(
+            "Failed to delete task: " + (err.response?.data?.message || err.message),
+            "error"
+          );
         }
       },
-      onCancel: () => {
-        setToaster({ message: "Delete cancelled", type: "error" });
+      () => {
+        showToast("Delete cancelled", "error");
       }
-    });
+    );
   };
 
   const handleFileChange = (e) => {
@@ -231,12 +198,10 @@ const ClassTasks = () => {
   useEffect(() => {
     fetchTasks();
     fetchClassOptions();
-  }, [page, pageSize]);
+  }, []);
 
-  // Determine the class ID field based on classOptions structure
   const classIdField = classOptions.length > 0 && classOptions[0].uuid ? "uuid" : "id";
 
-  // Map class_schedule ID to class name for display
   const getClassName = (classSchedule) => {
     const classOption = classOptions.find((cls) => cls[classIdField] === classSchedule);
     return classOption
@@ -244,7 +209,6 @@ const ClassTasks = () => {
       : classSchedule || "N/A";
   };
 
-  // No Tasks Empty State Component
   const NoTasksMessage = () => (
     <div className="flex flex-col items-center justify-center py-16 px-4 text-center bg-gradient-to-br from-blue-50 to-indigo-100 rounded-lg border-2 border-dashed border-blue-300 mx-2 mt-4">
       <div className="w-24 h-24 mb-6 text-blue-300">
@@ -252,12 +216,10 @@ const ClassTasks = () => {
           <path d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20Z" />
         </svg>
       </div>
-
       <h3 className="text-xl font-bold text-blue-800 mb-2">No Tasks Yet</h3>
       <p className="text-blue-600 mb-4 max-w-md">
         No class tasks have been created yet. Start by adding your first task to keep students engaged!
       </p>
-
       {canAdd && (
         <button
           onClick={() => {
@@ -276,9 +238,114 @@ const ClassTasks = () => {
     </div>
   );
 
+  // Define columns for TableComponent with dynamic widths based on sidebar
+  const columns = [
+    {
+      key: "S.No",
+      label: "S.NO",
+      render: (_, index) => index + 1,
+    },
+    {
+      key: "Title",
+      label: "TITLE",
+      render: (row) => (
+        <span className={`block truncate ${isSidebarOpen ? 'max-w-[80px] sm:max-w-[120px]' : 'max-w-[120px] sm:max-w-[150px]'}`} title={row.title}>
+          {row.title}
+        </span>
+      ),
+    },
+    {
+      key: "Description",
+      label: "DESCRIPTION",
+      render: (row) => (
+        <span className={`block truncate ${isSidebarOpen ? 'max-w-[100px] sm:max-w-[150px]' : 'max-w-[150px] sm:max-w-[200px]'}`} title={row.description}>
+          {row.description.length > 20 ? `${row.description.slice(0, 20)}...` : row.description}
+        </span>
+      ),
+    },
+    {
+      key: "Start Date",
+      label: "START DATE",
+      render: (row) => (row.start_date ? new Date(row.start_date).toLocaleDateString() : "N/A"),
+    },
+    {
+      key: "Due Date",
+      label: "DUE DATE",
+      render: (row) => (row.due_date ? new Date(row.due_date).toLocaleDateString() : "N/A"),
+    },
+    {
+      key: "Teacher Name",
+      label: "TEACHER",
+      render: (row) => (
+        <span className={`block truncate ${isSidebarOpen ? 'max-w-[80px] sm:max-w-[100px]' : 'max-w-[100px] sm:max-w-[120px]'}`} title={row.teacher_name}>
+          {row.teacher_name || "N/A"}
+        </span>
+      ),
+    },
+    {
+      key: "School",
+      label: "SCHOOL",
+      render: (row) => (
+        <span className={`block truncate ${isSidebarOpen ? 'max-w-[80px] sm:max-w-[120px]' : 'max-w-[120px] sm:max-w-[150px]'}`} title={row.school}>
+          {row.school || "N/A"}
+        </span>
+      ),
+    },
+    ...(canEdit || canDelete
+      ? [
+          {
+            key: "Actions",
+            label: "ACTIONS",
+            render: (row) => (
+              <div className="flex gap-1 justify-center">
+                <MdVisibility
+                  onClick={() => setSelectedTask(row)}
+                  className="text-blue-600 cursor-pointer hover:text-blue-800"
+                  size={18}
+                  title="View"
+                />
+                {canEdit && (
+                  <MdEdit
+                    onClick={() => {
+                      setEditingTask(row);
+                      setShowForm(true);
+                      setNewTask({
+                        class_schedule: row.class_schedule || "",
+                        title: row.title,
+                        description: row.description,
+                        start_date: row.start_date?.split("T")[0] || "",
+                        due_date: row.due_date?.split("T")[0] || "",
+                        file: null,
+                      });
+                    }}
+                    className="text-yellow-500 cursor-pointer hover:text-yellow-700"
+                    size={18}
+                    title="Edit"
+                  />
+                )}
+                {canDelete && (
+                  <MdDelete
+                    onClick={() => handleDelete(row.id)}
+                    className="text-red-500 cursor-pointer hover:text-red-700"
+                    size={18}
+                    title="Delete"
+                  />
+                )}
+              </div>
+            ),
+          },
+        ]
+      : []),
+  ];
+
+  // Map tasks data for TableComponent
+  const tableData = tasks.map((task, index) => ({
+    ...task,
+    "S.No": index + 1,
+  }));
+
   return (
-    <div className="p-6">
-      {/* Custom Toaster */}
+    <div className="p-4 sm:p-6 max-w-full">
       <Toaster
         message={toaster.message}
         type={toaster.type}
@@ -288,8 +355,8 @@ const ClassTasks = () => {
         onCancel={toaster.onCancel}
       />
 
-      <div className="flex justify-between items-center bg-blue-900 text-white px-6 py-3 rounded-md">
-        <h1 className="text-xl font-bold">Class Tasks</h1>
+      <div className="flex justify-between items-center bg-blue-900 text-white px-4 sm:px-6 py-3 rounded-md">
+        <h1 className="text-lg sm:text-xl font-bold">Class Tasks</h1>
         {canAdd && (
           <button
             onClick={() => {
@@ -297,7 +364,7 @@ const ClassTasks = () => {
               setNewTask({ class_schedule: "", title: "", description: "", start_date: "", due_date: "", file: null });
               setEditingTask(null);
             }}
-            className="bg-cyan-400 px-4 py-2 rounded shadow hover:bg-cyan-500 text-xs"
+            className="bg-cyan-400 px-3 sm:px-4 py-2 rounded shadow hover:bg-cyan-500 text-xs sm:text-sm"
           >
             {showForm ? "Close Form" : "Add Task"}
           </button>
@@ -305,12 +372,11 @@ const ClassTasks = () => {
       </div>
 
       {showForm && (canAdd || canEdit) && (
-        <div className="bg-white p-6 rounded-lg shadow-md my-4">
+        <div className="bg-white p-4 sm:p-6 rounded-lg shadow-md my-4">
           <h2 className="text-lg font-semibold mb-4">
             {editingTask ? "Edit Task" : "Create Task"}
           </h2>
-
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-xs font-semibold text-gray-700 mb-0.5">
                 Class Schedule <span className="text-red-500">*</span>
@@ -318,12 +384,7 @@ const ClassTasks = () => {
               <Select
                 value={classOptions.find((cls) => cls[classIdField] === newTask.class_schedule) || null}
                 onChange={(selected) => {
-                  console.log("Selected class:", selected);
-                  setNewTask((prev) => {
-                    const updated = { ...prev, class_schedule: selected?.[classIdField] || "" };
-                    console.log("Updated newTask:", updated);
-                    return updated;
-                  });
+                  setNewTask({ ...newTask, class_schedule: selected?.[classIdField] || "" });
                 }}
                 options={classOptions}
                 getOptionLabel={(cls) => `${cls.class_name || "Unknown"} - ${cls.section || ""} (${cls.session || ""})`}
@@ -368,7 +429,7 @@ const ClassTasks = () => {
                 onChange={(e) => setNewTask({ ...newTask, due_date: e.target.value })}
               />
             </div>
-            <div className="col-span-2">
+            <div className="col-span-1 sm:col-span-2">
               <label className="block text-xs font-semibold text-gray-700 mb-0.5">
                 Description <span className="text-red-500">*</span>
               </label>
@@ -380,7 +441,7 @@ const ClassTasks = () => {
                 onChange={(e) => setNewTask({ ...newTask, description: e.target.value })}
               ></textarea>
             </div>
-            <div className="col-span-2">
+            <div className="col-span-1 sm:col-span-2">
               <label className="block text-xs font-semibold text-gray-700 mb-0.5">
                 Attachment (Optional)
               </label>
@@ -391,7 +452,6 @@ const ClassTasks = () => {
               />
             </div>
           </div>
-
           <div className="mt-4 flex justify-end gap-2">
             <button
               onClick={() => {
@@ -399,13 +459,13 @@ const ClassTasks = () => {
                 setEditingTask(null);
                 setNewTask({ class_schedule: "", title: "", description: "", start_date: "", due_date: "", file: null });
               }}
-              className="bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600 text-xs"
+              className="bg-gray-500 text-white px-3 sm:px-4 py-2 rounded hover:bg-gray-600 text-xs"
             >
               Cancel
             </button>
             <button
               onClick={handleCreateOrUpdate}
-              className="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600 text-xs"
+              className="bg-green-500 text-white px-3 sm:px-4 py-2 rounded hover:bg-green-600 text-xs"
             >
               {editingTask ? "Update" : "Save"}
             </button>
@@ -424,8 +484,7 @@ const ClassTasks = () => {
         <>
           <Buttons
             data={tasks.map((t, index) => ({
-              "S.No": (page - 1) * pageSize + index + 1,
-              // ID: t.id,
+              "S.No": index + 1,
               Title: t.title,
               Description: t.description,
               "Start Date": t.start_date ? new Date(t.start_date).toLocaleDateString() : "N/A",
@@ -436,7 +495,6 @@ const ClassTasks = () => {
             }))}
             columns={[
               { label: "S.No", key: "S.No" },
-              // { label: "ID", key: "ID" },
               { label: "Title", key: "Title" },
               { label: "Description", key: "Description" },
               { label: "Start Date", key: "Start Date" },
@@ -447,123 +505,22 @@ const ClassTasks = () => {
             ]}
             filename="Class_Tasks_Report"
           />
-          <h2 className="text-lg font-semibold text-white bg-blue-900 px-4 py-2 rounded-t-md mt-4">
+          {/* <h2 className="text-lg font-semibold text-white bg-blue-900 px-4 py-2 rounded-t-md mt-4">
             Tasks ({totalItems} total)
-          </h2>
-          <div className="overflow-x-auto">
-            <table className="w-full border bg-white rounded-b-md">
-              <thead className="bg-gray-200">
-                <tr>
-                  <th className="p-2 border text-xs font-semibold text-gray-700">S.No</th>
-                  <th className="p-2 border text-xs font-semibold text-gray-700">Title</th>
-                  <th className="p-2 border text-xs font-semibold text-gray-700">Description</th>
-                  <th className="p-2 border text-xs font-semibold text-gray-700">Start Date</th>
-                  <th className="p-2 border text-xs font-semibold text-gray-700">Due Date</th>
-                  <th className="p-2 border text-xs font-semibold text-gray-700">Teacher</th>
-                  <th className="p-2 border text-xs font-semibold text-gray-700">School</th>
-                  {(canEdit || canDelete) && (
-                    <th className="p-2 border text-xs font-semibold text-gray-700">Actions</th>
-                  )}
-                </tr>
-              </thead>
-              <tbody>
-                {tasks.map((t, index) => (
-                  <tr key={t.id} className="hover:bg-gray-50">
-                    <td className="p-2 border text-xs text-gray-800 text-center">
-                      {(page - 1) * pageSize + index + 1}
-                    </td>
-                    <td className="p-2 border text-xs text-gray-800">
-                      <span className="block max-w-[150px] truncate" title={t.title}>
-                        {t.title}
-                      </span>
-                    </td>
-                    <td className="p-2 border text-xs text-gray-800">
-                      <span className="block max-w-[200px] truncate" title={t.description}>
-                        {t.description.length > 50 ? `${t.description.slice(0, 50)}...` : t.description}
-                      </span>
-                    </td>
-                    <td className="p-2 border text-xs text-gray-800">
-                      {t.start_date ? new Date(t.start_date).toLocaleDateString() : "N/A"}
-                    </td>
-                    <td className="p-2 border text-xs text-gray-800">
-                      {t.due_date ? new Date(t.due_date).toLocaleDateString() : "N/A"}
-                    </td>
-                    <td className="p-2 border text-xs text-gray-800">
-                      <span className="block max-w-[120px] truncate" title={t.teacher_name}>
-                        {t.teacher_name || "N/A"}
-                      </span>
-                    </td>
-                    <td className="p-2 border text-xs text-gray-800">
-                      <span className="block max-w-[150px] truncate" title={t.school}>
-                        {t.school || "N/A"}
-                      </span>
-                    </td>
-                    {(canEdit || canDelete) && (
-                      <td className="p-2 border flex gap-2 justify-center text-xs">
-                        <MdVisibility
-                          onClick={() => setSelectedTask(t)}
-                          className="text-blue-600 cursor-pointer hover:text-blue-800"
-                          size={20}
-                          title="View"
-                        />
-                        {canEdit && (
-                          <MdEdit
-                            onClick={() => {
-                              setEditingTask(t);
-                              setShowForm(true);
-                              setNewTask({
-                                class_schedule: t.class_schedule || "",
-                                title: t.title,
-                                description: t.description,
-                                start_date: t.start_date?.split("T")[0] || "",
-                                due_date: t.due_date?.split("T")[0] || "",
-                                file: null,
-                              });
-                            }}
-                            className="text-yellow-500 cursor-pointer hover:text-yellow-700"
-                            size={20}
-                            title="Edit"
-                          />
-                        )}
-                        {canDelete && (
-                          <MdDelete
-                            onClick={() => handleDelete(t.id)}
-                            className="text-red-500 cursor-pointer hover:text-red-700"
-                            size={20}
-                            title="Delete"
-                          />
-                        )}
-                      </td>
-                    )}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          </h2> */}
+          <div className={`max-w-full overflow-x-auto ${isSidebarOpen ? 'pr-4' : ''}`}>
+            <TableComponent
+              data={tableData}
+              columns={columns}
+              initialSort={{ key: "S.No", direction: "asc" }}
+            />
           </div>
         </>
       )}
 
-      <Pagination
-        currentPage={page}
-        totalPages={totalPages}
-        pageSize={pageSize}
-        onPageChange={(newPage) => {
-          setPage(newPage);
-        }}
-        onPageSizeChange={(size) => {
-          setPageSize(size);
-          setPage(1);
-        }}
-        totalItems={totalItems}
-        showPageSizeSelector={true}
-        showPageInfo={true}
-      />
-
       {selectedTask && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 px-4">
           <div className="bg-white w-full max-w-lg rounded-2xl shadow-2xl border border-gray-200 overflow-hidden animate-fadeIn">
-
-            {/* Header */}
             <div className="flex justify-between items-center px-5 py-3 border-b bg-blue-50">
               <h2 className="text-lg font-bold text-blue-800 flex items-center gap-2">
                 📋 Task Details
@@ -576,25 +533,17 @@ const ClassTasks = () => {
                 ✖
               </button>
             </div>
-
-            {/* Content */}
             <div className="px-5 py-4 overflow-y-auto max-h-[65vh] text-sm text-gray-700 space-y-4">
-
-              {/* Title */}
               <div className="flex justify-between border-b pb-2">
                 <span className="font-medium text-gray-500">📌 Title</span>
                 <span className="font-semibold text-gray-800 text-right">{selectedTask.title}</span>
               </div>
-
-              {/* Description */}
               <div>
                 <span className="font-medium text-gray-500 block mb-1">📝 Description</span>
                 <div className="bg-gray-50 border border-gray-200 rounded-md p-3 text-gray-800 leading-relaxed">
                   {selectedTask.description || "—"}
                 </div>
               </div>
-
-              {/* Dates */}
               <div className="grid grid-cols-2 gap-4">
                 <div className="flex flex-col">
                   <span className="font-medium text-gray-500">📅 Start Date</span>
@@ -609,20 +558,14 @@ const ClassTasks = () => {
                   </span>
                 </div>
               </div>
-
-              {/* Teacher */}
               <div className="flex justify-between border-b pb-2">
                 <span className="font-medium text-gray-500">👨‍🏫 Teacher</span>
                 <span className="font-semibold text-gray-800">{selectedTask.teacher_name || "N/A"}</span>
               </div>
-
-              {/* School */}
               <div className="flex justify-between border-b pb-2">
                 <span className="font-medium text-gray-500">🏫 School</span>
                 <span className="font-semibold text-gray-800">{selectedTask.school || "N/A"}</span>
               </div>
-
-              {/* Attachment */}
               {selectedTask.file && (
                 <div className="flex justify-between items-center border-b pb-2">
                   <span className="font-medium text-gray-500">📎 Attachment</span>
@@ -636,19 +579,13 @@ const ClassTasks = () => {
                   </a>
                 </div>
               )}
-
-              {/* Created */}
               <div className="flex justify-between border-b pb-2">
                 <span className="font-medium text-gray-500">📅 Created</span>
                 <span className="font-semibold text-gray-800">
                   {selectedTask.created ? new Date(selectedTask.created).toLocaleString() : "N/A"}
                 </span>
               </div>
-
-             
             </div>
-
-            {/* Footer */}
             <div className="flex justify-end px-5 py-3 border-t bg-gray-50">
               <button
                 onClick={() => setSelectedTask(null)}
@@ -660,7 +597,6 @@ const ClassTasks = () => {
           </div>
         </div>
       )}
-
     </div>
   );
 };

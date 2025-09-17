@@ -5,6 +5,7 @@ import { MdEdit, MdDelete, MdVisibility } from "react-icons/md";
 import { Buttons } from "../../components";
 import Pagination from "../../components/Pagination";
 import Toaster from "../../components/Toaster";
+import TableComponent from "../../components/TableComponent"; // Import reusable TableComponent
 
 const Noticeboard = () => {
   const [notices, setNotices] = useState([]);
@@ -133,7 +134,6 @@ const Noticeboard = () => {
             headers: { Authorization: `Bearer ${token}` },
           });
           showToast("Notice deleted successfully!", "success", null, null);
-          setNotices((prevNotices) => prevNotices.filter((notice) => notice.id !== id));
           fetchNotices();
         } catch (error) {
           console.error("Error deleting notice:", error.response?.data || error.message);
@@ -211,13 +211,73 @@ const Noticeboard = () => {
 
   // Get permissions from localStorage
   const permissions = JSON.parse(localStorage.getItem("user_permissions") || "[]");
-
   const canAdd = permissions.includes("users.add_announcement");
   const canEdit = permissions.includes("users.change_announcement");
   const canDelete = permissions.includes("users.delete_announcement");
+  const canPerformActions = canEdit || canDelete;
+
+  // Columns for TableComponent
+  const tableColumns = [
+    {
+      key: "index",
+      label: "ID#",
+      render: (row, index) => (page - 1) * pageSize + index + 1,
+    },
+    {
+      key: "title",
+      label: "Title",
+      render: (row) => row.title || "—",
+    },
+    {
+      key: "description",
+      label: "Description",
+      render: (row) =>
+        row.description?.length > 50
+          ? `${row.description.slice(0, 50)}...`
+          : row.description || "—",
+    },
+    {
+      key: "announced_for",
+      label: "Audience",
+      render: (row) => row.announced_for ? row.announced_for.charAt(0).toUpperCase() + row.announced_for.slice(1) : "—",
+    },
+    ...(canPerformActions ? [{
+      key: "actions",
+      label: "Actions",
+      render: (row) => (
+        <div className="flex justify-center gap-2">
+          <button
+            onClick={() => handleViewNotice(row)}
+            className="text-blue-600 hover:text-blue-800 transition-colors duration-200"
+            title="View Notice"
+          >
+            <MdVisibility size={18} />
+          </button>
+          {canEdit && (
+            <button
+              onClick={() => handleEditNotice(row)}
+              className="text-yellow-600 hover:text-yellow-800 transition-colors duration-200"
+              title="Edit Notice"
+            >
+              <MdEdit size={18} />
+            </button>
+          )}
+          {canDelete && (
+            <button
+              onClick={() => handleDeleteNotice(row.id)}
+              className="text-red-600 hover:text-red-800 transition-colors duration-200"
+              title="Delete Notice"
+            >
+              <MdDelete size={18} />
+            </button>
+          )}
+        </div>
+      ),
+    }] : []),
+  ];
 
   return (
-    <div>
+    <div className="min-h-screen p-4 sm:p-6">
       <Toaster
         message={toaster.message}
         type={toaster.type}
@@ -227,8 +287,8 @@ const Noticeboard = () => {
         onCancel={toaster.onCancel}
         allowNoDataErrors={true}
       />
-      <div className="bg-blue-900 text-white py-2 px-6 rounded-md flex justify-between items-center mt-5">
-        <h1 className="text-xl font-bold">School Noticeboard</h1>
+      <div className="bg-gradient-to-r from-blue-900 to-blue-900 text-white py-3 px-4 sm:px-6 rounded-xl flex justify-between items-center mt-5 shadow-lg">
+        <h1 className="text-lg sm:text-xl font-bold">School Noticeboard</h1>
         {canAdd && (
           <button
             onClick={() => {
@@ -236,10 +296,10 @@ const Noticeboard = () => {
               setEditingNotice(null);
               setNewNotice({ title: "", description: "", announced_for: "all" });
             }}
-            className="flex items-center px-3 py-2 bg-cyan-400 text-white font-semibold rounded-lg shadow-md hover:bg-cyan-500 transition"
+            className="flex items-center px-3 py-2 bg-cyan-500 text-white font-semibold rounded-lg shadow-md hover:bg-cyan-600 text-sm sm:text-base transition-colors duration-200"
           >
-            <div className="flex items-center justify-center w-8 h-8 bg-black rounded-full mr-3">
-              <span className="text-cyan-500 text-xl font-bold">
+            <div className="flex items-center justify-center w-8 h-8 bg-gray-800 rounded-full mr-2">
+              <span className="text-cyan-400 text-xl font-bold">
                 {showForm ? "-" : "+"}
               </span>
             </div>
@@ -248,37 +308,34 @@ const Noticeboard = () => {
         )}
       </div>
 
-      <div className="p-6">
+      <div className="p-4 sm:p-6">
         {/* Notice Form */}
         {(canAdd || canEdit) && showForm && (
-          <div className="p-6 bg-blue-50 rounded-md mb-6">
-            <h2 className="text-lg font-semibold text-blue-900">
+          <div className="p-4 sm:p-6 bg-white rounded-xl shadow-md border border-gray-200 max-w-2xl mx-auto mb-6">
+            <h2 className="text-lg font-semibold text-blue-900 mb-4">
               {editingNotice ? "Edit Notice" : "Create Notice"}
             </h2>
-            <div className="grid grid-cols-2 gap-4 mt-4">
-              {/* Title */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-gray-600 font-medium mb-1">
-                  Title:
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Title
                 </label>
                 <input
                   type="text"
-                  placeholder="Title"
-                  className="p-2 border border-gray-300 rounded w-full"
+                  placeholder="Enter notice title"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
                   value={newNotice.title}
                   onChange={(e) =>
                     setNewNotice({ ...newNotice, title: e.target.value })
                   }
                 />
               </div>
-
-              {/* Audience */}
               <div>
-                <label className="block text-gray-600 font-medium mb-1">
-                  Announced For:
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Announced For
                 </label>
                 <select
-                  className="p-2 border border-gray-300 rounded w-full"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
                   value={newNotice.announced_for}
                   onChange={(e) =>
                     setNewNotice({ ...newNotice, announced_for: e.target.value })
@@ -290,16 +347,14 @@ const Noticeboard = () => {
                   <option value="parents">Parents</option>
                 </select>
               </div>
-
-              {/* Description */}
-              <div className="col-span-2">
-                <label className="block text-gray-600 font-medium mb-1">
-                  Description:
+              <div className="md:col-span-2">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Description
                 </label>
                 <textarea
-                  placeholder="Description"
-                  className="p-2 border border-gray-300 rounded w-full"
-                  rows="3"
+                  placeholder="Enter notice description"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  rows="4"
                   value={newNotice.description}
                   onChange={(e) =>
                     setNewNotice({ ...newNotice, description: e.target.value })
@@ -307,17 +362,16 @@ const Noticeboard = () => {
                 />
               </div>
             </div>
-
-            <div className="flex justify-end mt-4">
+            <div className="mt-4 flex justify-end gap-2">
               <button
                 onClick={() => setShowForm(false)}
-                className="bg-gray-500 text-white px-4 py-2 rounded-md shadow hover:bg-gray-700 mr-2"
+                className="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded-lg text-sm shadow-sm transition-colors duration-200"
               >
                 Cancel
               </button>
               <button
                 onClick={editingNotice ? handleUpdateNotice : handleAddNotice}
-                className="bg-green-500 text-white px-4 py-2 rounded-md shadow hover:bg-green-700"
+                className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-sm shadow-sm transition-colors duration-200"
               >
                 {editingNotice ? "Update Notice" : "Save Notice"}
               </button>
@@ -326,84 +380,37 @@ const Noticeboard = () => {
         )}
         {/* Data table */}
         {loading ? (
-          <p className="text-center text-gray-500">Loading...</p>
+          <p className="text-center text-gray-600 text-lg font-medium mt-10">Loading...</p>
         ) : error ? (
-          <p className="text-center text-red-500">{error}</p>
+          <p className="text-center text-red-600 text-lg font-medium mt-10">{error}</p>
         ) : notices.length > 0 ? (
-          <div className="mt-6">
-            <Buttons
-              data={notices.map((n, index) => ({
-                "S.No": (page - 1) * pageSize + index + 1,
-                Title: n.title,
-                Description: n.description,
-                Audience: n.announced_for,
-              }))}
-              columns={[
-                { label: "S.No", key: "S.No" },
-                { label: "Title", key: "Title" },
-                { label: "Description", key: "Description" },
-                { label: "Audience", key: "Audience" },
-              ]}
-              filename="Notices_Report"
-            />
-
-            <h2 className="text-lg font-semibold text-white bg-blue-900 px-4 py-2 rounded-t-md">
-              Notices
-            </h2>
-            <table className="w-full border-collapse border border-gray-300 bg-white">
-              <thead className="bg-gray-200">
-                <tr>
-                  <th className="border border-gray-300 p-2">ID#</th>
-                  <th className="border border-gray-300 p-2">Title</th>
-                  <th className="border border-gray-300 p-2">Description</th>
-                  <th className="border border-gray-300 p-2">Audience</th>
-                  {(canEdit || canDelete) && (
-                    <th className="border border-gray-300 p-2">Actions</th>
-                  )}
-                </tr>
-              </thead>
-              <tbody>
-                {notices.map((notice, index) => (
-                  <tr key={notice.id}>
-                    <td className="border border-gray-300 p-2 text-center">
-                      {(page - 1) * pageSize + index + 1}
-                    </td>
-                    <td className="border border-gray-300 p-2">
-                      {notice.title}
-                    </td>
-                    <td className="border border-gray-300 p-2">
-                      {notice.description.length > 50
-                        ? `${notice.description.slice(0, 50)}...`
-                        : notice.description}
-                    </td>
-                    <td className="border border-gray-300 p-2 capitalize">
-                      {notice.announced_for}
-                    </td>
-                    {(canEdit || canDelete) && (
-                      <td className="border border-gray-300 p-2 flex justify-center gap-2">
-                        <MdVisibility
-                          onClick={() => handleViewNotice(notice)}
-                          className="text-blue-500 text-2xl cursor-pointer hover:text-blue-700"
-                        />
-                        {canEdit && (
-                          <MdEdit
-                            onClick={() => handleEditNotice(notice)}
-                            className="text-yellow-500 text-2xl cursor-pointer hover:text-yellow-700"
-                          />
-                        )}
-                        {canDelete && (
-                          <MdDelete
-                            onClick={() => handleDeleteNotice(notice.id)}
-                            className="text-red-500 text-2xl cursor-pointer hover:text-red-700"
-                          />
-                        )}
-                      </td>
-                    )}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-            <Pagination
+          <div className="mt-1">
+            <div className=" mb-4 gap-3">
+             
+              <Buttons
+                data={notices.map((n, index) => ({
+                  "S.No": (page - 1) * pageSize + index + 1,
+                  Title: n.title,
+                  Description: n.description,
+                  Audience: n.announced_for,
+                }))}
+                columns={[
+                  { label: "S.No", key: "S.No" },
+                  { label: "Title", key: "Title" },
+                  { label: "Description", key: "Description" },
+                  { label: "Audience", key: "Audience" },
+                ]}
+                filename="Notices_Report"
+              />
+            </div>
+            <div className="overflow-x-auto">
+              <TableComponent
+                data={notices}
+                columns={tableColumns}
+                initialSort={{ key: "title", direction: "asc" }}
+              />
+            </div>
+            {/* <Pagination
               currentPage={page}
               totalPages={totalPages}
               pageSize={pageSize}
@@ -419,19 +426,19 @@ const Noticeboard = () => {
               totalItems={notices.length}
               showPageSizeSelector={true}
               showPageInfo={true}
-            />
+            /> */}
           </div>
         ) : (
-          <p className="text-center text-gray-500">No notices available.</p>
+          <p className="text-center text-gray-600 text-lg font-medium mt-10">No notices available.</p>
         )}
       </div>
 
       {/* View Modal */}
       {selectedNotice && (
         <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-60 px-4 z-50">
-          <div className="bg-white w-full max-w-lg rounded-2xl shadow-2xl border border-gray-300 overflow-hidden">
+          <div className="bg-white w-full max-w-lg rounded-xl shadow-2xl border border-gray-200 overflow-hidden">
             <div className="flex items-center justify-between px-6 py-4 border-b bg-blue-50">
-              <h2 className="text-xl font-bold text-blue-700">📢 Notice Details</h2>
+              <h2 className="text-lg font-bold text-blue-900">📢 Notice Details</h2>
               <button
                 onClick={() => setSelectedNotice(null)}
                 className="text-gray-600 hover:text-red-600 text-2xl font-bold leading-none"
@@ -441,19 +448,19 @@ const Noticeboard = () => {
             </div>
             <div className="px-6 py-5 overflow-y-auto max-h-[65vh] space-y-5 text-sm text-gray-700">
               <div>
-                <div className="text-gray-500 font-medium">📝 Title</div>
+                <div className="text-gray-600 font-medium">📝 Title</div>
                 <div className="mt-1 text-gray-800 font-semibold truncate">
                   {selectedNotice.title || "N/A"}
                 </div>
               </div>
               <div>
-                <div className="text-gray-500 font-medium">📄 Description</div>
-                <div className="mt-1 p-3 bg-gray-100 rounded border border-gray-300 max-h-[150px] overflow-y-auto whitespace-pre-wrap leading-relaxed text-gray-800">
+                <div className="text-gray-600 font-medium">📄 Description</div>
+                <div className="mt-1 p-3 bg-gray-100 rounded border border-gray-200 max-h-[150px] overflow-y-auto whitespace-pre-wrap leading-relaxed text-gray-800">
                   {selectedNotice.description || "No description provided."}
                 </div>
               </div>
               <div>
-                <div className="text-gray-500 font-medium">🎯 Audience</div>
+                <div className="text-gray-600 font-medium">🎯 Audience</div>
                 <div className="mt-1 text-gray-800 capitalize">
                   {selectedNotice.announced_for || "N/A"}
                 </div>
@@ -462,7 +469,7 @@ const Noticeboard = () => {
             <div className="flex justify-end px-6 py-4 border-t bg-gray-50">
               <button
                 onClick={() => setSelectedNotice(null)}
-                className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2 rounded-lg shadow transition"
+                className="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2 rounded-lg font-medium shadow text-sm transition-colors duration-200"
               >
                 Close
               </button>

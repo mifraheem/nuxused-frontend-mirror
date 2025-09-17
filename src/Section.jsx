@@ -30,7 +30,7 @@ const Section = () => {
 
                 {/* Page Content */}
                 <div className="flex-grow bg-blue-50 overflow-y-auto px-4 py-2">
-                    <Outlet />
+                    <Outlet context={{ isSidebarOpen }} />
                 </div>
             </div>
         </div>

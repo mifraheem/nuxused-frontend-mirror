@@ -3,9 +3,10 @@ import axios from "axios";
 import Cookies from "js-cookie";
 import { MdEdit, MdDelete } from "react-icons/md";
 import Select from "react-select";
-import Toaster from "../../components/Toaster"; // Import the provided Toaster component
+import Toaster from "../../components/Toaster";
 import { Buttons } from "../../components";
 import Pagination from "../../components/Pagination";
+import TableComponent from "../../components/TableComponent"; // Import reusable TableComponent
 
 const Rooms = () => {
   const [rooms, setRooms] = useState([]);
@@ -130,7 +131,6 @@ const Rooms = () => {
 
           showToast("Room deleted successfully!", "success", null, null);
           setRooms((prev) => prev.filter((r) => r.id !== id));
-          // Refresh rooms to handle pagination if needed
           fetchRooms(currentPage, pageSize);
         } catch (error) {
           console.error("Error deleting room:", error.response?.data || error.message);
@@ -143,7 +143,7 @@ const Rooms = () => {
         }
       },
       () => {
-        showToast("", "success", null, null); // Clear the toaster
+        showToast("", "success", null, null);
       }
     );
   };
@@ -167,9 +167,43 @@ const Rooms = () => {
   const canEdit = permissions.includes("users.change_room");
   const canDelete = permissions.includes("users.delete_room");
 
+  // Table columns configuration
   const columns = [
-    { label: "Room Name", key: "room_name" },
-    { label: "Room Type", key: "room_type" },
+    {
+      key: "index",
+      label: "#ID",
+      render: (row, index) => (currentPage - 1) * pageSize + index + 1,
+    },
+    {
+      key: "room_name",
+      label: "Room Name",
+      render: (row) => row.room_name || "N/A",
+    },
+    {
+      key: "room_type",
+      label: "Room Type",
+      render: (row) => row.room_type || "N/A",
+    },
+    {
+      key: "actions",
+      label: "Actions",
+      render: (row) => (
+        <div className="flex justify-center space-x-2">
+          {canEdit && (
+            <MdEdit
+              onClick={() => handleEditRoom(row)}
+              className="text-yellow-500 text-2xl cursor-pointer hover:text-yellow-700"
+            />
+          )}
+          {canDelete && (
+            <MdDelete
+              onClick={() => handleDeleteRoom(row.id)}
+              className="text-red-500 text-2xl cursor-pointer hover:text-red-700"
+            />
+          )}
+        </div>
+      ),
+    },
   ];
 
   const roomTypeOptions = [
@@ -315,66 +349,20 @@ const Rooms = () => {
         )}
 
         {rooms.length > 0 ? (
-          <div className="mt-6">
-            <Buttons data={rooms} columns={columns} filename="Rooms" />
-            <h2 className="text-lg font-semibold text-white bg-blue-900 px-4 py-2 rounded-t-md">Rooms</h2>
-            <table className="w-full border-collapse border border-gray-300 bg-white">
-              <thead className="bg-gray-200">
-                <tr>
-                  <th className="border border-gray-300 p-2">#ID</th>
-                  <th className="border border-gray-300 p-2">Room Name</th>
-                  <th className="border border-gray-300 p-2">Room Type</th>
-                  {(canEdit || canDelete) && (
-                    <th className="border border-gray-300 p-2">Actions</th>
-                  )}
-                </tr>
-              </thead>
-              <tbody>
-                {rooms.map((room, index) => (
-                  <tr key={room.id}>
-                    <td className="border border-gray-300 p-2 text-center">
-                      {(currentPage - 1) * pageSize + index + 1}
-                    </td>
-                    <td className="border border-gray-300 p-2">{room.room_name}</td>
-                    <td className="border border-gray-300 p-2 text-center">{room.room_type}</td>
-                    {(canEdit || canDelete) && (
-                      <td className="border border-gray-300 p-2 flex justify-center">
-                        {canEdit && (
-                          <MdEdit
-                            onClick={() => handleEditRoom(room)}
-                            className="text-yellow-500 text-2xl cursor-pointer mx-2 hover:text-yellow-700"
-                          />
-                        )}
-                        {canDelete && (
-                          <MdDelete
-                            onClick={() => handleDeleteRoom(room.id)}
-                            className="text-red-500 text-2xl cursor-pointer mx-2 hover:text-red-700"
-                          />
-                        )}
-                      </td>
-                    )}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          <div className="mt-1">
+            <Buttons data={rooms} columns={columns.slice(0, -1)} filename="Rooms" />
+            <div className="overflow-x-auto">
+              <TableComponent
+                data={rooms}
+                columns={columns}
+                initialSort={{ key: "room_name", direction: "asc" }}
+              />
+            </div>
+            
           </div>
         ) : (
           <p className="text-center text-gray-500">No rooms added yet.</p>
         )}
-        <Pagination
-          currentPage={currentPage}
-          totalPages={totalPages}
-          pageSize={pageSize}
-          onPageChange={goToPage}
-          onPageSizeChange={(size) => {
-            setPageSize(size);
-            setCurrentPage(1);
-            fetchRooms(1, size);
-          }}
-          totalItems={rooms.length}
-          showPageSizeSelector={true}
-          showPageInfo={true}
-        />
       </div>
     </div>
   );

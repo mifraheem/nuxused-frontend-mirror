@@ -5,6 +5,7 @@ import { MdEdit, MdDelete } from "react-icons/md";
 import { Buttons } from "../../components";
 import Pagination from "../../components/Pagination";
 import Toaster from "../../components/Toaster";
+import TableComponent from "../../components/TableComponent"; // Import reusable TableComponent
 
 const FeeTypes = () => {
   const [feeTypes, setFeeTypes] = useState([]);
@@ -91,6 +92,7 @@ const FeeTypes = () => {
       setNewFeeType({ name: "", description: "" });
       setEditingFeeType(null);
       setShowForm(false);
+      fetchFeeTypes(); // Refresh to handle pagination
     } catch (error) {
       console.error("Error saving fee type:", error.response?.data || error.message);
       showToast(
@@ -156,19 +158,59 @@ const FeeTypes = () => {
     }
   }, [page, pageSize]);
 
-  const columns = [
-    { label: "Name", key: "name" },
-    { label: "Description", key: "description" },
-  ];
-
   const [permissions, setPermissions] = useState([]);
   const canAdd = permissions.includes("users.add_feetype");
   const canEdit = permissions.includes("users.change_feetype");
   const canDelete = permissions.includes("users.delete_feetype");
   const canPerformActions = canEdit || canDelete;
 
+  // Columns for TableComponent
+  const columns = [
+    {
+      key: "index",
+      label: "#ID",
+      render: (row, index) => (page - 1) * pageSize + index + 1,
+    },
+    {
+      key: "name",
+      label: "Name",
+      render: (row) => row.name || "N/A",
+    },
+    {
+      key: "description",
+      label: "Description",
+      render: (row) => row.description || "N/A",
+    },
+    ...(canPerformActions
+      ? [
+          {
+            key: "actions",
+            label: "Actions",
+            render: (row) => (
+              <div className="flex justify-center items-center gap-2">
+                {canEdit && (
+                  <MdEdit
+                    onClick={() => handleEditFeeType(row)}
+                    className="text-yellow-500 text-xl cursor-pointer hover:text-yellow-700 transition-colors duration-200"
+                    title="Edit Fee Type"
+                  />
+                )}
+                {canDelete && (
+                  <MdDelete
+                    onClick={() => handleDeleteFeeType(row.id)}
+                    className="text-red-500 text-xl cursor-pointer hover:text-red-700 transition-colors duration-200"
+                    title="Delete Fee Type"
+                  />
+                )}
+              </div>
+            ),
+          },
+        ]
+      : []),
+  ];
+
   return (
-    <div>
+    <div className="min-h-screen">
       <Toaster
         message={toaster.message}
         type={toaster.type}
@@ -178,7 +220,7 @@ const FeeTypes = () => {
         onCancel={toaster.onCancel}
         allowNoDataErrors={true}
       />
-      <div className="bg-blue-900 text-white py-2 px-6 rounded-md flex justify-between items-center mt-5">
+      <div className="bg-gradient-to-r from-blue-900 to-blue-900 text-white py-3 px-6 rounded-xl flex justify-between items-center mt-5 shadow-lg">
         <h1 className="text-xl font-bold">Manage Fee Types</h1>
         {canAdd && (
           <button
@@ -187,10 +229,10 @@ const FeeTypes = () => {
               setEditingFeeType(null);
               setNewFeeType({ name: "", description: "" });
             }}
-            className="flex items-center px-3 py-2 bg-cyan-400 text-white font-semibold rounded-lg shadow-md hover:bg-cyan-500 transition"
+            className="flex items-center px-3 py-2 bg-cyan-500 text-white font-semibold rounded-lg shadow-md hover:bg-cyan-600 transition-colors duration-200"
           >
-            <div className="flex items-center justify-center w-8 h-8 bg-black rounded-full mr-3">
-              <span className="text-cyan-500 text-xl font-bold">
+            <div className="flex items-center justify-center w-8 h-8 bg-gray-800 rounded-full mr-3">
+              <span className="text-cyan-400 text-xl font-bold">
                 {showForm ? "-" : "+"}
               </span>
             </div>
@@ -199,10 +241,10 @@ const FeeTypes = () => {
         )}
       </div>
 
-      <div className="p-6">
+      <div className="p-4 sm:p-6">
         {showForm && (
-          <div className="p-6 bg-white rounded-lg shadow-md border border-gray-200 max-w-xl mx-auto mb-6">
-            <h2 className="text-xl font-semibold text-blue-800 mb-4">
+          <div className="p-4 sm:p-6 bg-white rounded-xl shadow-md border border-gray-200 max-w-xl mx-auto mb-6">
+            <h2 className="text-xl font-semibold text-blue-900 mb-4">
               {editingFeeType ? "Edit Fee Type" : "Create New Fee Type"}
             </h2>
 
@@ -214,7 +256,7 @@ const FeeTypes = () => {
                   placeholder="e.g. Admission Fee"
                   value={newFeeType.name}
                   onChange={(e) => setNewFeeType({ ...newFeeType, name: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
                 />
               </div>
 
@@ -225,7 +267,7 @@ const FeeTypes = () => {
                   placeholder="Optional description"
                   value={newFeeType.description}
                   onChange={(e) => setNewFeeType({ ...newFeeType, description: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
                 />
               </div>
             </div>
@@ -234,7 +276,7 @@ const FeeTypes = () => {
               <div className="mt-6 text-right">
                 <button
                   onClick={handleSaveFeeType}
-                  className="bg-blue-600 hover:bg-blue-800 text-white font-medium px-6 py-2 rounded-md shadow-sm transition duration-150"
+                  className="bg-indigo-600 hover:bg-indigo-700 text-white font-medium px-6 py-2 rounded-lg shadow-sm transition-colors duration-200"
                 >
                   {editingFeeType ? "Update Fee Type" : "Save Fee Type"}
                 </button>
@@ -244,51 +286,26 @@ const FeeTypes = () => {
         )}
 
         {feeTypes.length > 0 ? (
-          <div className="mt-6">
-            <Buttons data={feeTypes} columns={columns} filename="Fee Types" />
-            <h2 className="text-lg font-semibold text-white bg-blue-900 px-4 py-2 rounded-t-md">
-              Fee Types
-            </h2>
-            <table className="w-full border-collapse border border-gray-300 bg-white">
-              <thead className="bg-gray-200">
-                <tr>
-                  <th className="border border-gray-300 p-2">#ID</th>
-                  <th className="border border-gray-300 p-2">Name</th>
-                  <th className="border border-gray-300 p-2">Description</th>
-                  {canPerformActions && (
-                    <th className="border border-gray-300 p-2">Actions</th>
-                  )}
-                </tr>
-              </thead>
-              <tbody>
-                {feeTypes.map((f, index) => (
-                  <tr key={f.id}>
-                    <td className="border border-gray-300 p-2 text-center">
-                      {(page - 1) * pageSize + index + 1}
-                    </td>
-                    <td className="border border-gray-300 p-2">{f.name}</td>
-                    <td className="border border-gray-300 p-2">{f.description}</td>
-                    {canPerformActions && (
-                      <td className="border border-gray-300 p-2 flex justify-center">
-                        {canEdit && (
-                          <MdEdit
-                            onClick={() => handleEditFeeType(f)}
-                            className="text-yellow-500 text-2xl cursor-pointer mx-2 hover:text-yellow-700"
-                          />
-                        )}
-                        {canDelete && (
-                          <MdDelete
-                            onClick={() => handleDeleteFeeType(f.id)}
-                            className="text-red-500 text-2xl cursor-pointer mx-2 hover:text-red-700"
-                          />
-                        )}
-                      </td>
-                    )}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-            <Pagination
+          <div className="mt-1">
+            <div className=" mb-4">
+              
+              <Buttons
+                data={feeTypes}
+                columns={[
+                  { label: "Name", key: "name" },
+                  { label: "Description", key: "description" },
+                ]}
+                filename="Fee_Types"
+              />
+            </div>
+            <div className="overflow-x-auto">
+              <TableComponent
+                data={feeTypes}
+                columns={columns}
+                initialSort={{ key: "name", direction: "asc" }}
+              />
+            </div>
+            {/* <Pagination
               currentPage={page}
               totalPages={totalPages}
               pageSize={pageSize}
@@ -304,10 +321,12 @@ const FeeTypes = () => {
               totalItems={feeTypes.length}
               showPageSizeSelector={true}
               showPageInfo={true}
-            />
+            /> */}
           </div>
         ) : (
-          <p className="text-center text-gray-500">No fee types available.</p>
+          <div className="text-center py-6">
+            <p className="text-gray-500 text-lg font-medium">No fee types available.</p>
+          </div>
         )}
       </div>
     </div>

@@ -3,8 +3,8 @@ import axios from "axios";
 import Cookies from "js-cookie";
 import { MdEdit, MdDelete } from "react-icons/md";
 import { Buttons } from "../../components";
-import Pagination from "../../components/Pagination";
-import Toaster from "../../components/Toaster"; // Import custom Toaster component
+import Toaster from "../../components/Toaster";
+import TableComponent from "../../components/TableComponent"; // Import the reusable TableComponent
 
 const GradeCriteria = () => {
   const [gradeCriteria, setGradeCriteria] = useState([]);
@@ -13,20 +13,17 @@ const GradeCriteria = () => {
     school_name: "",
     grade: "",
     min_percentage: "",
-    max_percentage: ""
+    max_percentage: "",
   });
   const [editingGradeCriteria, setEditingGradeCriteria] = useState(null);
   const [showForm, setShowForm] = useState(false);
-  const [currentPage, setCurrentPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
-  const [pageSize, setPageSize] = useState(10);
   const [schoolSearch, setSchoolSearch] = useState("");
   const [showSchoolDropdown, setShowSchoolDropdown] = useState(false);
   const [gradeSearch, setGradeSearch] = useState("");
   const [showGradeDropdown, setShowGradeDropdown] = useState(false);
   const [toaster, setToaster] = useState({ message: "", type: "success" });
 
-  const API = import.meta.env.VITE_SERVER_URL ;
+  const API = import.meta.env.VITE_SERVER_URL;
   const API_URL = `${API}grade-criteria/`;
 
   // Toast helper
@@ -52,7 +49,7 @@ const GradeCriteria = () => {
     });
   };
 
-  const fetchGradeCriteria = async (page = 1, size = pageSize) => {
+  const fetchGradeCriteria = async (page = 1, size = 10) => {
     try {
       const token = Cookies.get("access_token");
       if (!token) {
@@ -68,8 +65,6 @@ const GradeCriteria = () => {
 
       if (Array.isArray(data.results)) {
         setGradeCriteria(data.results);
-        setCurrentPage(data.current_page);
-        setTotalPages(data.total_pages);
       } else {
         throw new Error("Unexpected API response format.");
       }
@@ -92,10 +87,10 @@ const GradeCriteria = () => {
       });
 
       const classesData = response.data.data?.results || [];
-      const uniqueSchools = [...new Set(classesData.map(cls => cls.school))];
+      const uniqueSchools = [...new Set(classesData.map((cls) => cls.school))];
       const schoolsArray = uniqueSchools.map((school, index) => ({
         id: index + 1,
-        name: school
+        name: school,
       }));
 
       setSchools(schoolsArray);
@@ -107,7 +102,12 @@ const GradeCriteria = () => {
   };
 
   const handleSaveGradeCriteria = async () => {
-    if (!newGradeCriteria.school_name || !newGradeCriteria.grade || !newGradeCriteria.min_percentage || !newGradeCriteria.max_percentage) {
+    if (
+      !newGradeCriteria.school_name ||
+      !newGradeCriteria.grade ||
+      !newGradeCriteria.min_percentage ||
+      !newGradeCriteria.max_percentage
+    ) {
       showToast("All fields are required!", "error");
       return;
     }
@@ -133,13 +133,19 @@ const GradeCriteria = () => {
       }
 
       if (editingGradeCriteria) {
-        const response = await axios.put(`${API_URL}${editingGradeCriteria.id}/`, newGradeCriteria, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
+        const response = await axios.put(
+          `${API_URL}${editingGradeCriteria.id}/`,
+          newGradeCriteria,
+          {
+            headers: { Authorization: `Bearer ${token}` },
+          }
+        );
 
         if (response.status === 200) {
           showToast("Grade criteria updated successfully!", "success");
-          setGradeCriteria((prev) => prev.map((g) => (g.id === editingGradeCriteria.id ? response.data.data : g)));
+          setGradeCriteria((prev) =>
+            prev.map((g) => (g.id === editingGradeCriteria.id ? response.data.data : g))
+          );
           setEditingGradeCriteria(null);
         } else {
           throw new Error("Failed to update grade criteria.");
@@ -163,7 +169,10 @@ const GradeCriteria = () => {
       setGradeSearch("");
     } catch (error) {
       console.error("Error saving grade criteria:", error.response || error.message);
-      showToast(error.response?.data?.message || "Failed to save grade criteria. Please try again.", "error");
+      showToast(
+        error.response?.data?.message || "Failed to save grade criteria. Please try again.",
+        "error"
+      );
     }
   };
 
@@ -215,23 +224,19 @@ const GradeCriteria = () => {
     setShowGradeDropdown(false);
   };
 
-  const filteredSchools = schools.filter(school =>
+  const filteredSchools = schools.filter((school) =>
     school.name?.toLowerCase().includes(schoolSearch.toLowerCase())
   );
 
   const gradeOptions = ["A+", "A", "A-", "B+", "B", "B-", "C+", "C", "C-", "D+", "D", "F"];
-  const filteredGrades = gradeOptions.filter(grade =>
+  const filteredGrades = gradeOptions.filter((grade) =>
     grade.toLowerCase().includes(gradeSearch.toLowerCase())
   );
 
-  const goToPage = (page) => {
-    if (page >= 1 && page <= totalPages) fetchGradeCriteria(page, pageSize);
-  };
-
   useEffect(() => {
-    fetchGradeCriteria(currentPage, pageSize);
+    fetchGradeCriteria();
     fetchSchools();
-  }, [pageSize]);
+  }, []);
 
   const permissions = JSON.parse(localStorage.getItem("user_permissions") || "[]");
   const canAdd = permissions.includes("users.add_gradecriteria");
@@ -239,12 +244,57 @@ const GradeCriteria = () => {
   const canDelete = permissions.includes("users.delete_gradecriteria");
 
   const columns = [
-    { label: "Sequence Number", key: "sequence_number" },
-    { label: "School Name", key: "school_name" },
-    { label: "Grade", key: "grade" },
-    { label: "Min Percentage", key: "min_percentage" },
-    { label: "Max Percentage", key: "max_percentage" },
+    {
+      key: "sequence_number",
+      label: "No.",
+      render: (row, index) => index + 1,
+    },
+    { key: "school_name", label: "School Name" },
+    { key: "grade", label: "Grade" },
+    {
+      key: "min_percentage",
+      label: "Min Percentage",
+      render: (row) => `${row.min_percentage}%`,
+    },
+    {
+      key: "max_percentage",
+      label: "Max Percentage",
+      render: (row) => `${row.max_percentage}%`,
+    },
+    ...(canEdit || canDelete
+      ? [
+          {
+            key: "actions",
+            label: "Actions",
+            render: (row) => (
+              <div className="flex justify-center">
+                {canEdit && (
+                  <MdEdit
+                    onClick={() => handleEditGradeCriteria(row)}
+                    className="text-yellow-500 text-2xl cursor-pointer mx-2 hover:text-yellow-700"
+                  />
+                )}
+                {canDelete && (
+                  <MdDelete
+                    onClick={() => handleDeleteGradeCriteria(row.id)}
+                    className="text-red-500 text-2xl cursor-pointer mx-2 hover:text-red-700"
+                  />
+                )}
+              </div>
+            ),
+          },
+        ]
+      : []),
   ];
+
+  const tableData = gradeCriteria.map((item, index) => ({
+    id: item.id,
+    sequence_number: index + 1,
+    school_name: item.school_name,
+    grade: item.grade,
+    min_percentage: item.min_percentage,
+    max_percentage: item.max_percentage,
+  }));
 
   return (
     <div>
@@ -350,7 +400,9 @@ const GradeCriteria = () => {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Minimum Percentage</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Minimum Percentage
+                </label>
                 <input
                   type="number"
                   step="0.01"
@@ -359,12 +411,16 @@ const GradeCriteria = () => {
                   placeholder="e.g. 80.00"
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-400"
                   value={newGradeCriteria.min_percentage}
-                  onChange={(e) => setNewGradeCriteria({ ...newGradeCriteria, min_percentage: e.target.value })}
+                  onChange={(e) =>
+                    setNewGradeCriteria({ ...newGradeCriteria, min_percentage: e.target.value })
+                  }
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Maximum Percentage</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Maximum Percentage
+                </label>
                 <input
                   type="number"
                   step="0.01"
@@ -373,7 +429,9 @@ const GradeCriteria = () => {
                   placeholder="e.g. 90.00"
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-400"
                   value={newGradeCriteria.max_percentage}
-                  onChange={(e) => setNewGradeCriteria({ ...newGradeCriteria, max_percentage: e.target.value })}
+                  onChange={(e) =>
+                    setNewGradeCriteria({ ...newGradeCriteria, max_percentage: e.target.value })
+                  }
                 />
               </div>
             </div>
@@ -390,85 +448,24 @@ const GradeCriteria = () => {
         )}
 
         {gradeCriteria.length > 0 ? (
-          <div className="mt-6">
+          <div className="mt-1">
             <Buttons
-              data={gradeCriteria.map((item, index) => ({
-                "Sequence Number": (currentPage - 1) * pageSize + index + 1,
-                "School Name": item.school_name,
-                "Grade": item.grade,
-                "Min Percentage": item.min_percentage,
-                "Max Percentage": item.max_percentage,
-              }))}
-              columns={columns}
+              data={tableData}
+              columns={columns.filter((col) => col.key !== "actions")} // Exclude actions column for export
               filename="Grade_Criteria"
             />
-            <h2 className="text-lg font-semibold text-white bg-blue-900 px-4 py-2 rounded-t-md">Grade Criteria</h2>
-            <table className="w-full border-collapse border border-gray-300 bg-white">
-              <thead className="bg-gray-200">
-                <tr>
-                  <th className="border border-gray-300 p-2">No.</th>
-                  <th className="border border-gray-300 p-2">School Name</th>
-                  <th className="border border-gray-300 p-2">Grade</th>
-                  <th className="border border-gray-300 p-2">Min Percentage</th>
-                  <th className="border border-gray-300 p-2">Max Percentage</th>
-                  {(canEdit || canDelete) && (
-                    <th className="border border-gray-300 p-2">Actions</th>
-                  )}
-                </tr>
-              </thead>
-              <tbody>
-                {gradeCriteria.map((criteria, index) => (
-                  <tr key={criteria.id}>
-                    <td className="border border-gray-300 p-2 text-center">
-                      {(currentPage - 1) * pageSize + index + 1}
-                    </td>
-                    <td className="border border-gray-300 p-2">{criteria.school_name}</td>
-                    <td className="border border-gray-300 p-2 text-center">{criteria.grade}</td>
-                    <td className="border border-gray-300 p-2 text-center">{criteria.min_percentage}%</td>
-                    <td className="border border-gray-300 p-2 text-center">{criteria.max_percentage}%</td>
-                    {(canEdit || canDelete) && (
-                      <td className="border border-gray-300 p-2 flex justify-center">
-                        {canEdit && (
-                          <MdEdit
-                            onClick={() => handleEditGradeCriteria(criteria)}
-                            className="text-yellow-500 text-2xl cursor-pointer mx-2 hover:text-yellow-700"
-                          />
-                        )}
-                        {canDelete && (
-                          <MdDelete
-                            onClick={() => handleDeleteGradeCriteria(criteria.id)}
-                            className="text-red-500 text-2xl cursor-pointer mx-2 hover:text-red-700"
-                          />
-                        )}
-                      </td>
-                    )}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+            
+            <TableComponent
+              data={tableData}
+              columns={columns}
+              initialSort={{ key: "sequence_number", direction: "asc" }}
+            />
           </div>
         ) : (
           <div className="mt-6 p-6 bg-gray-50 rounded-lg shadow-md border border-gray-200 max-w-4xl mx-auto text-center">
             <p className="text-gray-500 text-lg font-medium">No grade criteria added yet.</p>
           </div>
         )}
-        <Pagination
-          currentPage={currentPage}
-          totalPages={totalPages}
-          pageSize={pageSize}
-          onPageChange={(page) => {
-            setCurrentPage(page);
-            fetchGradeCriteria(page, pageSize);
-          }}
-          onPageSizeChange={(size) => {
-            setPageSize(size);
-            setCurrentPage(1);
-            fetchGradeCriteria(1, size);
-          }}
-          totalItems={gradeCriteria.length}
-          showPageSizeSelector={true}
-          showPageInfo={true}
-        />
       </div>
 
       {(showSchoolDropdown || showGradeDropdown) && (

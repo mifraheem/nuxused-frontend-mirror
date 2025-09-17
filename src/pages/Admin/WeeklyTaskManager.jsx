@@ -6,6 +6,7 @@ import { Buttons } from '../../components';
 import Select from "react-select";
 import Pagination from "../../components/Pagination";
 import Toaster from "../../components/Toaster";
+import TableComponent from "../../components/TableComponent"; // Import reusable TableComponent
 
 const WeeklyTaskManager = () => {
   const [showModal, setShowModal] = useState(false);
@@ -264,7 +265,6 @@ const WeeklyTaskManager = () => {
             headers: authHeaders(),
           });
           showToast("Task deleted successfully!", "success", null, null);
-          setTasks((prevTasks) => prevTasks.filter((task) => task.id !== id));
           fetchTasks();
         } catch (error) {
           console.error("Error deleting task:", error.response?.data || error.message);
@@ -339,10 +339,92 @@ const WeeklyTaskManager = () => {
   const canAdd = permissions.includes("users.add_facultytask");
   const canEdit = permissions.includes("users.change_facultytask");
   const canDelete = permissions.includes("users.delete_facultytask");
+  const canPerformActions = canEdit || canDelete;
+
+  // Columns for TableComponent
+  const tableColumns = [
+    {
+      key: "index",
+      label: "#",
+      render: (row, index) => (page - 1) * pageSize + index + 1,
+    },
+    {
+      key: "title",
+      label: "Title",
+      render: (row) => (
+        <span className="block max-w-[150px] truncate" title={row.title}>
+          {row.title || "—"}
+        </span>
+      ),
+    },
+    {
+      key: "teacher",
+      label: "Teacher",
+      render: (row) => getTeacherNames(row.teachers) || "—",
+    },
+    {
+      key: "start_date",
+      label: "Start",
+      render: (row) => row.start_date?.split("T")[0] || "—",
+    },
+    {
+      key: "due_date",
+      label: "Due",
+      render: (row) => row.due_date?.split("T")[0] || "—",
+    },
+    {
+      key: "file",
+      label: "File",
+      render: (row) =>
+        row.file ? (
+          <a
+            href={row.file}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-blue-600 hover:underline"
+          >
+            Download
+          </a>
+        ) : "No File",
+    },
+    ...(canPerformActions ? [{
+      key: "actions",
+      label: "Actions",
+      render: (row) => (
+        <div className="flex justify-center gap-2">
+          <button
+            onClick={() => handleViewTask(row)}
+            className="text-blue-600 hover:text-blue-800 transition-colors duration-200"
+            title="View Task"
+          >
+            <MdVisibility size={18} />
+          </button>
+          {canEdit && (
+            <button
+              onClick={() => handleEditTask(row)}
+              className="text-yellow-600 hover:text-yellow-800 transition-colors duration-200"
+              title="Edit Task"
+            >
+              <MdEdit size={18} />
+            </button>
+          )}
+          {canDelete && (
+            <button
+              onClick={() => handleDeleteTask(row.id)}
+              className="text-red-600 hover:text-red-800 transition-colors duration-200"
+              title="Delete Task"
+            >
+              <MdDelete size={18} />
+          </button>
+          )}
+        </div>
+      ),
+    }] : []),
+  ];
 
   // No Tasks Empty State Component
   const NoTasksMessage = () => (
-    <div className="flex flex-col items-center justify-center py-16 px-4 text-center bg-gradient-to-br from-blue-50 to-indigo-100 rounded-lg border-2 border-dashed border-blue-300 mx-2 mt-4">
+    <div className="flex flex-col items-center justify-center py-16 px-4 text-center bg-white rounded-xl border border-gray-200 shadow-md mx-2 mt-4">
       <div className="w-24 h-24 mb-6 text-blue-300">
         <svg viewBox="0 0 24 24" fill="currentColor" className="w-full h-full">
           <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6z" />
@@ -352,16 +434,14 @@ const WeeklyTaskManager = () => {
           <polyline points="10,9 9,9 8,9" />
         </svg>
       </div>
-
-      <h3 className="text-xl font-bold text-blue-800 mb-2">No Tasks Yet</h3>
-      <p className="text-blue-600 mb-4 max-w-md">
+      <h3 className="text-xl font-bold text-blue-900 mb-2">No Tasks Yet</h3>
+      <p className="text-gray-600 mb-4 max-w-md">
         You haven't created any weekly tasks yet. Start by adding your first task to get organized!
       </p>
-
       {canAdd && (
         <button
           onClick={handleToggleForm}
-          className="flex items-center px-4 py-2 bg-blue-600 text-white font-semibold rounded-lg shadow-md hover:bg-blue-700 transition-colors duration-200"
+          className="flex items-center px-4 py-2 bg-indigo-600 text-white font-semibold rounded-lg shadow-md hover:bg-indigo-700 text-sm transition-colors duration-200"
         >
           <div className="flex items-center justify-center w-6 h-6 bg-white/20 rounded-full mr-2">
             <span className="text-white text-base font-bold">+</span>
@@ -372,8 +452,44 @@ const WeeklyTaskManager = () => {
     </div>
   );
 
+  // Responsive select styles
+  const selectStyles = {
+    control: (provided) => ({
+      ...provided,
+      minHeight: "2.25rem",
+      fontSize: "0.85rem",
+      borderRadius: "0.375rem",
+      borderColor: "#d1d5db",
+      boxShadow: "0 1px 2px 0 rgba(0, 0, 0, 0.05)",
+    }),
+    menu: (provided) => ({
+      ...provided,
+      fontSize: "0.85rem",
+      maxHeight: "220px",
+      overflowY: "auto",
+      borderRadius: "0.375rem",
+      zIndex: 9999,
+    }),
+    option: (provided) => ({
+      ...provided,
+      fontSize: "0.85rem",
+      padding: "0.5rem 0.75rem",
+      backgroundColor: provided.isSelected ? "#3b82f6" : provided.isFocused ? "#eff6ff" : "white",
+      color: provided.isSelected ? "white" : "#1f2937",
+    }),
+    singleValue: (provided) => ({
+      ...provided,
+      fontSize: "0.85rem",
+    }),
+    placeholder: (provided) => ({
+      ...provided,
+      fontSize: "0.85rem",
+      color: "#6b7280",
+    }),
+  };
+
   return (
-    <div className="p-2">
+    <div className="min-h-screen p-4 sm:p-6">
       <Toaster
         message={toaster.message}
         type={toaster.type}
@@ -383,15 +499,15 @@ const WeeklyTaskManager = () => {
         onCancel={toaster.onCancel}
         allowNoDataErrors={true}
       />
-      <div className="bg-blue-900 text-white py-1 px-2 rounded-md flex justify-between items-center mt-2">
-        <h1 className="text-lg font-bold">Weekly Task Manager</h1>
+      <div className="bg-gradient-to-r from-blue-900 to-blue-900 text-white py-3 px-4 sm:px-6 rounded-xl flex justify-between items-center mt-5 shadow-lg">
+        <h1 className="text-lg sm:text-xl font-bold">Weekly Task Manager</h1>
         {canAdd && (
           <button
             onClick={handleToggleForm}
-            className="flex items-center px-2 py-1 bg-cyan-400 text-white font-semibold rounded-md shadow-md hover:bg-cyan-500 transition text-sm"
+            className="flex items-center px-3 py-2 bg-cyan-500 text-white font-semibold rounded-lg shadow-md hover:bg-cyan-600 text-sm sm:text-base transition-colors duration-200"
           >
-            <div className="flex items-center justify-center w-6 h-6 bg-black rounded-full mr-1">
-              <span className="text-cyan-500 text-base font-bold">
+            <div className="flex items-center justify-center w-8 h-8 bg-gray-800 rounded-full mr-2">
+              <span className="text-cyan-400 text-xl font-bold">
                 {showForm ? "-" : "+"}
               </span>
             </div>
@@ -401,37 +517,37 @@ const WeeklyTaskManager = () => {
       </div>
 
       {canAdd && showForm && (
-        <div className="p-2 mx-2 bg-white border border-gray-200 rounded-lg shadow-md mt-2">
-          <h2 className="text-lg font-bold text-blue-800 mb-2">
+        <div className="p-4 sm:p-6  bg-white border border-gray-200 rounded-xl shadow-md mt-6 max-w-2xl mx-auto">
+          <h2 className="text-lg font-bold text-blue-900 mb-4">
             {editingTask ? "Edit Task" : "Create New Task"}
           </h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-semibold text-gray-700 mb-0.5">
+              <label className="block text-sm font-medium text-gray-700 mb-1">
                 Task Title <span className="text-red-500">*</span>
               </label>
               <input
                 type="text"
                 placeholder="Enter task title"
-                className="w-full border border-gray-300 rounded-md px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-blue-400"
+                className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 value={newTask.title}
                 onChange={(e) => setNewTask({ ...newTask, title: e.target.value })}
               />
             </div>
             <div>
-              <label className="block text-xs font-semibold text-gray-700 mb-0.5">
+              <label className="block text-sm font-medium text-gray-700 mb-1">
                 Description <span className="text-red-500">*</span>
               </label>
               <input
                 type="text"
                 placeholder="Enter task description"
-                className="w-full border border-gray-300 rounded-md px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-blue-400"
+                className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 value={newTask.description}
                 onChange={(e) => setNewTask({ ...newTask, description: e.target.value })}
               />
             </div>
             <div>
-              <label className="block text-xs font-semibold text-gray-700 mb-0.5">
+              <label className="block text-sm font-medium text-gray-700 mb-1">
                 Teacher <span className="text-red-500">*</span>
               </label>
               <Select
@@ -446,63 +562,55 @@ const WeeklyTaskManager = () => {
                 placeholder={isTeachersLoaded ? "Select teacher" : "Loading teachers..."}
                 isClearable
                 isDisabled={!isTeachersLoaded}
-                className="react-select-container text-xs"
-                classNamePrefix="react-select"
+                styles={selectStyles}
                 isSearchable={true}
                 menuPortalTarget={document.body}
-                styles={{
-                  menuPortal: base => ({ ...base, zIndex: 9999 }),
-                  menu: base => ({ ...base, fontSize: '12px' }),
-                  option: base => ({ ...base, fontSize: '12px' }),
-                  singleValue: base => ({ ...base, fontSize: '12px' }),
-                  control: base => ({ ...base, minHeight: '28px', fontSize: '12px' }),
-                }}
                 noOptionsMessage={() => (isTeachersLoaded && teachers.length === 0 ? "No teachers found" : "Loading teachers...")}
               />
             </div>
             <div>
-              <label className="block text-xs font-semibold text-gray-700 mb-0.5">
+              <label className="block text-sm font-medium text-gray-700 mb-1">
                 Start Date <span className="text-red-500">*</span>
               </label>
               <input
                 type="date"
-                className="w-full border border-gray-300 rounded-md px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-blue-400"
+                className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 value={newTask.start_date}
                 onChange={(e) => setNewTask({ ...newTask, start_date: e.target.value })}
               />
             </div>
             <div>
-              <label className="block text-xs font-semibold text-gray-700 mb-0.5">
+              <label className="block text-sm font-medium text-gray-700 mb-1">
                 Due Date <span className="text-red-500">*</span>
               </label>
               <input
                 type="date"
-                className="w-full border border-gray-300 rounded-md px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-blue-400"
+                className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 value={newTask.due_date}
                 onChange={(e) => setNewTask({ ...newTask, due_date: e.target.value })}
               />
             </div>
             <div className="sm:col-span-2">
-              <label className="block text-xs font-semibold text-gray-700 mb-0.5">
+              <label className="block text-sm font-medium text-gray-700 mb-1">
                 Upload File (optional)
               </label>
               <input
                 type="file"
-                className="w-full border border-gray-300 rounded-md px-2 py-1 text-xs bg-white focus:outline-none"
+                className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 onChange={(e) => setNewTask({ ...newTask, file: e.target.files[0] })}
               />
             </div>
           </div>
-          <div className="flex justify-end gap-2 mt-2">
+          <div className="flex justify-end gap-2 mt-4">
             <button
               onClick={handleToggleForm}
-              className="bg-gray-500 text-white px-2 py-1 rounded-md hover:bg-gray-600 text-xs"
+              className="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded-lg text-sm shadow-sm transition-colors duration-200"
             >
               Cancel
             </button>
             <button
               onClick={handleSaveTask}
-              className="bg-green-600 text-white px-3 py-1 rounded-md font-semibold shadow hover:bg-green-700 text-xs"
+              className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-sm font-semibold shadow-sm transition-colors duration-200"
               disabled={!isTeachersLoaded}
             >
               {editingTask ? "Update Task" : "Save Task"}
@@ -514,111 +622,50 @@ const WeeklyTaskManager = () => {
       {/* Show loading state */}
       {isLoading ? (
         <div className="flex items-center justify-center py-16">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-          <span className="ml-3 text-gray-600">Loading tasks...</span>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
+          <span className="ml-3 text-gray-600 text-lg">Loading tasks...</span>
         </div>
       ) : (
-        <div className="p-2">
+        <div className="p-4 sm:p-6">
           {/* Show no tasks message if tasks array is empty */}
           {tasks.length === 0 ? (
             <NoTasksMessage />
           ) : (
             <>
-              <Buttons
-                data={tasks.map((task, index) => ({
-                  "S.No": (page - 1) * pageSize + index + 1,
-                  Title: task.title,
-                  Description: task.description,
-                  Teacher: getTeacherNames(task.teachers),
-                  "Start Date": task.start_date?.split("T")[0] || "—",
-                  "Due Date": task.due_date?.split("T")[0] || "—",
-                  File: task.file ? "Attached" : "No File",
-                }))}
-                columns={[
-                  { label: "S.No", key: "S.No" },
-                  { label: "Title", key: "Title" },
-                  { label: "Description", key: "Description" },
-                  { label: "Teacher", key: "Teacher" },
-                  { label: "Start Date", key: "Start Date" },
-                  { label: "Due Date", key: "Due Date" },
-                  { label: "File", key: "File" },
-                ]}
-                filename="Weekly_Tasks_Report"
-              />
-
-              <div className="overflow-x-auto">
-                <table className="w-full border-collapse border border-gray-300 bg-white mt-2 min-w-[400px]">
-                  <thead className="bg-blue-900 text-white">
-                    <tr>
-                      <th className="border border-gray-300 p-0.5 text-center text-xs">#</th>
-                      <th className="border border-gray-300 p-0.5 text-center text-xs">Title</th>
-                      <th className="border border-gray-300 p-0.5 text-center text-xs">Teacher</th>
-                      <th className="border border-gray-300 p-0.5 text-center text-xs">Start</th>
-                      <th className="border border-gray-300 p-0.5 text-center text-xs">Due</th>
-                      <th className="border border-gray-300 p-0.5 text-center text-xs">File</th>
-                      {(canEdit || canDelete) && <th className="border border-gray-300 p-0.5 text-center text-xs">Actions</th>}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {tasks.map((task, index) => (
-                      <tr key={task.id}>
-                        <td className="border border-gray-300 p-0.5 text-center text-xs">
-                          {(page - 1) * pageSize + index + 1}
-                        </td>
-                        <td className="border border-gray-300 p-0.5 text-xs">
-                          <span className="block max-w-[150px] truncate" title={task.title}>
-                            {task.title}
-                          </span>
-                        </td>
-                        <td className="border border-gray-300 p-0.5 text-xs">{getTeacherNames(task.teachers)}</td>
-                        <td className="border border-gray-300 p-0.5 text-center text-xs">
-                          {task.start_date?.split("T")[0] || "N/A"}
-                        </td>
-                        <td className="border border-gray-300 p-0.5 text-center text-xs">
-                          {task.due_date?.split("T")[0] || "N/A"}
-                        </td>
-                        <td className="border border-gray-300 p-0.5 text-xs">
-                          {task.file ? (
-                            <a
-                              href={task.file}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="text-blue-500 hover:underline text-xs"
-                            >
-                              Download
-                            </a>
-                          ) : "No File"}
-                        </td>
-                        {(canEdit || canDelete) && (
-                          <td className="border border-gray-300 p-0.5 flex justify-center gap-1 text-xs">
-                            <MdVisibility
-                              onClick={() => handleViewTask(task)}
-                              className="text-blue-500 cursor-pointer hover:text-blue-700"
-                              size={18}
-                            />
-                            {canEdit && (
-                              <MdEdit
-                                onClick={() => handleEditTask(task)}
-                                className="text-yellow-500 cursor-pointer hover:text-yellow-700"
-                                size={18}
-                              />
-                            )}
-                            {canDelete && (
-                              <MdDelete
-                                onClick={() => handleDeleteTask(task.id)}
-                                className="text-red-500 cursor-pointer hover:text-red-700"
-                                size={18}
-                              />
-                            )}
-                          </td>
-                        )}
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+              <div className=" mb-4 gap-3">
+                {/* <h2 className="text-lg font-semibold text-white px-4 py-2 rounded-t-lg bg-blue-900">
+                  Weekly Tasks
+                </h2> */}
+                <Buttons
+                  data={tasks.map((task, index) => ({
+                    "S.No": (page - 1) * pageSize + index + 1,
+                    Title: task.title,
+                    Description: task.description,
+                    Teacher: getTeacherNames(task.teachers),
+                    "Start Date": task.start_date?.split("T")[0] || "—",
+                    "Due Date": task.due_date?.split("T")[0] || "—",
+                    File: task.file ? "Attached" : "No File",
+                  }))}
+                  columns={[
+                    { label: "S.No", key: "S.No" },
+                    { label: "Title", key: "Title" },
+                    { label: "Description", key: "Description" },
+                    { label: "Teacher", key: "Teacher" },
+                    { label: "Start Date", key: "Start Date" },
+                    { label: "Due Date", key: "Due Date" },
+                    { label: "File", key: "File" },
+                  ]}
+                  filename="Weekly_Tasks_Report"
+                />
               </div>
-
-              <Pagination
+              <div className="overflow-x-auto">
+                <TableComponent
+                  data={tasks}
+                  columns={tableColumns}
+                  initialSort={{ key: "title", direction: "asc" }}
+                />
+              </div>
+              {/* <Pagination
                 currentPage={page}
                 totalPages={totalPages}
                 pageSize={pageSize}
@@ -634,81 +681,72 @@ const WeeklyTaskManager = () => {
                 totalItems={tasks.length}
                 showPageSizeSelector={true}
                 showPageInfo={true}
-              />
+              /> */}
             </>
           )}
         </div>
       )}
 
       {selectedTask && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 px-3">
-          <div className="bg-white w-full max-w-lg rounded-2xl shadow-2xl border border-gray-200 overflow-hidden animate-fadeIn">
-
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 px-4">
+          <div className="bg-white w-full max-w-lg rounded-xl shadow-2xl border border-gray-200 overflow-hidden">
             {/* Header */}
-            <div className="flex items-center justify-between px-5 py-3 border-b bg-blue-50">
-              <h2 className="text-lg font-bold text-blue-700 flex items-center gap-2">
+            <div className="flex items-center justify-between px-6 py-4 border-b bg-blue-50">
+              <h2 className="text-lg font-bold text-blue-900 flex items-center gap-2">
                 📋 {selectedTask.title || "Task Details"}
               </h2>
               <button
                 onClick={() => setSelectedTask(null)}
-                className="w-7 h-7 flex items-center justify-center rounded-full bg-red-100 text-red-600 hover:bg-red-200 transition"
+                className="w-8 h-8 flex items-center justify-center rounded-full bg-red-100 text-red-600 hover:bg-red-200 transition-colors duration-200"
               >
                 &times;
               </button>
             </div>
-
             {/* Content in column form */}
-            <div className="px-5 py-4 overflow-y-auto max-h-[60vh]">
-              <div className="grid grid-cols-1 gap-3 text-sm">
-                <div className="flex justify-between border-b pb-1">
-                  <span className="text-gray-500 font-medium">📝 Description</span>
-                  <span className="font-semibold text-gray-800 text-right">
-                    {selectedTask.description || "—"}
-                  </span>
-                </div>
-
-                <div className="flex justify-between border-b pb-1">
-                  <span className="text-gray-500 font-medium">👨‍🏫 Teacher</span>
-                  <span className="font-semibold text-gray-800 text-right">
-                    {getTeacherNames(selectedTask.teachers)}
-                  </span>
-                </div>
-
-                <div className="flex justify-between border-b pb-1">
-                  <span className="text-gray-500 font-medium">📅 Start Date</span>
-                  <span className="font-semibold text-gray-800 text-right">
-                    {selectedTask.start_date?.split("T")[0] || "—"}
-                  </span>
-                </div>
-
-                <div className="flex justify-between border-b pb-1">
-                  <span className="text-gray-500 font-medium">⏳ Due Date</span>
-                  <span className="font-semibold text-gray-800 text-right">
-                    {selectedTask.due_date?.split("T")[0] || "—"}
-                  </span>
-                </div>
-
-                {selectedTask.file && (
-                  <div className="flex justify-between items-center border-b pb-1">
-                    <span className="text-gray-500 font-medium">📎 Attachment</span>
-                    <a
-                      href={selectedTask.file}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="ml-2 text-blue-600 hover:underline font-medium text-sm"
-                    >
-                      Download File
-                    </a>
-                  </div>
-                )}
+            <div className="px-6 py-5 overflow-y-auto max-h-[60vh] space-y-4 text-sm">
+              <div className="flex justify-between border-b pb-2">
+                <span className="text-gray-600 font-medium">📝 Description</span>
+                <span className="font-semibold text-gray-800 text-right max-w-[60%]">
+                  {selectedTask.description || "—"}
+                </span>
               </div>
+              <div className="flex justify-between border-b pb-2">
+                <span className="text-gray-600 font-medium">👨‍🏫 Teacher</span>
+                <span className="font-semibold text-gray-800 text-right">
+                  {getTeacherNames(selectedTask.teachers)}
+                </span>
+              </div>
+              <div className="flex justify-between border-b pb-2">
+                <span className="text-gray-600 font-medium">📅 Start Date</span>
+                <span className="font-semibold text-gray-800 text-right">
+                  {selectedTask.start_date?.split("T")[0] || "—"}
+                </span>
+              </div>
+              <div className="flex justify-between border-b pb-2">
+                <span className="text-gray-600 font-medium">⏳ Due Date</span>
+                <span className="font-semibold text-gray-800 text-right">
+                  {selectedTask.due_date?.split("T")[0] || "—"}
+                </span>
+              </div>
+              {selectedTask.file && (
+                <div className="flex justify-between items-center border-b pb-2">
+                  <span className="text-gray-600 font-medium">📎 Attachment</span>
+                  <a
+                    href={selectedTask.file}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-blue-600 hover:underline font-medium text-sm"
+                  >
+                    Download File
+                  </a>
+                </div>
+              )}
             </div>
-
             {/* Footer */}
-            <div className="flex justify-end px-5 py-3 border-t bg-gray-50">
+            <div className="flex justify-end px-6 py-4 border-t bg-gray-50">
               <button
                 onClick={() => setSelectedTask(null)}
-                className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2 rounded-lg shadow text-sm font-medium transition"
+                className="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2 rounded-lg shadow text-sm font-medium transition-colors duration-200"
               >
                 Close
               </button>
@@ -716,8 +754,6 @@ const WeeklyTaskManager = () => {
           </div>
         </div>
       )}
-
-
     </div>
   );
 };

@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useContext } from 'react';
+import { useOutletContext } from 'react-router-dom';
 import html2pdf from 'html2pdf.js';
 import { useRef } from 'react';
 import axios from 'axios';
@@ -8,8 +9,10 @@ import Select from 'react-select';
 import Pagination from '../../components/Pagination';
 import Toaster from '../../components/Toaster'; // Import custom Toaster
 import apiRequest from '../../helpers/apiRequest';
+import TableComponent from '../../components/TableComponent'; // Adjust the import path as needed
 
 const CreateExam = () => {
+  const { isSidebarOpen } = useOutletContext();
   const [form, setForm] = useState({
     term_name: '',
     session: '',
@@ -46,7 +49,6 @@ const CreateExam = () => {
 
   const API = import.meta.env.VITE_SERVER_URL;
   const API_URL = `${API}exams/`;
-
 
   const getClasses = async () => {
     try {
@@ -290,6 +292,110 @@ const CreateExam = () => {
   const canEdit = permissions.includes('users.change_exam');
   const canDelete = permissions.includes('users.delete_exam');
   const canView = permissions.includes('users.view_exam');
+
+  // Define columns for TableComponent
+  const columns = [
+    {
+      key: "S.No",
+      label: "S.NO",
+      render: (_, index) => getSequenceNumber(index),
+    },
+    {
+      key: "Term",
+      label: "TERM",
+      render: (row) => (
+        <span className={`block truncate ${isSidebarOpen ? 'max-w-[80px] sm:max-w-[120px]' : 'max-w-[120px] sm:max-w-[150px]'}`} title={row.term_name}>
+          {row.term_name}
+        </span>
+      ),
+    },
+    {
+      key: "Session",
+      label: "SESSION",
+      render: (row) => (
+        <span className={`block truncate ${isSidebarOpen ? 'max-w-[80px] sm:max-w-[120px]' : 'max-w-[120px] sm:max-w-[150px]'}`} title={row.session}>
+          {row.session}
+        </span>
+      ),
+    },
+    {
+      key: "ClassName",
+      label: "CLASS NAME",
+      render: (row) => (
+        <span className={`block truncate ${isSidebarOpen ? 'max-w-[80px] sm:max-w-[120px]' : 'max-w-[120px] sm:max-w-[150px]'}`} title={`${row.class_name}-${row.section}`}>
+          {`${row.class_name}-${row.section}`}
+        </span>
+      ),
+    },
+    {
+      key: "StartDate",
+      label: "START",
+      render: (row) => row.start_date,
+    },
+    {
+      key: "EndDate",
+      label: "END",
+      render: (row) => row.end_date,
+    },
+    ...(canEdit || canDelete || canView
+      ? [
+          {
+            key: "Actions",
+            label: "ACTION",
+            render: (row) => (
+              <div className="flex gap-1 justify-center">
+                {canView && (
+                  <MdVisibility
+                    className="text-blue-500 text-lg cursor-pointer hover:text-blue-700"
+                    onClick={() => setViewExam(row)}
+                  />
+                )}
+                {canEdit && (
+                  <MdEdit
+                    onClick={() => {
+                      setForm({
+                        term_name: row.term_name,
+                        session: row.session,
+                        class_id: row.class_schedule,
+                        start_date: row.start_date,
+                        end_date: row.end_date,
+                        exam_type: row.exam_type || '',
+                        title: row.title || '',
+                        subjects: row.datesheet.map(s => ({
+                          subject_id: s.subject,
+                          exam_date: s.exam_date,
+                          start_time: s.start_time,
+                          end_time: s.end_time,
+                          room_id: s.room,
+                          invigilator_id: s.invigilator || null
+                        }))
+                      });
+                      setSelectedExam(row);
+                      setShowForm(true);
+                      setViewExam(null);
+                      setFilterType(null);
+                    }}
+                    className="text-yellow-500 text-lg cursor-pointer hover:text-yellow-700"
+                  />
+                )}
+                {canDelete && (
+                  <MdDelete
+                    className="text-red-500 text-lg cursor-pointer hover:text-red-700"
+                    onClick={() => handleDeleteExam(row.id)}
+                  />
+                )}
+              </div>
+            ),
+          },
+        ]
+      : []),
+  ];
+
+  // Map exams data for TableComponent
+  const tableData = exams.map((exam, index) => ({
+    ...exam,
+    "S.No": getSequenceNumber(index),
+  }));
 
   return (
     <div className="p-2 sm:p-4">
@@ -586,83 +692,15 @@ const CreateExam = () => {
           </div>
         ) : (
           <>
-            <h2 className="text-base sm:text-lg font-semibold text-white bg-blue-900 px-4 py-2 rounded-t-md">Exam Terms</h2>
-            <table className="w-full border-collapse border border-gray-300 bg-white">
-              <thead className="bg-gray-200">
-                <tr>
-                  <th className="border p-2 text-sm">S.No</th>
-                  <th className="border p-2 text-sm">Term</th>
-                  <th className="border p-2 text-sm">Session</th>
-                  <th className="border p-2 text-sm">Class Name</th>
-                  <th className="border p-2 text-sm">Start</th>
-                  <th className="border p-2 text-sm">End</th>
-                  {(canEdit || canDelete || canView) && (
-                    <th className="border p-2 text-sm">Action</th>
-                  )}
-                </tr>
-              </thead>
-              <tbody>
-                {exams.map((exam, index) => (
-                  <tr key={exam.id}>
-                    <td className="border p-2 text-center font-medium text-sm">
-                      {getSequenceNumber(index)}
-                    </td>
-                    <td className="border p-2 text-sm">{exam.term_name}</td>
-                    <td className="border p-2 text-sm">{exam.session}</td>
-                    <td className="border p-2 text-center text-sm">{exam.class_name}-({exam.section})</td>
-                    <td className="border p-2 text-center text-sm">{exam.start_date}</td>
-                    <td className="border p-2 text-center text-sm">{exam.end_date}</td>
-                    {(canEdit || canDelete || canView) && (
-                      <td className="border p-2 text-center">
-                        <div className="flex justify-center items-center gap-2">
-                          {canView && (
-                            <MdVisibility
-                              className="text-blue-500 text-lg cursor-pointer hover:text-blue-700"
-                              onClick={() => setViewExam(exam)}
-                            />
-                          )}
-                          {canEdit && (
-                            <MdEdit
-                              onClick={() => {
-                                setForm({
-                                  term_name: exam.term_name,
-                                  session: exam.session,
-                                  class_id: exam.class_schedule,
-                                  start_date: exam.start_date,
-                                  end_date: exam.end_date,
-                                  exam_type: exam.exam_type || '',
-                                  title: exam.title || '',
-                                  subjects: exam.datesheet.map(s => ({
-                                    subject_id: s.subject,
-                                    exam_date: s.exam_date,
-                                    start_time: s.start_time,
-                                    end_time: s.end_time,
-                                    room_id: s.room,
-                                    invigilator_id: s.invigilator || null
-                                  }))
-                                });
-                                setSelectedExam(exam);
-                                setShowForm(true);
-                                setViewExam(null);
-                                setFilterType(null);
-                              }}
-                              className="text-yellow-500 text-lg cursor-pointer hover:text-yellow-700"
-                            />
-                          )}
-                          {canDelete && (
-                            <MdDelete
-                              className="text-red-500 text-lg cursor-pointer hover:text-red-700"
-                              onClick={() => handleDeleteExam(exam.id)}
-                            />
-                          )}
-                        </div>
-                      </td>
-                    )}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-            <Pagination
+            {/* <h2 className="text-base sm:text-lg font-semibold text-white bg-blue-900 px-4 py-2 rounded-t-md">Exam Terms</h2> */}
+            <div className={`max-w-full overflow-x-auto ${isSidebarOpen ? 'pr-4' : ''}`}>
+              <TableComponent
+                data={tableData}
+                columns={columns}
+                initialSort={{ key: "S.No", direction: "asc" }}
+              />
+            </div>
+            {/* <Pagination
               currentPage={page}
               totalPages={totalPages}
               pageSize={pageSize}
@@ -678,7 +716,7 @@ const CreateExam = () => {
               totalItems={exams.length}
               showPageSizeSelector={true}
               showPageInfo={true}
-            />
+            /> */}
           </>
         )}
       </div>

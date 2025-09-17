@@ -4,6 +4,7 @@ import Cookies from "js-cookie";
 import { FiTrash, FiEdit, FiEye } from "react-icons/fi";
 import Buttons from "../../components/Buttons"; // Adjust the import path as needed
 import Toaster from "../../components/Toaster"; // Import custom Toaster component
+import TableComponent from "../../components/TableComponent"; // Import reusable TableComponent
 
 const StudentInfo = () => {
   const [students, setStudents] = useState([]);
@@ -19,7 +20,6 @@ const StudentInfo = () => {
     onConfirm: null,
     onCancel: null
   });
-  const [confirmResolve, setConfirmResolve] = useState(null);
 
   const API = import.meta.env.VITE_SERVER_URL;
 
@@ -46,11 +46,11 @@ const StudentInfo = () => {
       onConfirm: () => {
         console.log("User confirmed delete for ID:", studentId);
         deleteStudent(studentId);
-        setToaster({ message: "", type: "success" }); // Clear toaster
+        setToaster({ message: "", type: "success" });
       },
       onCancel: () => {
         console.log("User cancelled delete");
-        setToaster({ message: "", type: "success" }); // Clear toaster
+        setToaster({ message: "", type: "success" });
       }
     });
   };
@@ -124,7 +124,7 @@ const StudentInfo = () => {
   };
 
   const deleteStudent = async (id) => {
-    console.log("Starting delete for ID:", id); // Debug log
+    console.log("Starting delete for ID:", id);
     try {
       if (!id) {
         showToast("Invalid student ID.", "error");
@@ -132,13 +132,13 @@ const StudentInfo = () => {
       }
 
       const deleteUrl = `${API}api/auth/users/${id}/delete_user/`;
-      console.log("Delete URL:", deleteUrl); // Debug log
+      console.log("Delete URL:", deleteUrl);
 
       const response = await axios.delete(deleteUrl, {
         headers: authHeaders()
       });
 
-      console.log("Delete response:", response); // Debug log
+      console.log("Delete response:", response);
 
       if ([200, 202, 204].includes(response.status)) {
         if (response.status === 202) {
@@ -150,8 +150,6 @@ const StudentInfo = () => {
         } else {
           setStudents((prev) => prev.filter((s) => s.user_id !== id));
           showToast("Student deleted successfully.", "success");
-
-          // Refresh the list to ensure consistency
           fetchStudents(currentPage, pageSize);
         }
       } else {
@@ -179,7 +177,7 @@ const StudentInfo = () => {
   };
 
   const confirmDeleteStudent = async (id) => {
-    console.log("Delete clicked for ID:", id); // Debug log
+    console.log("Delete clicked for ID:", id);
 
     if (!id) {
       showToast("Invalid student ID.", "error");
@@ -191,7 +189,6 @@ const StudentInfo = () => {
       return;
     }
 
-    // Use the Toaster's built-in confirmation functionality
     confirmToast("Are you sure you want to delete this student? This action cannot be undone.", id);
   };
 
@@ -213,21 +210,85 @@ const StudentInfo = () => {
     setIsEditModalOpen(true);
   };
 
-  const goToPage = (page) => {
-    if (page >= 1 && page <= totalPages) {
-      fetchStudents(page, pageSize);
-    }
-  };
+  // Table columns configuration
+  const columns = [
+    {
+      key: "index",
+      label: "No.",
+      render: (row, index) => (currentPage - 1) * pageSize + index + 1,
+    },
+    {
+      key: "full_name",
+      label: "Full Name",
+      render: (row) => `${row.first_name} ${row.last_name}`,
+    },
+    {
+      key: "phone_number",
+      label: "Phone",
+      render: (row) => (
+        <span className="block max-w-[150px] truncate" title={row.phone_number}>
+          {row.phone_number || "N/A"}
+        </span>
+      ),
+    },
+    {
+      key: "gender",
+      label: "Gender",
+      render: (row) => row.gender ? row.gender.charAt(0).toUpperCase() + row.gender.slice(1) : "N/A",
+    },
+    {
+      key: "registration_no",
+      label: "Registration No",
+      render: (row) => row.registration_no || "N/A",
+    },
+    {
+      key: "class_name",
+      label: "Class",
+      render: (row) => row.class_name || "N/A",
+    },
+    {
+      key: "actions",
+      label: "Actions",
+      render: (row) => (
+        <div className="flex items-center justify-center gap-2">
+          {canView && (
+            <FiEye
+              className="text-blue-500 cursor-pointer hover:text-blue-700"
+              size={18}
+              onClick={() => openViewModal(row)}
+              title="View"
+            />
+          )}
+          {canEdit && (
+            <FiEdit
+              className="text-yellow-500 cursor-pointer hover:text-yellow-700"
+              size={18}
+              onClick={() => openEditModal(row)}
+              title="Edit"
+            />
+          )}
+          {canDelete && (
+            <FiTrash
+              className="text-red-500 cursor-pointer hover:text-red-700"
+              size={18}
+              onClick={() => confirmDeleteStudent(row.user_id)}
+              title="Delete"
+            />
+          )}
+        </div>
+      ),
+    },
+  ];
 
   return (
     <div className="p-2 md:p-3 relative">
       <Toaster
         message={toaster.message}
         type={toaster.type}
-        duration={toaster.type === "confirmation" ? 10000 : 3000} // Longer duration for confirmations
+        duration={toaster.type === "confirmation" ? 10000 : 3000}
         onClose={() => setToaster({ message: "", type: "success" })}
-        onConfirm={toaster.onConfirm} // Pass the confirm handler
-        onCancel={toaster.onCancel}   // Pass the cancel handler
+        onConfirm={toaster.onConfirm}
+        onCancel={toaster.onCancel}
       />
 
       {/* Header bar */}
@@ -255,81 +316,30 @@ const StudentInfo = () => {
 
         {/* Table */}
         <div className="overflow-x-auto mt-2">
-          <table className="w-full border-collapse border border-gray-300 bg-white min-w-[500px] shadow-lg">
-            <thead className="bg-blue-900 text-white sticky top-0 z-10">
-              <tr>
-                <th className="border border-gray-300 p-1 text-center text-xs">No.</th>
-                <th className="border border-gray-300 p-1 text-center text-xs">Full Name</th>
-                <th className="border border-gray-300 p-1 text-center text-xs">Phone</th>
-                <th className="border border-gray-300 p-1 text-center text-xs">Gender</th>
-                <th className="border border-gray-300 p-1 text-center text-xs">Registration No</th>
-                <th className="border border-gray-300 p-1 text-center text-xs">Class</th>
-                <th className="border border-gray-300 p-1 text-center text-xs">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {students.map((student, index) => (
-                <tr key={student.user_id || `student-${index}`} className="hover:bg-gray-50">
-                  <td className="border border-gray-300 p-1 text-center text-xs">
-                    {index + 1 + (currentPage - 1) * pageSize}
-                  </td>
-                  <td className="border border-gray-300 p-1 text-xs">{student.first_name} {student.last_name}</td>
-                  <td className="border border-gray-300 p-1 text-xs">
-                    <span className="block max-w-[150px] truncate" title={student.phone_number}>
-                      {student.phone_number || "N/A"}
-                    </span>
-                  </td>
-                  <td className="border border-gray-300 p-1 text-xs capitalize">{student.gender || "N/A"}</td>
-                  <td className="border border-gray-300 p-1 text-xs">{student.registration_no || "N/A"}</td>
-                  <td className="border border-gray-300 p-1 text-xs">{student.class_name || "N/A"}</td>
-                  <td className="border border-gray-300 p-1">
-                    <div className="flex items-center justify-center gap-2">
-                      {canView && (
-                        <FiEye
-                          className="text-blue-500 cursor-pointer hover:text-blue-700"
-                          size={18}
-                          onClick={() => openViewModal(student)}
-                          title="View"
-                        />
-                      )}
-                      {canEdit && (
-                        <FiEdit
-                          className="text-yellow-500 cursor-pointer hover:text-yellow-700"
-                          size={18}
-                          onClick={() => openEditModal(student)}
-                          title="Edit"
-                        />
-                      )}
-                      {canDelete && (
-                        <FiTrash
-                          className="text-red-500 cursor-pointer hover:text-red-700"
-                          size={18}
-                          onClick={() => confirmDeleteStudent(student.user_id)}
-                          title="Delete"
-                        />
-                      )}
-                    </div>
-                  </td>
-                </tr>
-              ))}
-              {students.length === 0 && (
-                <tr>
-                  <td colSpan={12} className="border border-gray-300 p-2 text-center text-gray-500 text-sm">
-                    No students added yet.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
+          {students.length > 0 ? (
+            <TableComponent
+              data={students}
+              columns={columns}
+              initialSort={{ key: "full_name", direction: "asc" }}
+            />
+          ) : (
+            <div className="border border-gray-300 p-2 text-center text-gray-500 text-sm bg-white rounded-lg shadow-lg">
+              No students added yet.
+            </div>
+          )}
         </div>
 
         {/* Pagination controls */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mt-2">
+        {/* <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mt-2">
           <div className="flex items-center gap-2">
             <label className="text-xs font-medium text-gray-700">Page Size:</label>
             <select
               value={pageSize}
-              onChange={(e) => setPageSize(Number(e.target.value))}
+              onChange={(e) => {
+                setPageSize(Number(e.target.value));
+                setCurrentPage(1);
+                fetchStudents(1, Number(e.target.value));
+              }}
               className="border border-gray-300 rounded px-2 py-1 text-xs bg-white"
             >
               {[5, 10, 25, 50].map((size) => (
@@ -342,7 +352,10 @@ const StudentInfo = () => {
 
           <div className="flex flex-wrap gap-1">
             <button
-              onClick={() => goToPage(currentPage - 1)}
+              onClick={() => {
+                setCurrentPage(currentPage - 1);
+                fetchStudents(currentPage - 1, pageSize);
+              }}
               disabled={currentPage === 1}
               className="px-2 py-1 bg-gray-200 rounded text-xs disabled:opacity-50"
             >
@@ -351,28 +364,33 @@ const StudentInfo = () => {
             {[...Array(totalPages)].map((_, idx) => (
               <button
                 key={idx}
-                onClick={() => goToPage(idx + 1)}
+                onClick={() => {
+                  setCurrentPage(idx + 1);
+                  fetchStudents(idx + 1, pageSize);
+                }}
                 className={`px-2 py-1 rounded text-xs ${currentPage === idx + 1 ? "bg-blue-600 text-white" : "bg-gray-200"}`}
               >
                 {idx + 1}
               </button>
             ))}
             <button
-              onClick={() => goToPage(currentPage + 1)}
+              onClick={() => {
+                setCurrentPage(currentPage + 1);
+                fetchStudents(currentPage + 1, pageSize);
+              }}
               disabled={currentPage === totalPages}
               className="px-2 py-1 bg-gray-200 rounded text-xs disabled:opacity-50"
             >
               Next
             </button>
           </div>
-        </div>
+        </div> */}
       </div>
 
       {/* View Modal */}
       {isViewModalOpen && selectedStudent && (
         <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-60 px-4 z-50">
           <div className="bg-white w-full max-w-3xl rounded-xl shadow-2xl border border-gray-200 overflow-hidden">
-
             {/* Header */}
             <div className="px-6 py-4 bg-blue-600 text-white flex justify-between items-center">
               <h2 className="text-lg md:text-xl font-bold">Student Details</h2>
@@ -387,7 +405,6 @@ const StudentInfo = () => {
             {/* Content */}
             <div className="p-6 overflow-y-auto max-h-[70vh]">
               <div className="flex flex-col md:flex-row gap-6 items-center">
-
                 {/* Profile Picture */}
                 <div className="flex flex-col items-center">
                   {selectedStudent.profile_picture ? (
@@ -413,7 +430,6 @@ const StudentInfo = () => {
 
                 {/* Info Grid */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 flex-1">
-                  {/* Example Info Card */}
                   <div className="p-4 bg-gray-50 rounded-lg shadow-sm border">
                     <p className="text-xs uppercase text-gray-500 font-semibold">Username</p>
                     <p className="text-base font-medium">{selectedStudent.username || "N/A"}</p>
@@ -463,12 +479,10 @@ const StudentInfo = () => {
         </div>
       )}
 
-
       {/* Edit Modal */}
       {isEditModalOpen && selectedStudent && (
         <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-60 px-4 z-50">
           <div className="bg-white w-full max-w-2xl rounded-xl shadow-2xl border border-gray-200 overflow-hidden">
-
             {/* Header */}
             <div className="px-6 py-4 bg-blue-600 text-white flex justify-between items-center">
               <h2 className="text-lg md:text-xl font-bold">Edit Student Profile</h2>
@@ -482,7 +496,6 @@ const StudentInfo = () => {
 
             {/* Content */}
             <div className="px-6 py-4 overflow-y-auto max-h-[70vh] space-y-4">
-
               {/* First Name */}
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-1">
@@ -625,7 +638,6 @@ const StudentInfo = () => {
           </div>
         </div>
       )}
-
     </div>
   );
 };

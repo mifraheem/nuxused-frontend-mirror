@@ -4,17 +4,14 @@ import Cookies from "js-cookie";
 import { MdVisibility } from "react-icons/md";
 import Select from "react-select";
 import Buttons from "../../components/Buttons";
-import Pagination from "../../components/Pagination";
-import Toaster from "../../components/Toaster"; // Import custom Toaster component
+import Toaster from "../../components/Toaster";
+import TableComponent from "../../components/TableComponent"; // Import the reusable TableComponent
 
 const FinalResults = () => {
   const [results, setResults] = useState([]);
   const [students, setStudents] = useState([]);
   const [classes, setClasses] = useState([]);
   const [exams, setExams] = useState([]);
-  const [currentPage, setCurrentPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
-  const [pageSize, setPageSize] = useState(10);
   const [filterType, setFilterType] = useState(null);
   const [filter, setFilter] = useState({ student: "", class_name: "", exam: "" });
   const [isLoading, setIsLoading] = useState(true);
@@ -32,7 +29,7 @@ const FinalResults = () => {
     setToaster({ message, type });
   };
 
-  const fetchResults = async (page = 1, size = pageSize, filters = {}) => {
+  const fetchResults = async (page = 1, size = 10, filters = {}) => {
     try {
       setIsLoading(true);
       const token = Cookies.get("access_token");
@@ -46,15 +43,12 @@ const FinalResults = () => {
       if (filters.class_name) url += `&class_name=${filters.class_name}`;
       if (filters.exam) url += `&exam=${filters.exam}`;
 
-      console.log("API Request URL:", url); // Debug log to check the URL
       const response = await axios.get(url, {
         headers: { Authorization: `Bearer ${token}` },
       });
       const data = response.data.data;
       if (Array.isArray(data.results)) {
         setResults(data.results);
-        setCurrentPage(data.current_page);
-        setTotalPages(data.total_pages);
       } else {
         throw new Error("Unexpected API response format.");
       }
@@ -123,14 +117,13 @@ const FinalResults = () => {
   const handleFilterChange = (field, value) => {
     setFilter(prevFilter => {
       const newFilter = { ...prevFilter, [field]: value };
-      setCurrentPage(1);
-      fetchResults(1, pageSize, newFilter);
+      fetchResults(1, 10, newFilter);
       return newFilter;
     });
   };
 
   const handleFilterSubmit = () => {
-    fetchResults(1, pageSize, filter);
+    fetchResults(1, 10, filter);
     setFilterType(null);
   };
 
@@ -160,7 +153,64 @@ const FinalResults = () => {
       setIsLoading(false);
     };
     fetchData();
-  }, [pageSize]);
+  }, []);
+
+  const columns = [
+    { key: "sequence", label: "S.No", render: (row, index) => index + 1 },
+    { key: "student_name", label: "Student" },
+    { key: "class_name", label: "Class" },
+    { key: "exam_term", label: "Term" },
+    { key: "total_marks_obtained", label: "Marks" },
+    { key: "total_marks", label: "Total" },
+    { key: "percentage", label: "%", render: (row) => `${row.percentage}%` },
+    { key: "grade", label: "Grade" },
+    { key: "pending_subjects", label: "Pending" },
+    {
+      key: "is_complete",
+      label: "Status",
+      render: (row) => (
+        <span
+          className={`px-1 py-0.5 text-xs font-semibold ${
+            row.is_complete ? "bg-green-100 text-green-800" : "bg-yellow-100 text-yellow-800"
+          }`}
+        >
+          {row.is_complete ? "Complete" : "Incomplete"}
+        </span>
+      ),
+    },
+    ...(canView
+      ? [
+          {
+            key: "actions",
+            label: "Actions",
+            render: (row) => (
+              <div className="flex justify-center">
+                <button
+                  onClick={() => setViewModalData(row)}
+                  className="text-blue-600 hover:text-blue-800"
+                >
+                  <MdVisibility size={16} />
+                </button>
+              </div>
+            ),
+          },
+        ]
+      : []),
+  ];
+
+  const tableData = results.map((res, index) => ({
+    id: res.id,
+    sequence: (index + 1),
+    student_name: res.student_name,
+    class_name: res.class_name,
+    exam_term: res.exam_term,
+    total_marks_obtained: res.total_marks_obtained,
+    total_marks: res.total_marks,
+    percentage: res.percentage,
+    grade: res.grade,
+    pending_subjects: res.pending_subjects,
+    is_complete: res.is_complete,
+  }));
 
   return (
     <div className="p-2 sm:p-4">
@@ -247,103 +297,17 @@ const FinalResults = () => {
         ) : (
           <div>
             <Buttons
-              data={results.map((res, index) => ({
-                Sequence: (currentPage - 1) * pageSize + index + 1,
-                // ID: res.id,
-                Student: res.student_name,
-                Class: res.class_name,
-                Exam: res.exam_term,
-                "Marks Obtained": res.total_marks_obtained,
-                "Total Marks": res.total_marks,
-                Percentage: `${res.percentage}%`,
-                Grade: res.grade,
-                "Pending Subjects": res.pending_subjects,
-                Status: res.is_complete ? "Complete" : "Incomplete",
-              }))}
-              columns={[
-                { label: "S.No", key: "Sequence" },
-                // { label: "ID", key: "ID" },
-                { label: "Student", key: "Student" },
-                { label: "Class", key: "Class" },
-                { label: "Exam", key: "Exam" },
-                { label: "Marks Obtained", key: "Marks Obtained" },
-                { label: "Total Marks", key: "Total Marks" },
-                { label: "Percentage", key: "Percentage" },
-                { label: "Grade", key: "Grade" },
-                { label: "Pending Subjects", key: "Pending Subjects" },
-                { label: "Status", key: "Status" },
-              ]}
+              data={tableData}
+              columns={columns.filter((col) => col.key !== "actions")} // Exclude actions column for export
               filename="Final_Results_Report"
             />
-
-            <h2 className="text-base font-semibold text-white bg-blue-900 px-2 py-1 rounded-t-md">Final Results</h2>
-            <div className="overflow-x-auto">
-              <table className="w-full border border-gray-300 text-xs bg-white min-w-[400px]">
-                <thead className="bg-gray-200">
-                  <tr>
-                    <th className="border p-1 whitespace-nowrap text-center">S.No</th>
-                    <th className="border p-1 whitespace-nowrap text-center">Student</th>
-                    <th className="border p-1 whitespace-nowrap text-center">Class</th>
-                    <th className="border p-1 whitespace-nowrap text-center">Term</th>
-                    <th className="border p-1 whitespace-nowrap text-center">Marks</th>
-                    <th className="border p-1 whitespace-nowrap text-center">Total</th>
-                    <th className="border p-1 whitespace-nowrap text-center">%</th>
-                    <th className="border p-1 whitespace-nowrap text-center">Grade</th>
-                    <th className="border p-1 whitespace-nowrap text-center">Pending</th>
-                    <th className="border p-1 whitespace-nowrap text-center">Status</th>
-                    {canView && <th className="border p-1 whitespace-nowrap text-center">Actions</th>}
-                  </tr>
-                </thead>
-                <tbody>
-                  {results.map((result, index) => (
-                    <tr key={result.id}>
-                      <td className="border p-1 text-center whitespace-nowrap">
-                        {(currentPage - 1) * pageSize + index + 1}
-                      </td>
-                      <td className="border p-1 whitespace-nowrap">{result.student_name}</td>
-                      <td className="border p-1 whitespace-nowrap">{result.class_name}</td>
-                      <td className="border p-1 whitespace-nowrap">{result.exam_term}</td>
-                      <td className="border p-1 text-center whitespace-nowrap">{result.total_marks_obtained}</td>
-                      <td className="border p-1 text-center whitespace-nowrap">{result.total_marks}</td>
-                      <td className="border p-1 text-center whitespace-nowrap">{result.percentage}%</td>
-                      <td className="border p-1 text-center whitespace-nowrap">{result.grade}</td>
-                      <td className="border p-1 text-center whitespace-nowrap">{result.pending_subjects}</td>
-                      <td className="border p-1 text-center whitespace-nowrap">
-                        <span className={`px-1 py-0.5 text-xs font-semibold ${result.is_complete
-                          ? "bg-green-100 text-green-800"
-                          : "bg-yellow-100 text-yellow-800"
-                          }`}>
-                          {result.is_complete ? "Complete" : "Incomplete"}
-                        </span>
-                      </td>
-                      {canView && (
-                        <td className="border p-1 flex justify-center whitespace-nowrap">
-                          <button onClick={() => setViewModalData(result)} className="text-blue-600 hover:text-blue-800">
-                            <MdVisibility size={16} />
-                          </button>
-                        </td>
-                      )}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-            <Pagination
-              currentPage={currentPage}
-              totalPages={totalPages}
-              pageSize={pageSize}
-              onPageChange={(page) => {
-                setCurrentPage(page);
-                fetchResults(page, pageSize, filter);
-              }}
-              onPageSizeChange={(size) => {
-                setPageSize(size);
-                setCurrentPage(1);
-                fetchResults(1, size, filter);
-              }}
-              totalItems={results.length}
-              showPageSizeSelector={true}
-              showPageInfo={true}
+            {/* <h2 className="text-base font-semibold text-white bg-blue-900 px-2 py-1 rounded-t-md">
+              Final Results
+            </h2> */}
+            <TableComponent
+              data={tableData}
+              columns={columns}
+              initialSort={{ key: "sequence", direction: "asc" }}
             />
           </div>
         )}
@@ -352,18 +316,12 @@ const FinalResults = () => {
       {viewModalData && canView && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 px-3">
           <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl border border-gray-200 overflow-hidden animate-fadeIn">
-
-            {/* Header */}
             <div className="px-5 py-3 border-b bg-blue-50 text-center">
               <h3 className="text-base font-bold text-blue-800 flex items-center justify-center gap-2">
                 📄 Final Result Details
               </h3>
             </div>
-
-            {/* Content */}
             <div className="px-5 py-4 overflow-y-auto max-h-[65vh] text-sm text-gray-700 space-y-4">
-
-              {/* Student Info */}
               <div>
                 <h4 className="text-sm font-semibold text-blue-900 border-b pb-1 mb-2">
                   👤 Student Information
@@ -383,8 +341,6 @@ const FinalResults = () => {
                   </div>
                 </div>
               </div>
-
-              {/* Result */}
               <div>
                 <h4 className="text-sm font-semibold text-blue-900 border-b pb-1 mb-2">
                   📋 Result
@@ -413,10 +369,9 @@ const FinalResults = () => {
                   <div className="flex justify-between items-center">
                     <span className="text-gray-500 font-medium">Status</span>
                     <span
-                      className={`px-2 py-0.5 rounded-full text-xs font-semibold ${viewModalData.is_complete
-                          ? "bg-green-100 text-green-800"
-                          : "bg-yellow-100 text-yellow-800"
-                        }`}
+                      className={`px-2 py-0.5 rounded-full text-xs font-semibold ${
+                        viewModalData.is_complete ? "bg-green-100 text-green-800" : "bg-yellow-100 text-yellow-800"
+                      }`}
                     >
                       {viewModalData.is_complete ? "Complete" : "Incomplete"}
                     </span>
@@ -428,8 +383,6 @@ const FinalResults = () => {
                 </div>
               </div>
             </div>
-
-            {/* Footer */}
             <div className="flex justify-center px-5 py-3 border-t bg-gray-50">
               <button
                 onClick={() => setViewModalData(null)}
@@ -441,7 +394,6 @@ const FinalResults = () => {
           </div>
         </div>
       )}
-
     </div>
   );
 };

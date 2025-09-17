@@ -4,7 +4,8 @@ import Cookies from "js-cookie";
 import { MdEdit, MdDelete } from "react-icons/md";
 import { Buttons } from "../../components";
 import Pagination from "../../components/Pagination";
-import Toaster from "../../components/Toaster"; // Import the provided Toaster component
+import Toaster from "../../components/Toaster";
+import TableComponent from "../../components/TableComponent"; // Import reusable TableComponent
 
 const ClassManagement = () => {
   const [classes, setClasses] = useState([]);
@@ -149,7 +150,7 @@ const ClassManagement = () => {
         }
       },
       () => {
-        showToast("", "success", null, null); // Clear the toaster
+        showToast("", "success", null, null);
       }
     );
   };
@@ -158,17 +159,63 @@ const ClassManagement = () => {
     fetchClasses(1, pageSize);
   }, [pageSize]);
 
-  const columns = [
-    { label: "Class", key: "class_name" },
-    { label: "Section", key: "section" },
-    { label: "Session", key: "session" },
-  ];
-
   const permissions = JSON.parse(localStorage.getItem("user_permissions") || "[]");
   const canAdd = permissions.includes("users.add_classname");
   const canEdit = permissions.includes("users.change_classname");
   const canDelete = permissions.includes("users.delete_classname");
   const canView = permissions.includes("users.view_classname");
+
+  // Table columns configuration
+  const columns = [
+    {
+      key: "index",
+      label: "#ID",
+      render: (row, index) => (currentPage - 1) * pageSize + index + 1,
+    },
+    {
+      key: "class_name",
+      label: "Class",
+      render: (row) => row.class_name || "N/A",
+    },
+    {
+      key: "section",
+      label: "Section",
+      render: (row) => row.section || "N/A",
+    },
+    {
+      key: "session",
+      label: "Session",
+      render: (row) => row.session || "N/A",
+    },
+    {
+      key: "actions",
+      label: "Actions",
+      render: (row) => (
+        <div className="flex justify-center space-x-2">
+          {canEdit && (
+            <MdEdit
+              onClick={() => {
+                setEditClass(row);
+                setNewClass({
+                  class_name: row.class_name,
+                  section: row.section,
+                  session: row.session,
+                });
+                setShowForm(true);
+              }}
+              className="text-yellow-500 text-2xl cursor-pointer hover:text-yellow-700"
+            />
+          )}
+          {canDelete && (
+            <MdDelete
+              onClick={() => handleDeleteClass(row.id)}
+              className="text-red-500 text-2xl cursor-pointer hover:text-red-700"
+            />
+          )}
+        </div>
+      ),
+    },
+  ];
 
   return (
     <div>
@@ -258,73 +305,16 @@ const ClassManagement = () => {
         {loading ? (
           <p className="text-center text-gray-500">Loading...</p>
         ) : canView && classes.length > 0 ? (
-          <div className="mt-6">
-            <Buttons data={classes} columns={columns} filename="Classes" />
-            <h2 className="text-lg font-semibold text-white bg-blue-900 px-4 py-2 rounded-t-md">Classes</h2>
-            <table className="w-full border-collapse border border-gray-300 bg-white">
-              <thead className="bg-gray-200">
-                <tr>
-                  <th className="border border-gray-300 p-2">#ID</th>
-                  <th className="border border-gray-300 p-2">Class</th>
-                  <th className="border border-gray-300 p-2">Section</th>
-                  <th className="border border-gray-300 p-2">Session</th>
-                  {(canEdit || canDelete) && (
-                    <th className="border border-gray-300 p-2">Actions</th>
-                  )}
-                </tr>
-              </thead>
-              <tbody>
-                {classes.map((cls, index) => (
-                  <tr className="text-center" key={cls.id}>
-                    <td className="border border-gray-300 p-2">
-                      {(currentPage - 1) * pageSize + index + 1}
-                    </td>
-                    <td className="border border-gray-300 p-2">{cls.class_name}</td>
-                    <td className="border border-gray-300 p-2">{cls.section}</td>
-                    <td className="border border-gray-300 p-2">{cls.session}</td>
-                    {(canEdit || canDelete) && (
-                      <td className="border border-gray-300 p-2 flex justify-center">
-                        {canEdit && (
-                          <MdEdit
-                            onClick={() => {
-                              setEditClass(cls);
-                              setNewClass({
-                                class_name: cls.class_name,
-                                section: cls.section,
-                                session: cls.session,
-                              });
-                              setShowForm(true);
-                            }}
-                            className="text-yellow-500 text-2xl cursor-pointer mx-2 hover:text-yellow-700"
-                          />
-                        )}
-                        {canDelete && (
-                          <MdDelete
-                            onClick={() => handleDeleteClass(cls.id)}
-                            className="text-red-500 text-2xl cursor-pointer mx-2 hover:text-red-700"
-                          />
-                        )}
-                      </td>
-                    )}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-
-            <Pagination
-              currentPage={currentPage}
-              totalPages={totalPages}
-              pageSize={pageSize}
-              onPageChange={goToPage}
-              onPageSizeChange={(size) => {
-                setPageSize(size);
-                setCurrentPage(1);
-                fetchClasses(1, size);
-              }}
-              totalItems={classes.length}
-              showPageSizeSelector={true}
-              showPageInfo={true}
-            />
+          <div className="mt-1">
+            <Buttons data={classes} columns={columns.slice(0, -1)} filename="Classes" />
+            <div className="overflow-x-auto">
+              <TableComponent
+                data={classes}
+                columns={columns}
+                initialSort={{ key: "class_name", direction: "asc" }}
+              />
+            </div>
+            
           </div>
         ) : canView ? (
           <p className="text-center text-gray-500">No classes added yet.</p>

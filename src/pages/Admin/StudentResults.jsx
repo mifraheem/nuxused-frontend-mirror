@@ -7,6 +7,7 @@ import * as XLSX from "xlsx";
 import Buttons from "../../components/Buttons";
 import Pagination from "../../components/Pagination";
 import Toaster from "../../components/Toaster";
+import TableComponent from "../../components/TableComponent";
 
 const StudentResults = () => {
   const [results, setResults] = useState([]);
@@ -609,6 +610,88 @@ const StudentResults = () => {
     }),
   };
 
+  const columns = [
+    {
+      key: "sequence",
+      label: "S.No",
+      render: (_, index) => (currentPage - 1) * pageSize + index + 1,
+      className: "text-center",
+    },
+    {
+      key: "student_name",
+      label: "Student",
+    },
+    {
+      key: "class_name",
+      label: "Class",
+    },
+    {
+      key: "exam_term",
+      label: "Exam",
+    },
+    {
+      key: "subject_name",
+      label: "Subject",
+    },
+    {
+      key: "marks_obtained",
+      label: "Marks Obtained",
+      className: "text-center",
+    },
+    {
+      key: "total_marks",
+      label: "Total Marks",
+      className: "text-center",
+    },
+    {
+      key: "grade",
+      label: "Grade",
+      className: "text-center",
+    },
+    {
+      key: "remarks",
+      label: "Remarks",
+      render: (row) => row.remarks || "—",
+    },
+    ...(canEdit || canDelete || canView
+      ? [
+          {
+            key: "actions",
+            label: "Actions",
+            render: (row) => (
+              <div className="flex justify-center gap-2">
+                {canView && (
+                  <button
+                    onClick={() => setViewModalData(row)}
+                    className="text-blue-600 hover:text-blue-800"
+                  >
+                    <MdVisibility size={16} />
+                  </button>
+                )}
+                {canEdit && (
+                  <button
+                    onClick={() => handleEditResult(row)}
+                    className="text-yellow-500 hover:text-yellow-700"
+                  >
+                    <MdEdit size={16} />
+                  </button>
+                )}
+                {canDelete && (
+                  <button
+                    onClick={() => handleDeleteResult(row.id)}
+                    className="text-red-500 hover:text-red-700"
+                  >
+                    <MdDelete size={16} />
+                  </button>
+                )}
+              </div>
+            ),
+            className: "text-center",
+          },
+        ]
+      : []),
+  ];
+
   return (
     <div className="container mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-6">
       <Toaster
@@ -643,7 +726,6 @@ const StudentResults = () => {
               {showForm ? "Close Form" : "Add New Result"}
             </button>
           )}
-
         </div>
       </div>
 
@@ -868,6 +950,8 @@ const StudentResults = () => {
             })}
           </div>
           <div className="hidden md:block overflow-x-auto">
+            {/* Reusing TableComponent for bulk result entry is not practical due to its inline editing nature.
+               We'll keep the custom table here and use TableComponent for the results display below. */}
             <table className="w-full border border-gray-200">
               <thead className="bg-gray-100">
                 <tr>
@@ -1006,7 +1090,7 @@ const StudentResults = () => {
       )}
 
       {canView && !isLoading && results.length > 0 && (
-        <div className="mt-6 bg-white p-4 sm:p-6 rounded-lg shadow-md">
+        <div className="mt-1  p-4 sm:p-6 rounded-lg ">
           <Buttons
             data={results.map((rec, index) => ({
               ...rec,
@@ -1025,150 +1109,10 @@ const StudentResults = () => {
             ]}
             filename="StudentResults"
           />
-          <div className="hidden md:block overflow-x-auto">
-            <table className="w-full border border-gray-300 text-xs bg-white min-w-[400px]">
-              <thead className="bg-gray-200">
-                <tr>
-                  <th className="border p-1 whitespace-nowrap text-center">S.No</th>
-                  <th className="border p-1 whitespace-nowrap text-center">Student</th>
-                  <th className="border p-1 whitespace-nowrap text-center">Class</th>
-                  <th className="border p-1 whitespace-nowrap text-center">Exam</th>
-                  <th className="border p-1 whitespace-nowrap text-center">Subject</th>
-                  <th className="border p-1 whitespace-nowrap text-center">Marks Obtained</th>
-                  <th className="border p-1 whitespace-nowrap text-center">Total Marks</th>
-                  <th className="border p-1 whitespace-nowrap text-center">Grade</th>
-                  <th className="border p-1 whitespace-nowrap text-center">Remarks</th>
-                  {(canEdit || canDelete || canView) && (
-                    <th className="border p-1 whitespace-nowrap text-center">Actions</th>
-                  )}
-                </tr>
-              </thead>
-              <tbody>
-                {results.map((result, index) => (
-                  <tr key={result.id}>
-                    <td className="border p-1 text-center whitespace-nowrap">
-                      {(currentPage - 1) * pageSize + index + 1}
-                    </td>
-                    <td className="border p-1 whitespace-nowrap">{result.student_name}</td>
-                    <td className="border p-1 whitespace-nowrap">{result.class_name}</td>
-                    <td className="border p-1 whitespace-nowrap">{result.exam_term}</td>
-                    <td className="border p-1 whitespace-nowrap">{result.subject_name}</td>
-                    <td className="border p-1 text-center whitespace-nowrap">{result.marks_obtained}</td>
-                    <td className="border p-1 text-center whitespace-nowrap">{result.total_marks}</td>
-                    <td className="border p-1 text-center whitespace-nowrap">{result.grade}</td>
-                    <td className="border p-1 text-center whitespace-nowrap">{result.remarks || "—"}</td>
-                    {(canEdit || canDelete || canView) && (
-                      <td className="border p-1 flex justify-center whitespace-nowrap">
-                        {canView && (
-                          <button
-                            onClick={() => setViewModalData(result)}
-                            className="text-blue-600 hover:text-blue-800"
-                          >
-                            <MdVisibility size={16} />
-                          </button>
-                        )}
-                        {canEdit && (
-                          <button
-                            onClick={() => handleEditResult(result)}
-                            className="text-yellow-500 hover:text-yellow-700 ml-2"
-                          >
-                            <MdEdit size={16} />
-                          </button>
-                        )}
-                        {canDelete && (
-                          <button
-                            onClick={() => handleDeleteResult(result.id)}
-                            className="text-red-500 hover:text-red-700 ml-2"
-                          >
-                            <MdDelete size={16} />
-                          </button>
-                        )}
-                      </td>
-                    )}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          <div className="md:hidden mt-4 space-y-3">
-            {results.map((result, index) => (
-              <div key={result.id} className="border rounded-lg p-3 shadow-sm">
-                <div className="flex items-center justify-between">
-                  <div className="font-semibold text-gray-800">{result.student_name}</div>
-                  <div className="text-xs text-gray-500">
-                    #{(currentPage - 1) * pageSize + index + 1}
-                  </div>
-                </div>
-                <div className="mt-2 grid grid-cols-1 gap-1 text-sm">
-                  <div>
-                    <span className="font-medium">Class:</span> {result.class_name}
-                  </div>
-                  <div>
-                    <span className="font-medium">Exam:</span> {result.exam_term}
-                  </div>
-                  <div>
-                    <span className="font-medium">Subject:</span> {result.subject_name}
-                  </div>
-                  <div>
-                    <span className="font-medium">Marks Obtained:</span> {result.marks_obtained}
-                  </div>
-                  <div>
-                    <span className="font-medium">Total Marks:</span> {result.total_marks}
-                  </div>
-                  <div>
-                    <span className="font-medium">Grade:</span> {result.grade}
-                  </div>
-                  <div>
-                    <span className="font-medium">Remarks:</span> {result.remarks || "—"}
-                  </div>
-                </div>
-                {(canEdit || canDelete || canView) && (
-                  <div className="mt-2 flex justify-end gap-2">
-                    {canView && (
-                      <button
-                        onClick={() => setViewModalData(result)}
-                        className="text-blue-600 hover:text-blue-800"
-                      >
-                        <MdVisibility size={16} />
-                      </button>
-                    )}
-                    {canEdit && (
-                      <button
-                        onClick={() => handleEditResult(result)}
-                        className="text-yellow-500 hover:text-yellow-700"
-                      >
-                        <MdEdit size={16} />
-                      </button>
-                    )}
-                    {canDelete && (
-                      <button
-                        onClick={() => handleDeleteResult(result.id)}
-                        className="text-red-500 hover:text-red-700"
-                      >
-                        <MdDelete size={16} />
-                      </button>
-                    )}
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-          <Pagination
-            currentPage={currentPage}
-            totalPages={totalPages}
-            pageSize={pageSize}
-            onPageChange={(page) => {
-              setCurrentPage(page);
-              fetchResults(page, pageSize, filter);
-            }}
-            onPageSizeChange={(size) => {
-              setPageSize(size);
-              setCurrentPage(1);
-              fetchResults(1, size, filter);
-            }}
-            totalItems={results.length}
-            showPageSizeSelector={true}
-            showPageInfo={true}
+          <TableComponent
+            data={results}
+            columns={columns}
+            initialSort={{ key: "sequence", direction: "asc" }}
           />
         </div>
       )}
@@ -1176,7 +1120,6 @@ const StudentResults = () => {
       {viewModalData && canView && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 px-3">
           <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl border border-gray-200 overflow-hidden animate-fadeIn">
-
             {/* Header */}
             <div className="px-5 py-3 border-b bg-blue-50 text-center">
               <h3 className="text-lg font-bold text-blue-800 flex items-center justify-center gap-2">
@@ -1186,7 +1129,6 @@ const StudentResults = () => {
 
             {/* Content */}
             <div className="px-5 py-4 overflow-y-auto max-h-[65vh] text-sm text-gray-700 space-y-4">
-
               {/* Student Info Section */}
               <div>
                 <h4 className="text-sm font-semibold text-blue-900 border-b pb-1 mb-2">
@@ -1250,7 +1192,6 @@ const StudentResults = () => {
           </div>
         </div>
       )}
-
     </div>
   );
 };

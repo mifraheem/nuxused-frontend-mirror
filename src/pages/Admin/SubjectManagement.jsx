@@ -4,7 +4,8 @@ import Cookies from "js-cookie";
 import { MdEdit, MdDelete } from "react-icons/md";
 import { Buttons } from "../../components";
 import Pagination from "../../components/Pagination";
-import Toaster from "../../components/Toaster"; // Import the provided Toaster component
+import Toaster from "../../components/Toaster";
+import TableComponent from "../../components/TableComponent"; // Import reusable TableComponent
 
 const SubjectManagement = () => {
   const [subjects, setSubjects] = useState([]);
@@ -126,7 +127,7 @@ const SubjectManagement = () => {
         }
       },
       () => {
-        showToast("", "success", null, null); // Clear the toaster
+        showToast("", "success", null, null);
       }
     );
   };
@@ -139,15 +140,54 @@ const SubjectManagement = () => {
     if (page >= 1 && page <= totalPages) fetchSubjects(page, pageSize);
   };
 
-  const columns = [
-    { label: "Subject Name", key: "subject_name" },
-    { label: "Course Code", key: "course_code" },
-  ];
-
   const permissions = JSON.parse(localStorage.getItem("user_permissions") || "[]");
   const canAdd = permissions.includes("users.add_subject");
   const canEdit = permissions.includes("users.change_subject");
   const canDelete = permissions.includes("users.delete_subject");
+  const canView = permissions.includes("users.view_subject");
+
+  // Table columns configuration
+  const columns = [
+    {
+      key: "index",
+      label: "#ID",
+      render: (row, index) => (currentPage - 1) * pageSize + index + 1,
+    },
+    {
+      key: "subject_name",
+      label: "Subject Name",
+      render: (row) => row.subject_name || "N/A",
+    },
+    {
+      key: "course_code",
+      label: "Course Code",
+      render: (row) => row.course_code || "N/A",
+    },
+    {
+      key: "actions",
+      label: "Actions",
+      render: (row) => (
+        <div className="flex justify-center space-x-2">
+          {canEdit && (
+            <MdEdit
+              onClick={() => {
+                setEditSubject(row);
+                setNewSubject({ subject_name: row.subject_name, course_code: row.course_code });
+                setShowForm(true);
+              }}
+              className="text-yellow-500 text-2xl cursor-pointer hover:text-yellow-700"
+            />
+          )}
+          {canDelete && (
+            <MdDelete
+              onClick={() => handleDeleteSubject(row.id)}
+              className="text-red-500 text-2xl cursor-pointer hover:text-red-700"
+            />
+          )}
+        </div>
+      ),
+    },
+  ];
 
   return (
     <div>
@@ -227,70 +267,23 @@ const SubjectManagement = () => {
           <p className="text-center text-gray-500">Loading...</p>
         ) : error ? (
           <p className="text-center text-red-500">{error}</p>
-        ) : subjects.length > 0 ? (
-          <div className="mt-6">
-            <Buttons data={subjects} columns={columns} filename="Subjects" />
-            <h2 className="text-lg font-semibold text-white bg-blue-900 px-4 py-2 rounded-t-md">Subjects</h2>
-            <table className="w-full border-collapse border border-gray-300 bg-white">
-              <thead className="bg-gray-200">
-                <tr>
-                  <th className="border border-gray-300 p-2">#ID</th>
-                  <th className="border border-gray-300 p-2">Subject Name</th>
-                  <th className="border border-gray-300 p-2">Course Code</th>
-                  {(canEdit || canDelete) && (
-                    <th className="border border-gray-300 p-2">Actions</th>
-                  )}
-                </tr>
-              </thead>
-              <tbody>
-                {subjects.map((subject, index) => (
-                  <tr className="text-center" key={subject.id}>
-                    <td className="border border-gray-300 p-2">
-                      {(currentPage - 1) * pageSize + index + 1}
-                    </td>
-                    <td className="border border-gray-300 p-2">{subject.subject_name}</td>
-                    <td className="border border-gray-300 p-2">{subject.course_code}</td>
-                    {(canEdit || canDelete) && (
-                      <td className="border border-gray-300 p-2 flex justify-center">
-                        {canEdit && (
-                          <MdEdit
-                            onClick={() => {
-                              setEditSubject(subject);
-                              setNewSubject(subject);
-                              setShowForm(true);
-                            }}
-                            className="text-yellow-500 text-2xl cursor-pointer mx-2 hover:text-yellow-700"
-                          />
-                        )}
-                        {canDelete && (
-                          <MdDelete
-                            onClick={() => handleDeleteSubject(subject.id)}
-                            className="text-red-500 text-2xl cursor-pointer mx-2 hover:text-red-700"
-                          />
-                        )}
-                      </td>
-                    )}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-            <Pagination
-              currentPage={currentPage}
-              totalPages={totalPages}
-              pageSize={pageSize}
-              onPageChange={goToPage}
-              onPageSizeChange={(size) => {
-                setPageSize(size);
-                setCurrentPage(1);
-                fetchSubjects(1, size);
-              }}
-              totalItems={subjects.length}
-              showPageSizeSelector={true}
-              showPageInfo={true}
-            />
+        ) : canView && subjects.length > 0 ? (
+          <div className="mt-1">
+            <Buttons data={subjects} columns={columns.slice(0, -1)} filename="Subjects" />
+            {/* <h2 className="text-lg font-semibold text-white bg-blue-900 px-4 py-2 rounded-t-md">Subjects</h2> */}
+            <div className="overflow-x-auto">
+              <TableComponent
+                data={subjects}
+                columns={columns}
+                initialSort={{ key: "subject_name", direction: "asc" }}
+              />
+            </div>
+           
           </div>
-        ) : (
+        ) : canView ? (
           <p className="text-center text-gray-500">No subjects added yet.</p>
+        ) : (
+          <p className="text-center text-red-500">You do not have permission to view subjects.</p>
         )}
       </div>
     </div>

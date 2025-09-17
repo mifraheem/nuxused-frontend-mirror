@@ -4,7 +4,8 @@ import Cookies from "js-cookie";
 import Select from "react-select";
 import * as XLSX from "xlsx";
 import { Buttons } from "../../components";
-import Toaster from "../../components/Toaster"; // Import custom Toaster component
+import Toaster from "../../components/Toaster";
+import TableComponent from "../../components/TableComponent"; // Import reusable TableComponent
 
 const API = import.meta.env.VITE_SERVER_URL;
 const API_BASE_URL = `${API}staff-attendance/`;
@@ -52,7 +53,7 @@ const AttendanceStaff = () => {
         year: new Date().getFullYear(),
     });
 
-    // Remarks dropdown options (same as Excel export)
+    // Remarks dropdown options
     const remarksOptions = [
         { value: "On Time", label: "On Time" },
         { value: "Late Reason", label: "Late Reason" },
@@ -77,23 +78,13 @@ const AttendanceStaff = () => {
         try {
             setLoading(true);
             const [teachersRes, schoolsRes] = await Promise.all([
-                axios.get(TEACHERS_API_URL, { headers: { Authorization: `Bearer ${token}` } }).catch((err) => {
-                    console.error("Teacher API error:", err.response?.data || err.message);
-                    throw new Error("Failed to fetch teachers");
-                }),
-                axios.get(`${SCHOOLS_API_URL}?page_size=100`, { headers: { Authorization: `Bearer ${token}` } }).catch((err) => {
-                    console.error("Schools API error:", err.response?.data || err.message);
-                    throw new Error("Failed to fetch schools");
-                }),
+                axios.get(TEACHERS_API_URL, { headers: { Authorization: `Bearer ${token}` } }),
+                axios.get(`${SCHOOLS_API_URL}?page_size=100`, { headers: { Authorization: `Bearer ${token}` } }),
             ]);
 
             const teacherData = teachersRes.data?.data?.results || [];
             const schoolData = schoolsRes.data?.data?.results || [];
 
-            console.log("Fetched teachers:", teacherData);
-            console.log("Fetched schools:", schoolData);
-
-            // Map school data to expected format: { id, name }
             const formattedSchools = schoolData.map((school) => ({
                 id: school.id,
                 name: school.school_name,
@@ -115,7 +106,6 @@ const AttendanceStaff = () => {
             setTeachers(validTeachers);
             setSchools(formattedSchools);
 
-            // Auto-select the first school if available
             if (formattedSchools.length > 0) {
                 setSelectedSchool(formattedSchools[0]);
             } else {
@@ -138,18 +128,13 @@ const AttendanceStaff = () => {
     }, []);
 
     // Enhanced UUID extraction for teachers
-    // Enhanced UUID extraction for teachers
     const getTeacherUUID = (teacher = {}) => {
-        // backend expects teacher.user_id specifically
         if (teacher.user_id) return teacher.user_id;
-
-        // fallback for debugging
         const possibleUUIDs = [teacher.profile_id, teacher.uuid, teacher.id];
         const uuid = possibleUUIDs.find((id) => id != null && id !== "");
         if (!uuid) console.warn("No valid UUID found for teacher:", teacher);
         return uuid;
     };
-
 
     // Get teacher display name
     const getTeacherDisplayName = (teacher = {}) => {
@@ -226,12 +211,9 @@ const AttendanceStaff = () => {
                 headers: { Authorization: `Bearer ${token}` },
             });
             const alreadyMarkedIds = res.data?.data?.results?.map((i) => i.staff) || [];
-            // Remove school filter since teacher API doesn't include school field
             const filteredTeachers = teachers.filter(
                 (t) => !alreadyMarkedIds.includes(getTeacherUUID(t))
             );
-
-            console.log("Filtered teachers for attendance:", filteredTeachers);
 
             if (filteredTeachers.length === 0) {
                 showToast("No unmarked staff found", "error");
@@ -257,17 +239,14 @@ const AttendanceStaff = () => {
         }
     };
 
-    // Excel Export Function with Remarks Dropdown
+    // Excel Export Function
     const handleExportExcel = () => {
         if (!selectedSchool || teachers.length === 0) {
             showToast("Please select a school or ensure teachers are loaded", "error");
             return;
         }
 
-        // Remove school filter since teacher API doesn't include school field
         const filteredTeachers = teachers;
-        console.log("Teachers for Excel export:", filteredTeachers);
-
         const excelData = filteredTeachers.map((teacher, index) => ({
             "Registration Number": getTeacherRegistrationNo(teacher),
             "First Name": teacher.first_name || "",
@@ -279,7 +258,6 @@ const AttendanceStaff = () => {
         const ws = XLSX.utils.json_to_sheet(excelData);
         const wb = XLSX.utils.book_new();
 
-        // Add dropdown for Remarks column (column E)
         const remarksExcelOptions = ["On Time", "Late Reason", "Absent Reason", "Leave Approved", "Other"];
         ws["!dataValidation"] = [
             {
@@ -290,13 +268,12 @@ const AttendanceStaff = () => {
             },
         ];
 
-        // Set column widths
         ws["!cols"] = [
-            { width: 20 }, // Registration Number
-            { width: 15 }, // First Name
-            { width: 15 }, // Last Name
-            { width: 18 }, // Attendance Status
-            { width: 20 }, // Remarks
+            { width: 20 },
+            { width: 15 },
+            { width: 15 },
+            { width: 18 },
+            { width: 20 },
         ];
 
         XLSX.utils.book_append_sheet(wb, ws, "Staff_Attendance");
@@ -318,8 +295,6 @@ const AttendanceStaff = () => {
                 const sheetName = workbook.SheetNames[0];
                 const worksheet = workbook.Sheets[sheetName];
                 const jsonData = XLSX.utils.sheet_to_json(worksheet);
-
-                console.log("Imported Excel data:", jsonData);
 
                 const processedData = jsonData
                     .map((row) => {
@@ -367,7 +342,7 @@ const AttendanceStaff = () => {
                             staff_info: matchingTeacher,
                             school: selectedSchool.id,
                             status,
-                            remarks: row["Remarks"] || "",
+                            remarks: remarksOptions.some((opt) => opt.value === row["Remarks"]) ? row["Remarks"] : "",
                         };
                     })
                     .filter((item) => item !== null);
@@ -508,7 +483,7 @@ const AttendanceStaff = () => {
             if (records.length === 0) {
                 showToast("No attendance records found", "error");
                 setAttendanceData([]);
-                setShowReport(false);
+                setShowReport(true);
             } else {
                 setAttendanceData(records);
                 setShowReport(true);
@@ -530,7 +505,172 @@ const AttendanceStaff = () => {
     const canAdd = permissions.includes("users.add_staffattendance");
     const canChange = permissions.includes("users.change_staffattendance");
     const canView = permissions.includes("users.view_staffattendance");
-    const canDelete = permissions.includes("users.delete_staffattendance"); // Note: canDelete is defined but not used
+    const canDelete = permissions.includes("users.delete_staffattendance");
+
+    // Columns for Attendance Marking Table
+    const attendanceColumns = [
+        {
+            key: "index",
+            label: "S.No",
+            render: (row, index) => index + 1,
+        },
+        {
+            key: "registration",
+            label: "Registration Number",
+            render: (row) => getTeacherRegistrationNo(row.staff_info || teachers[index] || {}),
+        },
+        {
+            key: "first_name",
+            label: "First Name",
+            render: (row) => (row.staff_info || teachers[index] || {}).first_name || "",
+        },
+        {
+            key: "last_name",
+            label: "Last Name",
+            render: (row) => (row.staff_info || teachers[index] || {}).last_name || "",
+        },
+        {
+            key: "status",
+            label: "Status",
+            render: (row, index) => (
+                <Select
+                    value={{ value: row.status || "Present", label: row.status || "Present" }}
+                    onChange={(selected) => handleAttendanceChange(index, "status", selected?.value || "Present")}
+                    options={[
+                        { value: "Present", label: "Present" },
+                        { value: "Late", label: "Late" },
+                        { value: "Absent", label: "Absent" },
+                        { value: "Leave", label: "Leave" },
+                        { value: "Half-day", label: "Half-day" },
+                    ]}
+                    styles={tinySelectStyles}
+                    isSearchable={false}
+                />
+            ),
+        },
+        {
+            key: "remarks",
+            label: "Remarks",
+            render: (row, index) => (
+                <Select
+                    value={remarksOptions.find((opt) => opt.value === row.remarks) || null}
+                    onChange={(selected) => handleAttendanceChange(index, "remarks", selected?.value || "")}
+                    options={remarksOptions}
+                    placeholder="Select remark"
+                    isClearable
+                    isSearchable={false}
+                    styles={tinySelectStyles}
+                />
+            ),
+        },
+        {
+            key: "action",
+            label: "Action",
+            render: (row, index) => {
+                const teacher = row.staff_info || teachers[index] || {};
+                const rowBusy = !!rowSubmitting[index];
+                const done = !!rowSubmitted[index];
+                const teacherUUID = row.staff || getTeacherUUID(teacher);
+                return (
+                    <button
+                        onClick={() => handleSubmitSingle(index)}
+                        disabled={rowBusy || done || !teacherUUID}
+                        className={`px-3 py-1.5 rounded text-sm text-white ${!teacherUUID
+                                ? "bg-red-600 cursor-not-allowed"
+                                : done
+                                    ? "bg-green-600 cursor-default"
+                                    : rowBusy
+                                        ? "bg-blue-400 cursor-wait"
+                                        : "bg-blue-600 hover:bg-blue-700"
+                            } disabled:opacity-60 disabled:cursor-not-allowed transition-colors duration-200`}
+                        title={!teacherUUID ? "Missing UUID" : done ? "Submitted" : "Submit this row"}
+                    >
+                        {!teacherUUID ? "No UUID" : done ? "Submitted" : rowBusy ? "Submitting..." : "Submit"}
+                    </button>
+                );
+            },
+        },
+    ];
+
+    // Columns for Report Table
+    const reportColumns = [
+        {
+            key: "index",
+            label: "S.No.",
+            render: (row, index) => (currentPage - 1) * pageSize + index + 1,
+        },
+        {
+            key: "staff",
+            label: "Staff Name",
+            render: (row) => getTeacherName(row.staff) || "Unknown",
+        },
+        {
+            key: "date",
+            label: "Date",
+            render: (row) => row.date || "N/A",
+        },
+        {
+            key: "status",
+            label: "Status",
+            render: (row, index) =>
+                canChange ? (
+                    <Select
+                        value={{ value: row.status, label: row.status }}
+                        onChange={(selected) => {
+                            const updated = [...attendanceData];
+                            updated[(currentPage - 1) * pageSize + index].status = selected?.value || row.status;
+                            setAttendanceData(updated);
+                        }}
+                        options={[
+                            { value: "Present", label: "Present" },
+                            { value: "Late", label: "Late" },
+                            { value: "Absent", label: "Absent" },
+                            { value: "Leave", label: "Leave" },
+                            { value: "Half-day", label: "Half-day" },
+                        ]}
+                        styles={tinySelectStyles}
+                        isSearchable={false}
+                    />
+                ) : (
+                    row.status || "N/A"
+                ),
+        },
+        {
+            key: "remarks",
+            label: "Remarks",
+            render: (row, index) =>
+                canChange ? (
+                    <input
+                        value={row.remarks || ""}
+                        onChange={(e) => {
+                            const updated = [...attendanceData];
+                            updated[(currentPage - 1) * pageSize + index].remarks = e.target.value;
+                            setAttendanceData(updated);
+                        }}
+                        className="border px-2 py-1 rounded w-full text-sm focus:ring-2 focus:ring-indigo-500"
+                        placeholder="Remarks..."
+                    />
+                ) : (
+                    row.remarks || "—"
+                ),
+        },
+        ...(canChange || canDelete
+            ? [
+                {
+                    key: "actions",
+                    label: "Actions",
+                    render: (row) => (
+                        <button
+                            onClick={() => handleEditAttendance(row.id, row.status, row.remarks)}
+                            className="bg-indigo-600 hover:bg-indigo-700 text-white px-2 py-1 rounded text-sm transition-colors duration-200"
+                        >
+                            Update
+                        </button>
+                    ),
+                },
+            ]
+            : []),
+    ];
 
     // react-select responsive styles
     const baseFont = isMobile ? "0.85rem" : "0.95rem";
@@ -540,17 +680,24 @@ const AttendanceStaff = () => {
             ...provided,
             minHeight: isMobile ? "2.25rem" : "2.5rem",
             fontSize: baseFont,
+            borderRadius: "0.375rem",
+            borderColor: "#d1d5db",
+            boxShadow: "0 1px 2px 0 rgba(0, 0, 0, 0.05)",
         }),
         menu: (provided) => ({
             ...provided,
             fontSize: baseFont,
             maxHeight: "220px",
             overflowY: "auto",
+            borderRadius: "0.375rem",
+            zIndex: 20,
         }),
         option: (provided) => ({
             ...provided,
             fontSize: baseFont,
             padding: isMobile ? "0.5rem" : "0.6rem 0.75rem",
+            backgroundColor: provided.isSelected ? "#3b82f6" : provided.isFocused ? "#eff6ff" : "white",
+            color: provided.isSelected ? "white" : "#1f2937",
         }),
     };
     const tinySelectStyles = {
@@ -578,30 +725,35 @@ const AttendanceStaff = () => {
     ];
 
     return (
-        <div className="container mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-6">
+        <div className="container mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-6 min-h-screen">
             <Toaster
                 message={toaster.message}
                 type={toaster.type}
                 duration={3000}
                 onClose={() => setToaster({ message: "", type: "success" })}
             />
-            <div className="bg-blue-900 text-white py-3 px-4 sm:px-6 rounded-lg shadow-md flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-6">
+            <div className="bg-gradient-to-r from-blue-900 to-blue-900 text-white py-3 px-4 sm:px-6 rounded-xl shadow-lg flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-6">
                 <h2 className="text-lg sm:text-xl font-bold text-center md:text-left">Staff Attendance</h2>
                 <div className="flex flex-col sm:flex-row gap-3">
                     {canAdd && (
                         <button
                             onClick={handleMarkAttendance}
-                            className="bg-cyan-500 text-white px-4 py-2 rounded-md shadow hover:bg-cyan-700 text-sm sm:text-base"
+                            className="bg-cyan-500 text-white px-4 py-2 rounded-lg shadow hover:bg-cyan-600 text-sm sm:text-base transition-colors duration-200"
                         >
                             {showExcelOptions || showAttendanceTable ? "Close Attendance" : "Mark Attendance"}
                         </button>
                     )}
                     {canView && (
                         <button
-                            onClick={() => setShowFilterForm((prev) => !prev)}
-                            className="bg-green-500 text-white px-4 py-2 rounded-md shadow hover:bg-green-700 text-sm sm:text-base"
+                            onClick={() => {
+                                setShowFilterForm((prev) => !prev);
+                                setShowExcelOptions(false);
+                                setShowAttendanceTable(false);
+                                setShowReport(false);
+                            }}
+                            className="bg-green-500 text-white px-4 py-2 rounded-lg shadow hover:bg-green-700 text-sm sm:text-base transition-colors duration-200"
                         >
-                            {showFilterForm ? "Close Report" : "Fetch Attendance"}
+                            {showFilterForm || showReport ? "Close Report" : "Fetch Attendance"}
                         </button>
                     )}
                 </div>
@@ -609,9 +761,9 @@ const AttendanceStaff = () => {
 
             {/* Excel Options */}
             {canAdd && showExcelOptions && !showAttendanceTable && (
-                <div className="mt-6 bg-white p-4 sm:p-6 rounded-lg shadow-md max-w-full md:max-w-4xl mx-auto">
+                <div className="mt-6 bg-white p-4 sm:p-6 rounded-xl shadow-md max-w-full md:max-w-4xl mx-auto border border-gray-100">
                     <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
-                        <h2 className="text-lg sm:text-xl font-semibold">
+                        <h2 className="text-lg sm:text-xl font-semibold text-gray-800">
                             Manage Attendance for {selectedSchool?.name}
                         </h2>
                         <div>
@@ -620,24 +772,24 @@ const AttendanceStaff = () => {
                                 type="date"
                                 value={attendanceDate}
                                 onChange={(e) => setAttendanceDate(e.target.value)}
-                                className="w-full border border-gray-300 p-2 rounded-md text-sm"
+                                className="w-full border border-gray-300 p-2 rounded-md text-sm focus:ring-2 focus:ring-indigo-500"
                             />
                         </div>
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-                        <div className="bg-blue-50 p-4 rounded-lg">
+                        <div className="bg-blue-50 p-4 rounded-lg shadow-sm">
                             <h3 className="font-semibold text-blue-800 mb-2">Export Excel Template</h3>
                             <p className="text-sm text-gray-600 mb-3">
                                 Download an Excel file with all staff. Mark attendance manually (P for Present, A for Absent).
                             </p>
                             <button
                                 onClick={handleExportExcel}
-                                className="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 text-sm"
+                                className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 text-sm transition-colors duration-200"
                             >
                                 Export Excel Template
                             </button>
                         </div>
-                        <div className="bg-orange-50 p-4 rounded-lg">
+                        <div className="bg-orange-50 p-4 rounded-lg shadow-sm">
                             <h3 className="font-semibold text-orange-800 mb-2">Import Filled Excel</h3>
                             <p className="text-sm text-gray-600 mb-3">
                                 Upload the Excel file after marking attendance to populate the form.
@@ -651,19 +803,19 @@ const AttendanceStaff = () => {
                             />
                             <label
                                 htmlFor="excel-import"
-                                className="bg-orange-600 text-white px-4 py-2 rounded-md hover:bg-orange-700 cursor-pointer text-sm inline-block"
+                                className="bg-orange-600 text-white px-4 py-2 rounded-lg hover:bg-orange-700 cursor-pointer text-sm inline-block transition-colors duration-200"
                             >
                                 Import Excel File
                             </label>
                         </div>
-                        <div className="bg-purple-50 p-4 rounded-lg">
+                        <div className="bg-purple-50 p-4 rounded-lg shadow-sm">
                             <h3 className="font-semibold text-purple-800 mb-2">Manual Entry</h3>
                             <p className="text-sm text-gray-600 mb-3">
                                 Enter attendance manually in a table format.
                             </p>
                             <button
                                 onClick={handlePrepareAttendance}
-                                className="bg-purple-600 text-white px-4 py-2 rounded-md hover:bg-purple-700 text-sm"
+                                className="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 text-sm transition-colors duration-200"
                             >
                                 Manual Entry
                             </button>
@@ -674,9 +826,9 @@ const AttendanceStaff = () => {
 
             {/* Attendance Table */}
             {canAdd && showAttendanceTable && selectedSchool && (
-                <div className="mt-6 bg-white p-4 sm:p-6 rounded-lg shadow-md">
+                <div className="mt-6 bg-white p-4 sm:p-6 rounded-xl shadow-md border border-gray-100">
                     <div className="flex justify-between items-center mb-4">
-                        <h2 className="text-lg sm:text-xl font-semibold">
+                        <h2 className="text-lg sm:text-xl font-semibold text-gray-800">
                             Enter Attendance for {selectedSchool.name} (Date: {attendanceDate})
                         </h2>
                         {excelData.length > 0 && (
@@ -697,7 +849,7 @@ const AttendanceStaff = () => {
                             const teacherUUID = record.staff || getTeacherUUID(teacher);
 
                             return (
-                                <div key={teacherUUID || index} className="border rounded-lg p-3 shadow-sm">
+                                <div key={teacherUUID || index} className="border border-gray-200 rounded-lg p-3 shadow-sm bg-white">
                                     <div className="font-semibold text-gray-800 mb-2">
                                         {displayName}
                                         <div className="text-xs text-gray-500 font-normal">
@@ -739,13 +891,13 @@ const AttendanceStaff = () => {
                                             onClick={() => handleSubmitSingle(index)}
                                             disabled={rowBusy || done || !teacherUUID}
                                             className={`px-4 py-2 rounded text-sm text-white ${!teacherUUID
-                                                ? "bg-red-600 cursor-not-allowed"
-                                                : done
-                                                    ? "bg-green-600 cursor-default"
-                                                    : rowBusy
-                                                        ? "bg-blue-400 cursor-wait"
-                                                        : "bg-blue-600 hover:bg-blue-700"
-                                                } disabled:opacity-60 disabled:cursor-not-allowed`}
+                                                    ? "bg-red-600 cursor-not-allowed"
+                                                    : done
+                                                        ? "bg-green-600 cursor-default"
+                                                        : rowBusy
+                                                            ? "bg-blue-400 cursor-wait"
+                                                            : "bg-blue-600 hover:bg-blue-700"
+                                                } disabled:opacity-60 disabled:cursor-not-allowed transition-colors duration-200`}
                                             title={!teacherUUID ? "Missing UUID" : done ? "Submitted" : "Submit this staff"}
                                         >
                                             {!teacherUUID ? "No UUID" : done ? "Submitted" : rowBusy ? "Submitting..." : "Submit"}
@@ -758,81 +910,11 @@ const AttendanceStaff = () => {
 
                     {/* Desktop Table */}
                     <div className="hidden md:block overflow-x-auto">
-                        <table className="w-full border border-gray-200">
-                            <thead className="bg-gray-100">
-                                <tr>
-                                    <th className="border border-gray-200 p-3 text-left text-sm font-medium">S.No</th>
-                                    <th className="border border-gray-200 p-3 text-left text-sm font-medium">Registration Number</th>
-                                    <th className="border border-gray-200 p-3 text-left text-sm font-medium">First Name</th>
-                                    <th className="border border-gray-200 p-3 text-left text-sm font-medium">Last Name</th>
-                                    <th className="border border-gray-200 p-3 text-left text-sm font-medium">Status</th>
-                                    <th className="border border-gray-200 p-3 text-left text-sm font-medium">Remarks</th>
-                                    <th className="border border-gray-200 p-3 text-left text-sm font-medium">Action</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {attendance.map((record, index) => {
-                                    const teacher = record.staff_info || teachers[index] || {};
-                                    const rowBusy = !!rowSubmitting[index];
-                                    const done = !!rowSubmitted[index];
-                                    const displayName = getTeacherDisplayName(teacher);
-                                    const registrationNo = getTeacherRegistrationNo(teacher);
-                                    const teacherUUID = record.staff || getTeacherUUID(teacher);
-
-                                    return (
-                                        <tr key={teacherUUID || index} className="hover:bg-gray-50">
-                                            <td className="border border-gray-200 p-3 text-sm">{index + 1}</td>
-                                            <td className="border border-gray-200 p-3 text-sm">{registrationNo}</td>
-                                            <td className="border border-gray-200 p-3 text-sm">{teacher.first_name || ""}</td>
-                                            <td className="border border-gray-200 p-3 text-sm">{teacher.last_name || ""}</td>
-                                            <td className="border border-gray-200 p-3">
-                                                <Select
-                                                    value={{ value: record.status || "Present", label: record.status || "Present" }}
-                                                    onChange={(selected) => handleAttendanceChange(index, "status", selected?.value || "Present")}
-                                                    options={[
-                                                        { value: "Present", label: "Present" },
-                                                        { value: "Late", label: "Late" },
-                                                        { value: "Absent", label: "Absent" },
-                                                        { value: "Leave", label: "Leave" },
-                                                        { value: "Half-day", label: "Half-day" },
-                                                    ]}
-                                                    styles={tinySelectStyles}
-                                                    isSearchable={false}
-                                                />
-                                            </td>
-                                            <td className="border border-gray-200 p-3">
-                                                <Select
-                                                    value={remarksOptions.find((opt) => opt.value === record.remarks) || null}
-                                                    onChange={(selected) => handleAttendanceChange(index, "remarks", selected?.value || "")}
-                                                    options={remarksOptions}
-                                                    placeholder="Select remark"
-                                                    isClearable
-                                                    isSearchable={false}
-                                                    styles={tinySelectStyles}
-                                                />
-                                            </td>
-                                            <td className="border border-gray-200 p-3">
-                                                <button
-                                                    onClick={() => handleSubmitSingle(index)}
-                                                    disabled={rowBusy || done || !teacherUUID}
-                                                    className={`px-3 py-1.5 rounded text-sm text-white ${!teacherUUID
-                                                        ? "bg-red-600 cursor-not-allowed"
-                                                        : done
-                                                            ? "bg-green-600 cursor-default"
-                                                            : rowBusy
-                                                                ? "bg-blue-400 cursor-wait"
-                                                                : "bg-blue-600 hover:bg-blue-700"
-                                                        } disabled:opacity-60 disabled:cursor-not-allowed`}
-                                                    title={!teacherUUID ? "Missing UUID" : done ? "Submitted" : "Submit this row"}
-                                                >
-                                                    {!teacherUUID ? "No UUID" : done ? "Submitted" : rowBusy ? "Submitting..." : "Submit"}
-                                                </button>
-                                            </td>
-                                        </tr>
-                                    );
-                                })}
-                            </tbody>
-                        </table>
+                        <TableComponent
+                            data={attendance}
+                            columns={attendanceColumns}
+                            initialSort={{ key: "registration", direction: "asc" }}
+                        />
                     </div>
 
                     <div className="mt-6 flex flex-col sm:flex-row gap-3 sm:gap-4 justify-between items-center">
@@ -846,14 +928,14 @@ const AttendanceStaff = () => {
                                     setShowExcelOptions(true);
                                     setExcelData([]);
                                 }}
-                                className="bg-gray-600 text-white px-4 py-2 rounded hover:bg-gray-700 text-sm"
+                                className="bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700 text-sm transition-colors duration-200"
                             >
                                 Back to Options
                             </button>
                             <button
                                 onClick={handleSaveAttendance}
                                 disabled={loading}
-                                className="bg-blue-600 text-white px-6 py-2 rounded hover:bg-blue-700 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                                className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 text-sm disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200"
                             >
                                 {loading ? "Saving Attendance..." : "Save All Attendance"}
                             </button>
@@ -864,7 +946,7 @@ const AttendanceStaff = () => {
 
             {/* Report Filters */}
             {canView && showFilterForm && (
-                <div className="bg-white mt-6 p-4 sm:p-6 rounded-lg shadow-md max-w-full md:max-w-4xl mx-auto border border-gray-200">
+                <div className="bg-white mt-6 p-4 sm:p-6 rounded-xl shadow-md max-w-full md:max-w-4xl mx-auto border border-gray-100">
                     <h2 className="text-lg sm:text-xl font-semibold text-gray-800 mb-4">Generate Attendance Report</h2>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
@@ -909,7 +991,7 @@ const AttendanceStaff = () => {
                                     name="date"
                                     value={filters.date}
                                     onChange={handleFilterChange}
-                                    className="w-full border border-gray-300 p-2 sm:p-3 rounded-md text-sm sm:text-base"
+                                    className="w-full border border-gray-300 p-2 sm:p-3 rounded-md text-sm sm:text-base focus:ring-2 focus:ring-indigo-500"
                                 />
                             </div>
                         )}
@@ -922,7 +1004,7 @@ const AttendanceStaff = () => {
                                         name="startDate"
                                         value={filters.startDate}
                                         onChange={handleFilterChange}
-                                        className="w-full border border-gray-300 p-2 sm:p-3 rounded-md text-sm sm:text-base"
+                                        className="w-full border border-gray-300 p-2 sm:p-3 rounded-md text-sm sm:text-base focus:ring-2 focus:ring-indigo-500"
                                     />
                                 </div>
                                 <div>
@@ -932,7 +1014,7 @@ const AttendanceStaff = () => {
                                         name="endDate"
                                         value={filters.endDate}
                                         onChange={handleFilterChange}
-                                        className="w-full border border-gray-300 p-2 sm:p-3 rounded-md text-sm sm:text-base"
+                                        className="w-full border border-gray-300 p-2 sm:p-3 rounded-md text-sm sm:text-base focus:ring-2 focus:ring-indigo-500"
                                     />
                                 </div>
                             </div>
@@ -967,7 +1049,7 @@ const AttendanceStaff = () => {
                                         placeholder="e.g., 2024"
                                         value={filters.year}
                                         onChange={handleFilterChange}
-                                        className="w-full border border-gray-300 p-2 sm:p-3 rounded-md text-sm sm:text-base"
+                                        className="w-full border border-gray-300 p-2 sm:p-3 rounded-md text-sm sm:text-base focus:ring-2 focus:ring-indigo-500"
                                     />
                                 </div>
                             </div>
@@ -981,7 +1063,7 @@ const AttendanceStaff = () => {
                                     placeholder="e.g., 2024"
                                     value={filters.year}
                                     onChange={handleFilterChange}
-                                    className="w-full border border-gray-300 p-2 sm:p-3 rounded-md text-sm sm:text-base"
+                                    className="w-full border border-gray-300 p-2 sm:p-3 rounded-md text-sm sm:text-base focus:ring-2 focus:ring-indigo-500"
                                 />
                             </div>
                         )}
@@ -989,7 +1071,7 @@ const AttendanceStaff = () => {
                     <div className="mt-6 text-right">
                         <button
                             onClick={handleFetchAttendance}
-                            className="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 shadow text-sm sm:text-base"
+                            className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 shadow text-sm sm:text-base transition-colors duration-200"
                         >
                             Generate Report
                         </button>
@@ -998,169 +1080,175 @@ const AttendanceStaff = () => {
             )}
 
             {/* Report Table */}
-            {canView && showReport && attendanceData.length > 0 && (
-                <div className="p-4 sm:p-6">
-                    <Buttons
-                        data={attendanceData.map((item, index) => ({
-                            "S.No.": (currentPage - 1) * pageSize + index + 1,
-                            // ID: item.staff,
-                            Date: item.date,
-                            Status: item.status,
-                            Remarks: item.remarks || "—",
-                        }))}
-                        columns={[
-                            { label: "S.No.", key: "S.No." },
-                            // { label: "ID", key: "ID" },
-                            { label: "Date", key: "Date" },
-                            { label: "Status", key: "Status" },
-                            { label: "Remarks", key: "Remarks" },
-                        ]}
-                        filename="Staff_Attendance_Report"
-                    />
+            {canView && showReport && (
+                <div className="mt-6 p-4 sm:p-6 bg-white rounded-xl shadow-md border border-gray-100">
+                    <div className="flex flex-col sm:flex-row justify-between items-center mb-4 gap-3">
+                        <h2 className="text-lg sm:text-xl font-semibold text-gray-800">
+                            Attendance Report ({filters.type})
+                        </h2>
+                        <Buttons
+                            data={attendanceData.map((item, index) => ({
+                                "S.No.": (currentPage - 1) * pageSize + index + 1,
+                                "Staff Name": getTeacherName(item.staff),
+                                Date: item.date,
+                                Status: item.status,
+                                Remarks: item.remarks || "—",
+                            }))}
+                            columns={[
+                                { label: "S.No.", key: "S.No." },
+                                { label: "Staff Name", key: "Staff Name" },
+                                { label: "Date", key: "Date" },
+                                { label: "Status", key: "Status" },
+                                { label: "Remarks", key: "Remarks" },
+                            ]}
+                            filename={`Staff_Attendance_Report_${filters.type}_${new Date().toISOString().split("T")[0]}`}
+                        />
+                    </div>
 
-                    {/* Desktop Table */}
-                    <div className="hidden md:block overflow-x-auto">
-                        <table className="w-full border mt-4 bg-white shadow text-sm">
-                            <thead className="bg-gray-200">
-                                <tr>
-                                    <th className="border p-3 text-left">S.No.</th>
-                                    <th className="border p-3 text-left">Date</th>
-                                    <th className="border p-3 text-left">Status</th>
-                                    {(canChange || canDelete) && <th className="border p-3 text-left">Remarks</th>}
-                                    {(canChange || canDelete) && <th className="border p-3 text-left">Actions</th>}
-                                </tr>
-                            </thead>
-                            <tbody>
+                    {attendanceData.length > 0 ? (
+                        <>
+                            <div className="hidden md:block overflow-x-auto">
+                                <TableComponent
+                                    data={paginatedData}
+                                    columns={reportColumns}
+                                    initialSort={{ key: "staff", direction: "asc" }}
+                                />
+                            </div>
+
+                            {/* Mobile Cards */}
+                            <div className="md:hidden mt-4 space-y-3">
                                 {paginatedData.map((item, idx) => (
-                                    <tr key={item.id} className="hover:bg-gray-50">
-                                        <td className="border p-3">{(currentPage - 1) * pageSize + idx + 1}</td>
-                                        <td className="border p-3">{item.date}</td>
-                                        <td className="border p-3">
-                                            <select
-                                                value={item.status}
-                                                onChange={(e) => {
-                                                    const updated = [...attendanceData];
-                                                    updated[idx].status = e.target.value;
-                                                    setAttendanceData(updated);
-                                                }}
-                                                className="border px-2 py-1 rounded text-sm"
-                                            >
-                                                <option>Present</option>
-                                                <option>Late</option>
-                                                <option>Absent</option>
-                                                <option>Leave</option>
-                                                <option>Half-day</option>
-                                            </select>
-                                        </td>
+                                    <div key={item.id || idx} className="border border-gray-200 rounded-lg p-3 shadow-sm bg-white">
+                                        <div className="flex items-center justify-between">
+                                            <div className="font-semibold text-gray-800">
+                                                Record #{(currentPage - 1) * pageSize + idx + 1}
+                                            </div>
+                                        </div>
+                                        <div className="mt-2 grid grid-cols-1 gap-1 text-sm">
+                                            <div>
+                                                <span className="font-medium">Staff:</span> {getTeacherName(item.staff)}
+                                            </div>
+                                            <div>
+                                                <span className="font-medium">Date:</span> {item.date}
+                                            </div>
+                                            <div>
+                                                <span className="font-medium">Status:</span>{" "}
+                                                {canChange ? (
+                                                    <Select
+                                                        value={{ value: item.status, label: item.status }}
+                                                        onChange={(selected) => {
+                                                            const updated = [...attendanceData];
+                                                            updated[(currentPage - 1) * pageSize + idx].status = selected?.value || item.status;
+                                                            setAttendanceData(updated);
+                                                        }}
+                                                        options={[
+                                                            { value: "Present", label: "Present" },
+                                                            { value: "Late", label: "Late" },
+                                                            { value: "Absent", label: "Absent" },
+                                                            { value: "Leave", label: "Leave" },
+                                                            { value: "Half-day", label: "Half-day" },
+                                                        ]}
+                                                        styles={tinySelectStyles}
+                                                        isSearchable={false}
+                                                    />
+                                                ) : (
+                                                    item.status
+                                                )}
+                                            </div>
+                                            {(canChange || canDelete) && (
+                                                <div>
+                                                    <span className="font-medium">Remarks:</span>{" "}
+                                                    {canChange ? (
+                                                        <input
+                                                            value={item.remarks || ""}
+                                                            onChange={(e) => {
+                                                                const updated = [...attendanceData];
+                                                                updated[(currentPage - 1) * pageSize + idx].remarks = e.target.value;
+                                                                setAttendanceData(updated);
+                                                            }}
+                                                            className="border px-2 py-1 rounded w-full text-sm focus:ring-2 focus:ring-indigo-500"
+                                                            placeholder="Remarks..."
+                                                        />
+                                                    ) : (
+                                                        item.remarks || "—"
+                                                    )}
+                                                </div>
+                                            )}
+                                        </div>
                                         {(canChange || canDelete) && (
-                                            <td className="border p-3">
-                                                <input
-                                                    value={item.remarks || ""}
-                                                    onChange={(e) => {
-                                                        const updated = [...attendanceData];
-                                                        updated[idx].remarks = e.target.value;
-                                                        setAttendanceData(updated);
-                                                    }}
-                                                    className="border px-2 py-1 rounded w-full text-sm"
-                                                    placeholder="Remarks..."
-                                                />
-                                            </td>
-                                        )}
-                                        {(canChange || canDelete) && (
-                                            <td className="border p-3 text-center">
+                                            <div className="mt-3 flex justify-end">
                                                 <button
                                                     onClick={() => handleEditAttendance(item.id, item.status, item.remarks)}
-                                                    className="bg-blue-500 hover:bg-blue-700 text-white px-2 py-1 rounded text-sm"
+                                                    className="bg-indigo-600 hover:bg-indigo-700 text-white px-2 py-1 rounded text-sm transition-colors duration-200"
                                                 >
                                                     Update
                                                 </button>
-                                            </td>
+                                            </div>
                                         )}
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
-
-                    {/* Mobile Cards */}
-                    <div className="md:hidden mt-4 space-y-3">
-                        {paginatedData.map((item, idx) => (
-                            <div key={item.id || idx} className="border rounded-lg p-3 shadow-sm">
-                                <div className="flex items-center justify-between">
-                                    <div className="font-semibold text-gray-800">Record #{(currentPage - 1) * pageSize + idx + 1}</div>
-                                </div>
-                                <div className="mt-2 grid grid-cols-1 gap-1 text-sm">
-                                    <div><span className="font-medium">ID:</span> {item.staff}</div>
-                                    <div><span className="font-medium">Date:</span> {item.date}</div>
-                                    <div><span className="font-medium">Status:</span> {item.status}</div>
-                                    {(canChange || canDelete) && (
-                                        <div>
-                                            <span className="font-medium">Remarks:</span> {item.remarks || "—"}
-                                        </div>
-                                    )}
-                                </div>
-                                {(canChange || canDelete) && (
-                                    <div className="mt-3 flex justify-end">
-                                        <button
-                                            onClick={() => handleEditAttendance(item.id, item.status, item.remarks)}
-                                            className="bg-blue-500 hover:bg-blue-700 text-white px-2 py-1 rounded text-sm"
-                                        >
-                                            Update
-                                        </button>
                                     </div>
-                                )}
-                            </div>
-                        ))}
-                    </div>
-
-                    {/* Pagination Controls */}
-                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mt-4 gap-3 sm:gap-4">
-                        <div className="flex items-center gap-2 w-full sm:w-auto">
-                            <label className="text-xs sm:text-sm font-medium text-gray-700 whitespace-nowrap">
-                                Page Size:
-                            </label>
-                            <div className="w-28">
-                                <Select
-                                    value={pageSizeOptions.find((opt) => opt.value === pageSize)}
-                                    onChange={(selected) => {
-                                        setPageSize(selected?.value || 10);
-                                        setCurrentPage(1);
-                                    }}
-                                    options={pageSizeOptions}
-                                    styles={tinySelectStyles}
-                                    isSearchable={false}
-                                />
-                            </div>
-                        </div>
-                        <div className="flex flex-wrap justify-center sm:justify-end gap-1 sm:gap-2 w-full sm:w-auto">
-                            <button
-                                onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
-                                disabled={currentPage === 1}
-                                className="px-3 py-1.5 bg-gray-300 rounded disabled:opacity-50 disabled:cursor-not-allowed text-xs sm:text-sm hover:bg-gray-400 transition-colors"
-                            >
-                                Prev
-                            </button>
-                            {Array.from({ length: totalPages }, (_, i) => i + 1)
-                                .slice(Math.max(0, Math.min(currentPage - 3, totalPages - 5)), Math.max(5, Math.min(totalPages, currentPage - 3 + 5)))
-                                .map((p) => (
-                                    <button
-                                        key={p}
-                                        onClick={() => setCurrentPage(p)}
-                                        className={`px-3 py-1.5 rounded text-xs sm:text-sm transition-colors ${currentPage === p ? "bg-blue-600 text-white hover:bg-blue-700" : "bg-gray-200 hover:bg-gray-300"
-                                            }`}
-                                    >
-                                        {p}
-                                    </button>
                                 ))}
-                            <button
-                                onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
-                                disabled={currentPage === totalPages}
-                                className="px-3 py-1.5 bg-gray-300 rounded disabled:opacity-50 disabled:cursor-not-allowed text-xs sm:text-sm hover:bg-gray-400 transition-colors"
-                            >
-                                Next
-                            </button>
+                            </div>
+
+                            {/* Pagination Controls */}
+                            {/* <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mt-4 gap-3 sm:gap-4">
+                                <div className="flex items-center gap-2 w-full sm:w-auto">
+                                    <label className="text-xs sm:text-sm font-medium text-gray-700 whitespace-nowrap">
+                                        Page Size:
+                                    </label>
+                                    <div className="w-28">
+                                        <Select
+                                            value={pageSizeOptions.find((opt) => opt.value === pageSize)}
+                                            onChange={(selected) => {
+                                                setPageSize(selected?.value || 10);
+                                                setCurrentPage(1);
+                                            }}
+                                            options={pageSizeOptions}
+                                            styles={tinySelectStyles}
+                                            isSearchable={false}
+                                        />
+                                    </div>
+                                </div>
+                                <div className="flex flex-wrap justify-center sm:justify-end gap-1 sm:gap-2 w-full sm:w-auto">
+                                    <button
+                                        onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
+                                        disabled={currentPage === 1}
+                                        className="px-3 py-1.5 bg-gray-300 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed text-xs sm:text-sm hover:bg-gray-400 transition-colors duration-200"
+                                    >
+                                        Prev
+                                    </button>
+                                    {Array.from({ length: totalPages }, (_, i) => i + 1)
+                                        .slice(Math.max(0, Math.min(currentPage - 3, totalPages - 5)), Math.max(5, Math.min(totalPages, currentPage - 3 + 5)))
+                                        .map((p) => (
+                                            <button
+                                                key={p}
+                                                onClick={() => setCurrentPage(p)}
+                                                className={`px-3 py-1.5 rounded text-xs sm:text-sm transition-colors duration-200 ${currentPage === p ? "bg-blue-600 text-white hover:bg-blue-700" : "bg-gray-200 hover:bg-gray-300"
+                                                    }`}
+                                            >
+                                                {p}
+                                            </button>
+                                        ))}
+                                    <button
+                                        onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
+                                        disabled={currentPage === totalPages}
+                                        className="px-3 py-1.5 bg-gray-300 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed text-xs sm:text-sm hover:bg-gray-400 transition-colors duration-200"
+                                    >
+                                        Next
+                                    </button>
+                                </div>
+                            </div> */}
+                        </>
+                    ) : (
+                        <div className="text-center py-6">
+                            <p className="text-gray-500 text-lg font-medium">No attendance records found for selected criteria.</p>
                         </div>
-                    </div>
+                    )}
+                </div>
+            )}
+
+            {canView && loading && !showReport && (
+                <div className="mt-6 p-4 sm:p-6 bg-gray-50 rounded-xl shadow-md border border-gray-100 max-w-4xl mx-auto text-center">
+                    <p className="text-gray-500 text-lg font-medium">Loading attendance records...</p>
                 </div>
             )}
         </div>

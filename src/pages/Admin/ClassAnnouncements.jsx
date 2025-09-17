@@ -5,6 +5,7 @@ import { MdEdit, MdDelete, MdVisibility } from "react-icons/md";
 import Select from "react-select";
 import Pagination from "../../components/Pagination";
 import Toaster from "../../components/Toaster";
+import TableComponent from "../../components/TableComponent"; // Import reusable TableComponent
 
 const ClassAnnouncements = () => {
     const [announcements, setAnnouncements] = useState([]);
@@ -22,11 +23,10 @@ const ClassAnnouncements = () => {
     const [totalPages, setTotalPages] = useState(1);
     const [totalItems, setTotalItems] = useState(0);
     const [loading, setLoading] = useState(false);
-    const [toaster, setToaster] = useState({ message: "", type: "success" });
+    const [toaster, setToaster] = useState({ message: "", type: "success", onConfirm: null, onCancel: null });
 
     const API = import.meta.env.VITE_SERVER_URL;
     const API_URL = `${API}class-announcements/`;
-
 
     // 🔹 Fetch classes for class_schedule dropdown
     const fetchClasses = async () => {
@@ -58,7 +58,7 @@ const ClassAnnouncements = () => {
                 setLoading(false);
                 return;
             }
-            const url = `${API_URL}`;
+            const url = `${API_URL}?page=${page}&page_size=${pageSize}`;
             console.log("Fetching announcements from:", url); // Debug log
             const res = await axios.get(url, {
                 headers: { Authorization: `Bearer ${token}` },
@@ -109,10 +109,10 @@ const ClassAnnouncements = () => {
     };
 
     // 🔹 Delete announcement
-    const showToast = (message, type = "success", onConfirm, onCancel) => {
+    const showToast = (message, type = "success", onConfirm = null, onCancel = null) => {
         setToaster({ message, type, onConfirm, onCancel });
         if (type !== "confirmation") {
-            setTimeout(() => setToaster({ message: "", type: "success" }), 3000);
+            setTimeout(() => setToaster({ message: "", type: "success", onConfirm: null, onCancel: null }), 3000);
         }
     };
 
@@ -122,33 +122,33 @@ const ClassAnnouncements = () => {
             return;
         }
 
-        setToaster({
-            message: "Are you sure you want to delete this announcement?",
-            type: "confirmation",
-            onConfirm: async () => {
+        showToast(
+            "Are you sure you want to delete this announcement?",
+            "confirmation",
+            async () => {
                 try {
                     const token = Cookies.get("access_token");
                     if (!token) {
-                        setToaster({ message: "No authentication token found.", type: "error" });
+                        showToast("No authentication token found.", "error");
                         return;
                     }
                     await axios.delete(`${API_URL}${uuid}/`, {
                         headers: { Authorization: `Bearer ${token}` },
                     });
-                    setToaster({ message: "Announcement deleted successfully!", type: "success" });
+                    showToast("Announcement deleted successfully!", "success");
                     fetchData();
                 } catch (err) {
-                    setToaster({
-                        message: `Failed to delete announcement: ${err.response?.data?.message || err.message}`,
-                        type: "error",
-                    });
+                    showToast(
+                        `Failed to delete announcement: ${err.response?.data?.message || err.message}`,
+                        "error"
+                    );
                     console.error("Delete error:", err.response?.data || err.message);
                 }
             },
-            onCancel: () => {
-                setToaster({ message: "Delete cancelled", type: "error" });
-            },
-        });
+            () => {
+                showToast("Delete cancelled", "error");
+            }
+        );
     };
 
     // 🔹 Effects
@@ -162,6 +162,7 @@ const ClassAnnouncements = () => {
     const canEdit = permissions.includes("users.change_classannouncement");
     const canDelete = permissions.includes("users.delete_classannouncement");
     const canView = permissions.includes("users.view_classannouncement");
+    const canPerformActions = canEdit || canDelete;
 
     if (!canView) {
         return (
@@ -171,19 +172,140 @@ const ClassAnnouncements = () => {
         );
     }
 
+    // 🔹 Responsive select styles
+    const selectStyles = {
+        control: (provided) => ({
+            ...provided,
+            minHeight: "2.25rem",
+            fontSize: "0.85rem",
+            borderRadius: "0.375rem",
+            borderColor: "#d1d5db",
+            boxShadow: "0 1px 2px 0 rgba(0, 0, 0, 0.05)",
+        }),
+        menu: (provided) => ({
+            ...provided,
+            fontSize: "0.85rem",
+            maxHeight: "220px",
+            overflowY: "auto",
+            borderRadius: "0.375rem",
+            zIndex: 9999,
+        }),
+        option: (provided) => ({
+            ...provided,
+            fontSize: "0.85rem",
+            padding: "0.5rem 0.75rem",
+            backgroundColor: provided.isSelected ? "#3b82f6" : provided.isFocused ? "#eff6ff" : "white",
+            color: provided.isSelected ? "white" : "#1f2937",
+        }),
+        singleValue: (provided) => ({
+            ...provided,
+            fontSize: "0.85rem",
+        }),
+        placeholder: (provided) => ({
+            ...provided,
+            fontSize: "0.85rem",
+            color: "#6b7280",
+        }),
+    };
+
+    // 🔹 Columns for TableComponent
+    const tableColumns = [
+        {
+            key: "index",
+            label: "S.No",
+            render: (row, index) => (page - 1) * pageSize + index + 1,
+        },
+        {
+            key: "title",
+            label: "Title",
+            render: (row) => (
+                <span className="block max-w-[150px] truncate" title={row.title}>
+                    {row.title || "—"}
+                </span>
+            ),
+        },
+        {
+            key: "description",
+            label: "Description",
+            render: (row) => (
+                <span className="block max-w-[200px] truncate" title={row.description}>
+                    {row.description || "—"}
+                </span>
+            ),
+        },
+        {
+            key: "teacher_name",
+            label: "Teacher",
+            render: (row) => row.teacher_name || "N/A",
+        },
+        {
+            key: "school",
+            label: "School",
+            render: (row) => row.school || "N/A",
+        },
+        {
+            key: "created",
+            label: "Created",
+            render: (row) => (row.created ? new Date(row.created).toLocaleDateString() : "N/A"),
+        },
+        ...(canPerformActions ? [{
+            key: "actions",
+            label: "Actions",
+            render: (row) => (
+                <div className="flex justify-center gap-2">
+                    <button
+                        onClick={() => setSelectedItem(row)}
+                        className="text-blue-600 hover:text-blue-800 transition-colors duration-200"
+                        title="View"
+                    >
+                        <MdVisibility size={18} />
+                    </button>
+                    {canEdit && (
+                        <button
+                            onClick={() => {
+                                setEditingItem(row);
+                                setShowForm(true);
+                                setNewAnnouncement({
+                                    class_schedule: row.class_schedule || "",
+                                    title: row.title,
+                                    description: row.description,
+                                });
+                            }}
+                            className="text-yellow-600 hover:text-yellow-800 transition-colors duration-200"
+                            title="Edit"
+                        >
+                            <MdEdit size={18} />
+                        </button>
+                    )}
+                    {canDelete && (
+                        <button
+                            onClick={() => handleDelete(row.uuid)}
+                            className="text-red-600 hover:text-red-800 transition-colors duration-200"
+                            title="Delete"
+                        >
+                            <MdDelete size={18} />
+                        </button>
+                    )}
+                </div>
+            ),
+        }] : []),
+    ];
+
     // 🔹 UI
     return (
-        <div className="p-6 max-w-7xl mx-auto">
+        <div className="min-h-screen p-4 sm:p-6 max-w-7xl mx-auto">
             <Toaster
                 message={toaster.message}
                 type={toaster.type}
                 duration={3000}
-                onClose={() => setToaster({ message: "", type: "success" })}
+                onClose={() => setToaster({ message: "", type: "success", onConfirm: null, onCancel: null })}
+                onConfirm={toaster.onConfirm}
+                onCancel={toaster.onCancel}
             />
 
             {/* Header */}
-            <div className="flex justify-between items-center bg-blue-900 text-white px-6 py-3 rounded-md shadow-md mb-6">
-                <h1 className="text-xl font-bold">Class Announcements</h1>
+            <div className="flex justify-between items-center bg-gradient-to-r from-blue-900 to-blue-900 text-white px-4 sm:px-6 py-3 rounded-xl shadow-lg mb-6">
+                <h1 className="text-lg sm:text-xl font-bold">Class Announcements</h1>
                 {canAdd && (
                     <button
                         onClick={() => {
@@ -191,8 +313,11 @@ const ClassAnnouncements = () => {
                             setNewAnnouncement({ class_schedule: "", title: "", description: "" });
                             setEditingItem(null);
                         }}
-                        className="bg-cyan-500 hover:bg-cyan-600 px-4 py-2 rounded-lg shadow-md text-white font-semibold text-sm"
+                        className="flex items-center px-3 py-2 bg-cyan-500 hover:bg-cyan-600 rounded-lg shadow-md text-white font-semibold text-sm sm:text-base transition-colors duration-200"
                     >
+                        <div className="flex items-center justify-center w-8 h-8 bg-gray-800 rounded-full mr-2">
+                            <span className="text-cyan-400 text-xl font-bold">{showForm ? "−" : "+"}</span>
+                        </div>
                         {showForm ? "Close Form" : "Add Announcement"}
                     </button>
                 )}
@@ -200,13 +325,13 @@ const ClassAnnouncements = () => {
 
             {/* Form */}
             {showForm && (
-                <div className="bg-white p-6 rounded-lg shadow-md mb-6">
-                    <h2 className="text-lg font-semibold mb-4">
+                <div className="bg-white p-4 sm:p-6 rounded-xl shadow-md border border-gray-200 mb-6 max-w-2xl mx-auto">
+                    <h2 className="text-lg font-semibold text-blue-900 mb-4">
                         {editingItem ? "Edit Announcement" : "Create Announcement"}
                     </h2>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div>
-                            <label className="block text-sm font-semibold text-gray-700 mb-1">
+                            <label className="block text-sm font-medium text-gray-700 mb-1">
                                 Class
                             </label>
                             <Select
@@ -221,18 +346,19 @@ const ClassAnnouncements = () => {
                                 getOptionLabel={(cls) => `${cls.class_name} - ${cls.section} (${cls.session})`}
                                 getOptionValue={(cls) => cls.id}
                                 placeholder="Select Class"
-                                className="w-full"
+                                styles={selectStyles}
                                 isClearable
+                                menuPortalTarget={document.body}
                             />
                         </div>
                         <div>
-                            <label className="block text-sm font-semibold text-gray-700 mb-1">
+                            <label className="block text-sm font-medium text-gray-700 mb-1">
                                 Title <span className="text-red-500">*</span>
                             </label>
                             <input
                                 type="text"
                                 placeholder="Enter title"
-                                className="p-2 border rounded w-full text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                className="w-full p-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
                                 value={newAnnouncement.title}
                                 onChange={(e) =>
                                     setNewAnnouncement({ ...newAnnouncement, title: e.target.value })
@@ -240,12 +366,12 @@ const ClassAnnouncements = () => {
                             />
                         </div>
                         <div className="col-span-1 sm:col-span-2">
-                            <label className="block text-sm font-semibold text-gray-700 mb-1">
+                            <label className="block text-sm font-medium text-gray-700 mb-1">
                                 Description <span className="text-red-500">*</span>
                             </label>
                             <textarea
                                 placeholder="Enter description"
-                                className="p-2 border rounded w-full text-sm h-24 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                className="w-full p-2 border border-gray-300 rounded-md text-sm h-24 focus:outline-none focus:ring-2 focus:ring-indigo-500"
                                 value={newAnnouncement.description}
                                 onChange={(e) =>
                                     setNewAnnouncement({ ...newAnnouncement, description: e.target.value })
@@ -260,13 +386,13 @@ const ClassAnnouncements = () => {
                                 setEditingItem(null);
                                 setNewAnnouncement({ class_schedule: "", title: "", description: "" });
                             }}
-                            className="bg-gray-500 text-white px-4 py-2 rounded-md hover:bg-gray-600 text-sm"
+                            className="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded-lg text-sm shadow-sm transition-colors duration-200"
                         >
                             Cancel
                         </button>
                         <button
                             onClick={handleCreateOrUpdate}
-                            className="bg-green-500 text-white px-4 py-2 rounded-md hover:bg-green-600 text-sm"
+                            className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-sm shadow-sm transition-colors duration-200"
                         >
                             {editingItem ? "Update" : "Save"}
                         </button>
@@ -277,167 +403,99 @@ const ClassAnnouncements = () => {
             {/* Table */}
             {loading ? (
                 <div className="flex items-center justify-center py-16">
-                    <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-blue-600"></div>
-                    <span className="ml-3 text-gray-600">Loading announcements...</span>
+                    <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-indigo-600"></div>
+                    <span className="ml-3 text-gray-600 text-lg">Loading announcements...</span>
                 </div>
             ) : announcements.length === 0 ? (
-                <div className="text-center text-gray-600 py-8">No announcements found.</div>
+                <div className="text-center text-gray-600 py-8 text-lg font-medium">
+                    No announcements found.
+                </div>
             ) : (
-                <>
-                    <h2 className="text-lg font-semibold text-white bg-blue-900 px-4 py-2 rounded-t-md">
-                        Announcements ({totalItems} total)
-                    </h2>
+                <div className="mt-6">
+                   
                     <div className="overflow-x-auto">
-                        <table className="w-full bg-white rounded-b-md shadow-md">
-                            <thead className="bg-gray-100">
-                                <tr>
-                                    <th className="p-3 border-b text-sm font-semibold text-gray-700">S.No</th>
-                                    <th className="p-3 border-b text-sm font-semibold text-gray-700">Title</th>
-                                    <th className="p-3 border-b text-sm font-semibold text-gray-700">Description</th>
-                                    <th className="p-3 border-b text-sm font-semibold text-gray-700">Teacher</th>
-                                    <th className="p-3 border-b text-sm font-semibold text-gray-700">School</th>
-                                    <th className="p-3 border-b text-sm font-semibold text-gray-700">Created</th>
-                                    {(canEdit || canDelete) && (
-                                        <th className="p-3 border-b text-sm font-semibold text-gray-700">Actions</th>
-                                    )}
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {announcements.map((a, index) => (
-                                    <tr key={a.uuid} className="hover:bg-gray-50 transition-all duration-150">
-                                        <td className="p-3 border-b text-sm text-center">{(page - 1) * pageSize + index + 1}</td>
-                                        <td className="p-3 border-b text-sm text-center truncate max-w-[150px]">{a.title}</td>
-                                        <td className="p-3 border-b text-sm text-left truncate max-w-[200px]">{a.description}</td>
-                                        <td className="p-3 border-b text-sm text-center truncate max-w-[150px]">{a.teacher_name || "N/A"}</td>
-                                        <td className="p-3 border-b text-sm text-center truncate max-w-[150px]">{a.school || "N/A"}</td>
-                                        <td className="p-3 border-b text-sm text-center truncate max-w-[120px]">
-                                            {a.created ? new Date(a.created).toLocaleDateString() : "N/A"}
-                                        </td>
-                                        {(canEdit || canDelete) && (
-                                            <td className="p-3 border-b text-sm text-center">
-                                                <div className="flex gap-2 justify-center">
-                                                    <MdVisibility
-                                                        onClick={() => setSelectedItem(a)}
-                                                        className="text-blue-600 cursor-pointer hover:text-blue-800"
-                                                        size={20}
-                                                        title="View"
-                                                    />
-                                                    {canEdit && (
-                                                        <MdEdit
-                                                            onClick={() => {
-                                                                setEditingItem(a);
-                                                                setShowForm(true);
-                                                                setNewAnnouncement({
-                                                                    class_schedule: a.class_schedule || "",
-                                                                    title: a.title,
-                                                                    description: a.description,
-                                                                });
-                                                            }}
-                                                            className="text-yellow-500 cursor-pointer hover:text-yellow-700"
-                                                            size={20}
-                                                            title="Edit"
-                                                        />
-                                                    )}
-                                                    {canDelete && (
-                                                        <MdDelete
-                                                            onClick={() => handleDelete(a.uuid)}
-                                                            className="text-red-500 cursor-pointer hover:text-red-700"
-                                                            size={20}
-                                                            title="Delete"
-                                                        />
-                                                    )}
-                                                </div>
-                                            </td>
-                                        )}
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
+                        <TableComponent
+                            data={announcements}
+                            columns={tableColumns}
+                            initialSort={{ key: "title", direction: "asc" }}
+                        />
                     </div>
-                    <Pagination
+                    {/* <Pagination
                         currentPage={page}
                         totalPages={totalPages}
                         pageSize={pageSize}
-                        onPageChange={setPage}
+                        onPageChange={(newPage) => {
+                            setPage(newPage);
+                            fetchData();
+                        }}
                         onPageSizeChange={(size) => {
                             setPageSize(size);
                             setPage(1);
+                            fetchData();
                         }}
                         totalItems={totalItems}
                         showPageSizeSelector={true}
                         showPageInfo={true}
-                    />
-                </>
+                    /> */}
+                </div>
             )}
 
             {/* Modal View */}
             {selectedItem && (
                 <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 px-4">
-                    <div className="bg-white w-full max-w-lg rounded-2xl shadow-2xl border border-gray-200 overflow-hidden animate-fadeIn">
-
+                    <div className="bg-white w-full max-w-lg rounded-xl shadow-2xl border border-gray-200 overflow-hidden">
                         {/* Header */}
-                        <div className="flex justify-between items-center px-5 py-3 border-b bg-blue-50">
-                            <h2 className="text-lg font-bold text-blue-800 flex items-center gap-2">
+                        <div className="flex justify-between items-center px-6 py-4 border-b bg-blue-50">
+                            <h2 className="text-lg font-bold text-blue-900 flex items-center gap-2">
                                 📢 Announcement Details
                             </h2>
                             <button
                                 onClick={() => setSelectedItem(null)}
-                                className="w-7 h-7 flex items-center justify-center rounded-full bg-red-100 text-red-600 hover:bg-red-200 transition"
+                                className="w-8 h-8 flex items-center justify-center rounded-full bg-red-100 text-red-600 hover:bg-red-200 transition-colors duration-200"
                             >
                                 ✕
                             </button>
                         </div>
-
                         {/* Content in column form */}
-                        <div className="px-5 py-4 overflow-y-auto max-h-[60vh]">
-                            <div className="grid grid-cols-1 gap-3 text-sm">
-
-                                <div className="flex justify-between border-b pb-1">
-                                    <span className="text-gray-500 font-medium">📌 Title</span>
-                                    <span className="font-semibold text-gray-800 text-right">
-                                        {selectedItem.title || "—"}
-                                    </span>
-                                </div>
-
-                                <div className="flex justify-between border-b pb-1">
-                                    <span className="text-gray-500 font-medium">📝 Description</span>
-                                    <span className="font-semibold text-gray-800 text-right">
-                                        {selectedItem.description || "—"}
-                                    </span>
-                                </div>
-
-                                <div className="flex justify-between border-b pb-1">
-                                    <span className="text-gray-500 font-medium">👨‍🏫 Teacher</span>
-                                    <span className="font-semibold text-gray-800 text-right">
-                                        {selectedItem.teacher_name || "N/A"}
-                                    </span>
-                                </div>
-
-                                <div className="flex justify-between border-b pb-1">
-                                    <span className="text-gray-500 font-medium">🏫 School</span>
-                                    <span className="font-semibold text-gray-800 text-right">
-                                        {selectedItem.school || "N/A"}
-                                    </span>
-                                </div>
-
-                                <div className="flex justify-between border-b pb-1">
-                                    <span className="text-gray-500 font-medium">📅 Created</span>
-                                    <span className="font-semibold text-gray-800 text-right">
-                                        {selectedItem.created
-                                            ? new Date(selectedItem.created).toLocaleString()
-                                            : "N/A"}
-                                    </span>
-                                </div>
-
-                                
+                        <div className="px-6 py-5 overflow-y-auto max-h-[60vh] space-y-4 text-sm">
+                            <div className="flex justify-between border-b pb-2">
+                                <span className="text-gray-600 font-medium">📌 Title</span>
+                                <span className="font-semibold text-gray-800 text-right max-w-[60%]">
+                                    {selectedItem.title || "—"}
+                                </span>
+                            </div>
+                            <div className="flex justify-between border-b pb-2">
+                                <span className="text-gray-600 font-medium">📝 Description</span>
+                                <span className="font-semibold text-gray-800 text-right max-w-[60%]">
+                                    {selectedItem.description || "—"}
+                                </span>
+                            </div>
+                            <div className="flex justify-between border-b pb-2">
+                                <span className="text-gray-600 font-medium">👨‍🏫 Teacher</span>
+                                <span className="font-semibold text-gray-800 text-right">
+                                    {selectedItem.teacher_name || "N/A"}
+                                </span>
+                            </div>
+                            <div className="flex justify-between border-b pb-2">
+                                <span className="text-gray-600 font-medium">🏫 School</span>
+                                <span className="font-semibold text-gray-800 text-right">
+                                    {selectedItem.school || "N/A"}
+                                </span>
+                            </div>
+                            <div className="flex justify-between border-b pb-2">
+                                <span className="text-gray-600 font-medium">📅 Created</span>
+                                <span className="font-semibold text-gray-800 text-right">
+                                    {selectedItem.created
+                                        ? new Date(selectedItem.created).toLocaleString()
+                                        : "N/A"}
+                                </span>
                             </div>
                         </div>
-
                         {/* Footer */}
-                        <div className="flex justify-end px-5 py-3 border-t bg-gray-50">
+                        <div className="flex justify-end px-6 py-4 border-t bg-gray-50">
                             <button
                                 onClick={() => setSelectedItem(null)}
-                                className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2 rounded-lg shadow text-sm font-medium transition"
+                                className="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2 rounded-lg shadow text-sm font-medium transition-colors duration-200"
                             >
                                 Close
                             </button>
@@ -445,7 +503,6 @@ const ClassAnnouncements = () => {
                     </div>
                 </div>
             )}
-
         </div>
     );
 };

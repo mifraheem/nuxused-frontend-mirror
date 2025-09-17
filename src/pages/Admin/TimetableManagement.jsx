@@ -6,6 +6,7 @@ import { Buttons } from "../../components";
 import Select from "react-select";
 import Pagination from "../../components/Pagination";
 import Toaster from "../../components/Toaster";
+import TableComponent from "../../components/TableComponent"; // Import reusable TableComponent
 
 const TimetableManagement = () => {
   const [timetables, setTimetables] = useState([]);
@@ -23,7 +24,7 @@ const TimetableManagement = () => {
   const [totalPages, setTotalPages] = useState(1);
   const [userProfile, setUserProfile] = useState(null);
   const [schoolId, setSchoolId] = useState(null);
-  const [toaster, setToaster] = useState({ message: '', type: 'success' });
+  const [toaster, setToaster] = useState({ message: "", type: "success" });
 
   const [formData, setFormData] = useState({
     teacher: "",
@@ -40,22 +41,16 @@ const TimetableManagement = () => {
   const token = Cookies.get("access_token");
   const headers = token ? { Authorization: `Bearer ${token}` } : {};
 
-
-
   // Fetch current user's profile and school information
-  // Inside TimetableManagement component
-
   const fetchUserProfile = async () => {
     try {
       const config = { headers };
-      // First, fetch the user profile
       const profileRes = await axios.get(`${API}api/auth/users/list_profiles/teacher`, config);
       const profile = profileRes.data?.data || profileRes.data;
 
       console.log("🔍 User Profile:", profile);
       setUserProfile(profile);
 
-      // Try to get school ID from profile first
       let userSchoolId =
         profile.school_id ||
         profile.school?.id ||
@@ -67,21 +62,20 @@ const TimetableManagement = () => {
         profile.organization_id ||
         profile.organization_uuid;
 
-      // If no school ID is found in the profile, fetch from /api/schools/
-      if (!userSchoolId || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(userSchoolId)) {
+      if (
+        !userSchoolId ||
+        !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(userSchoolId)
+      ) {
         console.log("🔄 No valid school ID in profile, fetching from /api/schools/");
         try {
           const schoolRes = await axios.get(`${API}api/schools/`, { headers });
           const schools = schoolRes.data?.data?.results || schoolRes.data?.results || schoolRes.data;
 
           if (Array.isArray(schools) && schools.length > 0) {
-            // Assuming the first school in the list is the relevant one
-            // Adjust this logic based on your API response structure
             userSchoolId = schools[0].id || schools[0].uuid || schools[0].school_id;
 
             console.log("🏫 School ID from /api/schools/:", userSchoolId);
 
-            // Validate UUID format
             if (userSchoolId && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(userSchoolId)) {
               setSchoolId(userSchoolId);
             } else {
@@ -113,9 +107,8 @@ const TimetableManagement = () => {
   const fetchData = async () => {
     setLoading(true);
     try {
-      // Build URLs with school filtering if available
-      const schoolParam = schoolId ? `?school_id=${schoolId}` : '';
-      const timetableParam = schoolId ? `&school_id=${schoolId}` : '';
+      const schoolParam = schoolId ? `?school_id=${schoolId}` : "";
+      const timetableParam = schoolId ? `&school_id=${schoolId}` : "";
 
       const [timetableRes, teacherRes, subjectRes, roomRes, classRes] = await Promise.all([
         axios.get(`${API_URL}?page=${page}&page_size=${pageSize}${timetableParam}`, { headers }),
@@ -126,7 +119,11 @@ const TimetableManagement = () => {
       ]);
 
       const data = timetableRes.data?.data || {};
-      console.log("📊 API Responses:", { timetableRes: data, teacherRes: teacherRes.data, subjectRes: subjectRes.data });
+      console.log("📊 API Responses:", {
+        timetableRes: data,
+        teacherRes: teacherRes.data,
+        subjectRes: subjectRes.data,
+      });
 
       setTimetables(Array.isArray(data.results) ? data.results : []);
       setTotalPages(data.total_pages || 1);
@@ -167,9 +164,8 @@ const TimetableManagement = () => {
         teachers: teachers.length,
         subjects: subjects.length,
         rooms: rooms.length,
-        classes: classes.length
+        classes: classes.length,
       });
-
     } catch (error) {
       console.error("❌ Error fetching data:", error);
       showToast("Failed to fetch data", "error");
@@ -178,7 +174,6 @@ const TimetableManagement = () => {
     }
   };
 
-  // First fetch user profile, then fetch data
   useEffect(() => {
     if (token) {
       fetchUserProfile();
@@ -187,37 +182,33 @@ const TimetableManagement = () => {
     }
   }, [token]);
 
-  // When schoolId is available, fetch school-specific data
   useEffect(() => {
     if (token) {
       fetchData();
     }
   }, [token, page, pageSize, schoolId]);
 
-  // ✅ Handle Input Changes
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
-  // ✅ Handle Multi-Select for Days
   const handleDaysChange = (e) => {
     const selectedDays = Array.from(e.target.selectedOptions, (option) => option.value);
     setFormData((prev) => ({ ...prev, days: selectedDays }));
   };
 
-  // ✅ Create or Update Timetable (UUID Version)
   const handleSubmit = async (e) => {
     e.preventDefault();
 
     try {
       const requestData = {
-        teacher: formData.teacher, // Keep as UUID string
-        subject: formData.subject, // Keep as UUID string
-        class_schedule: formData.class_schedule, // Keep as UUID string
+        teacher: formData.teacher,
+        subject: formData.subject,
+        class_schedule: formData.class_schedule,
         start_time: formData.start_time,
         end_time: formData.end_time,
-        room: formData.room, // Keep as UUID string
+        room: formData.room,
         days: formData.days || [],
       };
 
@@ -241,15 +232,13 @@ const TimetableManagement = () => {
     }
   };
 
-  // ✅ Load Data for Editing (UUID Version)
   const handleEdit = (timetable) => {
     console.log("🔧 Editing timetable:", timetable);
 
-    // Find UUIDs based on names
-    const selectedTeacher = teachers.find(t => t.username === timetable.teacher_name);
-    const selectedSubject = subjects.find(s => s.subject_name === timetable.subject_name);
-    const selectedClass = classes.find(c => c.class_name === timetable.class_name);
-    const selectedRoom = rooms.find(r => r.room_name === timetable.room_name);
+    const selectedTeacher = teachers.find((t) => t.username === timetable.teacher_name);
+    const selectedSubject = subjects.find((s) => s.subject_name === timetable.subject_name);
+    const selectedClass = classes.find((c) => c.class_name === timetable.class_name);
+    const selectedRoom = rooms.find((r) => r.room_name === timetable.room_name);
 
     setFormData({
       teacher: selectedTeacher?.id || selectedTeacher?.profile_id || "",
@@ -272,8 +261,7 @@ const TimetableManagement = () => {
     setShowForm(true);
   };
 
-  // ✅ Delete with Confirmation
-  const showToast = (message, type = 'success', onConfirm, onCancel) => {
+  const showToast = (message, type = "success", onConfirm, onCancel) => {
     setToaster({ message, type, onConfirm, onCancel });
   };
 
@@ -294,7 +282,7 @@ const TimetableManagement = () => {
         } catch (error) {
           setToaster({
             message: "Failed to delete timetable: " + (error.response?.data?.message || error.message),
-            type: "error"
+            type: "error",
           });
           console.error("❌ Error deleting timetable:", error);
         }
@@ -305,18 +293,11 @@ const TimetableManagement = () => {
     });
   };
 
-  // ✅ View Details in Modal
   const handleView = (timetable) => {
     setSelectedTimetable(timetable);
     setShowModal(true);
   };
 
-  const closeModal = () => {
-    setShowModal(false);
-    setSelectedTimetable(null);
-  };
-
-  // ✅ Reset Form
   const resetForm = () => {
     setFormData({
       teacher: "",
@@ -330,25 +311,78 @@ const TimetableManagement = () => {
     setEditingId(null);
   };
 
-  // ✅ Calculate sequence number based on pagination
   const getSequenceNumber = (index) => {
     return (page - 1) * pageSize + index + 1;
   };
-
-  const columns = [
-    { label: "Sr. No.", key: "sequence" }, // Updated column for sequence
-    { label: "Teacher", key: "teacher_name" },
-    { label: "Subject", key: "subject_name" },
-    { label: "Class", key: "class_name" },
-    { label: "Start Time", key: "start_time" },
-    { label: "End Time", key: "end_time" },
-  ];
 
   const permissions = JSON.parse(localStorage.getItem("user_permissions") || "[]");
   const canAdd = permissions.includes("users.add_timetable");
   const canEdit = permissions.includes("users.change_timetable");
   const canDelete = permissions.includes("users.delete_timetable");
   const canView = permissions.includes("users.view_timetable");
+
+  // Table columns configuration
+  const columns = [
+    {
+      key: "sequence",
+      label: "Sr. No.",
+      render: (row, index) => getSequenceNumber(index),
+    },
+    {
+      key: "teacher_name",
+      label: "Teacher",
+      render: (row) => row.teacher_name || "N/A",
+    },
+    {
+      key: "subject_name",
+      label: "Subject",
+      render: (row) => row.subject_name || "N/A",
+    },
+    {
+      key: "class_name",
+      label: "Class",
+      render: (row) => row.class_name || "N/A",
+    },
+    {
+      key: "start_time",
+      label: "Start Time",
+      render: (row) => row.start_time || "N/A",
+    },
+    {
+      key: "end_time",
+      label: "End Time",
+      render: (row) => row.end_time || "N/A",
+    },
+    {
+      key: "actions",
+      label: "Actions",
+      render: (row) => (
+        <div className="flex space-x-2 justify-center">
+          {canView && (
+            <MdVisibility
+              onClick={() => handleView(row)}
+              className="text-blue-500 cursor-pointer hover:text-blue-700"
+              size={24}
+            />
+          )}
+          {canEdit && (
+            <MdEdit
+              onClick={() => handleEdit(row)}
+              className="text-yellow-500 cursor-pointer hover:text-yellow-700"
+              size={24}
+            />
+          )}
+          {canDelete && (
+            <MdDelete
+              onClick={() => handleDelete(row.id)}
+              className="text-red-500 cursor-pointer hover:text-red-700"
+              size={24}
+            />
+          )}
+        </div>
+      ),
+    },
+  ];
 
   return (
     <div>
@@ -404,8 +438,10 @@ const TimetableManagement = () => {
                 </label>
                 <Select
                   name="teacher"
-                  value={teachers.find(t => (t.id || t.profile_id) === formData.teacher) || null}
-                  onChange={(selected) => setFormData({ ...formData, teacher: selected?.id || selected?.profile_id || "" })}
+                  value={teachers.find((t) => (t.id || t.profile_id) === formData.teacher) || null}
+                  onChange={(selected) =>
+                    setFormData({ ...formData, teacher: selected?.id || selected?.profile_id || "" })
+                  }
                   options={teachers}
                   getOptionLabel={(t) => `${t.first_name} ${t.last_name}`}
                   getOptionValue={(t) => t.id || t.profile_id}
@@ -422,7 +458,7 @@ const TimetableManagement = () => {
                 </label>
                 <Select
                   name="subject"
-                  value={subjects.find(s => s.id === formData.subject) || null}
+                  value={subjects.find((s) => s.id === formData.subject) || null}
                   onChange={(selected) => setFormData({ ...formData, subject: selected?.id || "" })}
                   options={subjects}
                   getOptionLabel={(s) => s.subject_name}
@@ -440,10 +476,10 @@ const TimetableManagement = () => {
                 </label>
                 <Select
                   name="class_schedule"
-                  value={classes.find(c => c.id === formData.class_schedule) || null}
+                  value={classes.find((c) => c.id === formData.class_schedule) || null}
                   onChange={(selected) => setFormData({ ...formData, class_schedule: selected?.id || "" })}
                   options={classes}
-                  getOptionLabel={(c) => `${c.class_name} - ${c.section || 'N/A'} (${c.session || 'N/A'})`}
+                  getOptionLabel={(c) => `${c.class_name} - ${c.section || "N/A"} (${c.session || "N/A"})`}
                   getOptionValue={(c) => c.id}
                   placeholder="Search & select class"
                   isClearable
@@ -458,10 +494,10 @@ const TimetableManagement = () => {
                 </label>
                 <Select
                   name="room"
-                  value={rooms.find(r => r.id === formData.room) || null}
+                  value={rooms.find((r) => r.id === formData.room) || null}
                   onChange={(selected) => setFormData({ ...formData, room: selected?.id || "" })}
                   options={rooms}
-                  getOptionLabel={(r) => `${r.room_name} (${r.room_type || 'N/A'})`}
+                  getOptionLabel={(r) => `${r.room_name} (${r.room_type || "N/A"})`}
                   getOptionValue={(r) => r.id}
                   placeholder="Search & select room"
                   isClearable
@@ -537,74 +573,44 @@ const TimetableManagement = () => {
         )}
 
         {/* Table */}
-        <Buttons data={timetables} columns={columns} filename="Timetables" />
+        <Buttons data={timetables} columns={columns.slice(0, -1)} filename="Timetables" />
 
-        <h2 className="text-lg font-semibold text-white bg-blue-900 px-4 py-2 rounded-t-md">
-          Timetable
-        </h2>
-        {canView && (
-          <table className="w-full border-collapse border bg-white">
-            <thead className="bg-gray-200">
-              <tr>
-                <th className="border p-2">Sr. No.</th>
-                <th className="border p-2">Teacher</th>
-                <th className="border p-2">Subject</th>
-                <th className="border p-2">Class</th>
-                <th className="border p-2">Start Time</th>
-                <th className="border p-2">End Time</th>
-                <th className="border p-2">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {timetables.map((timetable, index) => (
-                <tr className="text-center" key={timetable.id}>
-                  <td className="border p-2 font-medium">
-                    {getSequenceNumber(index)}
-                  </td>
-                  <td className="border p-2">{timetable.teacher_name}</td>
-                  <td className="border p-2">{timetable.subject_name}</td>
-                  <td className="border p-2">{timetable.class_name || "N/A"}</td>
-                  <td className="border p-2">{timetable.start_time || "N/A"}</td>
-                  <td className="border p-2">{timetable.end_time || "N/A"}</td>
-                  <td className="border p-2 flex space-x-2 justify-center">
-                    <MdVisibility
-                      onClick={() => handleView(timetable)}
-                      className="text-blue-500 cursor-pointer"
-                    />
-                    {canEdit && (
-                      <MdEdit
-                        onClick={() => handleEdit(timetable)}
-                        className="text-yellow-500 text-2xl cursor-pointer hover:text-yellow-700"
-                      />
-                    )}
-                    {canDelete && (
-                      <MdDelete
-                        onClick={() => handleDelete(timetable.id)}
-                        className="text-red-500 text-2xl cursor-pointer hover:text-red-700"
-                      />
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+  
+        {canView ? (
+          loading ? (
+            <p className="text-center text-gray-600 text-sm">Loading...</p>
+          ) : timetables.length === 0 ? (
+            <p className="text-center text-gray-600 text-sm">No timetables added yet.</p>
+          ) : (
+            <div className="overflow-x-auto">
+              <TableComponent
+                data={timetables}
+                columns={columns}
+                initialSort={{ key: "teacher_name", direction: "asc" }}
+              />
+            </div>
+          )
+        ) : (
+          <p className="text-center text-gray-600 text-sm">You do not have permission to view timetables.</p>
         )}
 
-        <Pagination
-          currentPage={page}
-          totalPages={totalPages}
-          pageSize={pageSize}
-          onPageChange={(newPage) => {
-            setPage(newPage);
-          }}
-          onPageSizeChange={(size) => {
-            setPageSize(size);
-            setPage(1);
-          }}
-          totalItems={timetables.length}
-          showPageSizeSelector={true}
-          showPageInfo={true}
-        />
+        {/* {canView && timetables.length > 0 && (
+          <Pagination
+            currentPage={page}
+            totalPages={totalPages}
+            pageSize={pageSize}
+            onPageChange={(newPage) => {
+              setPage(newPage);
+            }}
+            onPageSizeChange={(size) => {
+              setPageSize(size);
+              setPage(1);
+            }}
+            totalItems={timetables.length}
+            showPageSizeSelector={true}
+            showPageInfo={true}
+          />
+        )} */}
 
         {/* View Modal */}
         {showModal && selectedTimetable && (
@@ -624,7 +630,6 @@ const TimetableManagement = () => {
                 <table className="min-w-full text-sm text-gray-700">
                   <tbody className="divide-y divide-gray-200">
                     {[
-                      // ["🆔 ID", selectedTimetable.id],
                       ["👨‍🏫 Teacher", selectedTimetable.teacher_name],
                       ["📘 Subject", selectedTimetable.subject_name],
                       ["🏫 Class", selectedTimetable.class_name],

@@ -4,7 +4,8 @@ import Cookies from 'js-cookie';
 import Select from 'react-select';
 import Buttons from '../../components/Buttons';
 import * as XLSX from 'xlsx';
-import Toaster from '../../components/Toaster'; // Import custom Toaster component
+import Toaster from '../../components/Toaster';
+import TableComponent from '../../components/TableComponent'; // Import reusable TableComponent
 
 const API = import.meta.env.VITE_SERVER_URL;
 const API_BASE_URL = `${API}attendance/`;
@@ -145,8 +146,6 @@ const AttendanceStd = () => {
       const classData = classesRes.data?.data?.results || [];
       const subjectData = subjectsRes.data?.data?.results || [];
 
-      console.log('Fetched student data:', studentData);
-
       const validStudents = studentData.filter(student => {
         const uuid = getStudentUUID(student);
         if (!uuid) {
@@ -155,12 +154,6 @@ const AttendanceStd = () => {
         }
         return true;
       });
-
-      console.log('Valid students after filtering:', validStudents);
-
-      if (validStudents.length < studentData.length) {
-        showToast(`${studentData.length - validStudents.length} students excluded due to missing UUID`, 'warning');
-      }
 
       setStudentOptions(validStudents);
       setStudents(validStudents);
@@ -253,16 +246,15 @@ const AttendanceStd = () => {
       setShowExcelOptions(true);
       setShowAttendanceTable(false);
 
-      // KEY FIX: Properly initialize with all required fields
       setBulkAttendanceData(
         students.map((student) => {
           const studentUUID = getStudentUUID(student);
           return {
             student: studentUUID,
-            student_uuid: studentUUID, // Ensure this is set
+            student_uuid: studentUUID,
             student_info: student,
-            subject: selectedSubject?.value, // Ensure subject is set
-            class_schedule: selectedClass?.value, // Ensure class is set
+            subject: selectedSubject?.value,
+            class_schedule: selectedClass?.value,
             status: 'Present',
             remarks: '',
           };
@@ -276,7 +268,6 @@ const AttendanceStd = () => {
     }
   };
 
-  // Excel Export Function for Marking Attendance
   const handleExportExcel = () => {
     if (!selectedClass || !selectedSubject || students.length === 0) {
       showToast('Please select class and subject first', 'error');
@@ -295,7 +286,6 @@ const AttendanceStd = () => {
     const ws = XLSX.utils.json_to_sheet(excelData);
     const wb = XLSX.utils.book_new();
 
-    // Add dropdown for Remarks column (column F)
     const remarksExcelOptions = ["On Time", "Late Reason", "Absent Reason", "Leave Approved", "Other"];
     ws['!dataValidation'] = [
       {
@@ -306,14 +296,13 @@ const AttendanceStd = () => {
       },
     ];
 
-    // Set column widths
     ws['!cols'] = [
-      { width: 8 },  // S.No
-      { width: 20 }, // Registration Number
-      { width: 15 }, // First Name
-      { width: 15 }, // Last Name
-      { width: 18 }, // Attendance Status
-      { width: 20 }  // Remarks
+      { width: 8 },
+      { width: 20 },
+      { width: 15 },
+      { width: 15 },
+      { width: 18 },
+      { width: 20 }
     ];
 
     XLSX.utils.book_append_sheet(wb, ws, 'Attendance');
@@ -322,7 +311,6 @@ const AttendanceStd = () => {
     showToast('Excel file exported successfully', 'success');
   };
 
-  // Excel Import Function for Marking Attendance
   const handleImportExcel = (event) => {
     const file = event.target.files[0];
     if (!file) return;
@@ -335,8 +323,6 @@ const AttendanceStd = () => {
         const sheetName = workbook.SheetNames[0];
         const worksheet = workbook.Sheets[sheetName];
         const jsonData = XLSX.utils.sheet_to_json(worksheet);
-
-        console.log('Imported Excel data:', jsonData);
 
         const processedData = jsonData.map((row, index) => {
           const regNumber = row['Registration Number'];
@@ -436,16 +422,6 @@ const AttendanceStd = () => {
     const studentUUID = record?.student_uuid || record?.student || getStudentUUID(sourceStudent);
     const displayName = getStudentDisplayName(sourceStudent);
 
-    // Add debugging
-    console.log('Debug - Record validation:', {
-      index,
-      record,
-      studentUUID,
-      hasSubject: !!record?.subject,
-      selectedSubject: selectedSubject?.value,
-      displayName
-    });
-
     if (!studentUUID) {
       showToast(`Missing student UUID for ${displayName}`, 'error');
       return;
@@ -466,23 +442,15 @@ const AttendanceStd = () => {
       date: attendanceDate,
     };
 
-    console.log('Submitting single attendance:', {
-      student: displayName,
-      uuid: studentUUID,
-      payload
-    });
-
     try {
       setRowSubmitting(prev => ({ ...prev, [index]: true }));
       const response = await axios.post(API_BASE_URL, payload, {
         headers: { Authorization: `Bearer ${token}` },
       });
-      console.log('Single submission response:', response.data);
       setRowSubmitted(prev => ({ ...prev, [index]: true }));
       showToast(`Attendance saved for ${displayName}`, 'success');
     } catch (err) {
       console.error('Single submit error:', err);
-      console.error('Error response:', err.response?.data);
       const errorMessage = err.response?.data?.message || err.response?.data?.detail || 'Unknown error';
       showToast(`Failed to submit for ${displayName}: ${errorMessage}`, 'error');
     } finally {
@@ -500,7 +468,6 @@ const AttendanceStd = () => {
 
     if (invalidRecords.length > 0) {
       showToast('Please ensure all students have subject selected and valid UUID', 'error');
-      console.warn('Invalid records:', invalidRecords);
       return;
     }
 
@@ -525,7 +492,6 @@ const AttendanceStd = () => {
           date: attendanceDate
         };
 
-        console.log(`Bulk submission for ${displayName}:`, payload);
         return axios.post(API_BASE_URL, payload, {
           headers: { Authorization: `Bearer ${token}` }
         }).catch(error => {
@@ -555,7 +521,6 @@ const AttendanceStd = () => {
     }
   };
 
-  // Fetch students for selected class
   const handleClassFilterChange = async (selectedOption) => {
     const classId = selectedOption?.value || '';
     setReportFilters(prev => ({ ...prev, classId, studentId: '' }));
@@ -603,11 +568,9 @@ const AttendanceStd = () => {
     }
   };
 
-  // Handle report filter changes
   const handleReportFilterChange = (field, value) => {
     setReportFilters(prev => ({ ...prev, [field]: value }));
     if (field === 'type') {
-      // Reset date-related fields when changing report type
       setReportFilters(prev => ({
         ...prev,
         type: value,
@@ -618,8 +581,6 @@ const AttendanceStd = () => {
     }
   };
 
-  // Fetch attendance report
-  // Replace your existing handleFetchAttendance function with this fixed version
   const handleFetchAttendance = async () => {
     if (!reportFilters.classId && !reportFilters.studentId) {
       showToast('Please select a class or student', 'error');
@@ -630,7 +591,6 @@ const AttendanceStd = () => {
       return;
     }
 
-    // Validation based on report type
     if (reportFilters.type === 'Daily' && !reportFilters.date) {
       showToast('Please select a date for daily report', 'error');
       return;
@@ -656,7 +616,6 @@ const AttendanceStd = () => {
       let params = [];
 
       if (reportFilters.studentId) {
-        // Student-specific report - use the correct structure
         params = [
           `class_id=${reportFilters.classId}`,
           `student_id=${reportFilters.studentId}`,
@@ -669,7 +628,6 @@ const AttendanceStd = () => {
           params.push(`date=${formattedDate}`);
         }
       } else {
-        // Class-based report
         params = [
           `class_id=${reportFilters.classId}`,
           `report_type=${reportFilters.type.toLowerCase()}`
@@ -686,20 +644,16 @@ const AttendanceStd = () => {
         headers: { Authorization: `Bearer ${token}` },
       });
 
-      console.log('API Response:', response.data);
-
       let records = [];
 
       if (reportFilters.studentId) {
-        // Handle student-specific reports - FIXED STRUCTURE
         const results = response.data.data?.records || [];
         records = results.map(recordWrapper => {
-          // Each record is wrapped in its own response structure
           const entry = recordWrapper.data || recordWrapper;
           return {
             id: entry.id,
             student_name: entry.student || 'Unknown',
-            registration_number: 'N/A', // Not provided in response
+            registration_number: 'N/A',
             class_name: entry.class_schedule || 'N/A',
             subject: entry.subject || 'N/A',
             date: entry.date,
@@ -708,27 +662,25 @@ const AttendanceStd = () => {
           };
         });
       } else if (reportFilters.type === 'Monthly') {
-        // Class-based monthly report
         const students = response.data.data.students || [];
         records = students.map(student => ({
           id: student.student_id,
           student_name: student.student_name,
-          registration_number: 'N/A', // Not provided in response
+          registration_number: 'N/A',
           class_name: response.data.data.class_id,
-          subject: 'N/A', // Not provided in monthly report
+          subject: 'N/A',
           date: response.data.data.month,
           status: `${student.percentage}% (${student.attended_classes}/${student.total_classes})`,
           remarks: '—'
         }));
       } else {
-        // Daily or Weekly class-based report
         const results = response.data.data.records || [];
         records = results.map(recordWrapper => {
           const entry = recordWrapper.data || recordWrapper;
           return {
             id: entry.id,
             student_name: entry.student,
-            registration_number: 'N/A', // Not provided in response
+            registration_number: 'N/A',
             class_name: entry.class_schedule || 'N/A',
             subject: entry.subject || 'N/A',
             date: entry.date,
@@ -737,8 +689,6 @@ const AttendanceStd = () => {
           };
         });
       }
-
-      console.log('Processed records:', records);
 
       if (records.length === 0) {
         showToast('No attendance records found for selected criteria', 'warning');
@@ -760,7 +710,6 @@ const AttendanceStd = () => {
     }
   };
 
-  // Export attendance report to Excel
   const handleExportReport = () => {
     if (attendanceData.length === 0) {
       showToast('No attendance data to export', 'error');
@@ -781,16 +730,15 @@ const AttendanceStd = () => {
     const ws = XLSX.utils.json_to_sheet(excelData);
     const wb = XLSX.utils.book_new();
 
-    // Set column widths
     ws['!cols'] = [
-      { width: 8 },  // S.No
-      { width: 20 }, // Student Name
-      { width: 20 }, // Registration Number
-      { width: 20 }, // Class
-      { width: 15 }, // Subject
-      { width: 15 }, // Date
-      { width: 15 }, // Status
-      { width: 20 }  // Remarks
+      { width: 8 },
+      { width: 20 },
+      { width: 20 },
+      { width: 20 },
+      { width: 15 },
+      { width: 15 },
+      { width: 15 },
+      { width: 20 }
     ];
 
     XLSX.utils.book_append_sheet(wb, ws, 'AttendanceReport');
@@ -799,7 +747,6 @@ const AttendanceStd = () => {
     showToast('Attendance report exported successfully', 'success');
   };
 
-  // Handle back to form
   const handleBackToForm = () => {
     setShowReport(false);
     setShowFilterForm(true);
@@ -811,7 +758,136 @@ const AttendanceStd = () => {
   const canAdd = permissions.includes("users.add_studentattendance");
   const canView = permissions.includes("users.view_studentattendance");
 
-  // react-select responsive styles
+  // Columns for Attendance Marking Table
+  const attendanceColumns = [
+    {
+      key: 'index',
+      label: 'S.No',
+      render: (row, index) => index + 1,
+    },
+    {
+      key: 'registration',
+      label: 'Registration',
+      render: (row) => getStudentRegNumber(row.student_info || students[index] || {}),
+    },
+    {
+      key: 'first_name',
+      label: 'First Name',
+      render: (row) => (row.student_info || students[index] || {}).first_name || '',
+    },
+    {
+      key: 'last_name',
+      label: 'Last Name',
+      render: (row) => (row.student_info || students[index] || {}).last_name || '',
+    },
+    {
+      key: 'status',
+      label: 'Status',
+      render: (row, index) => (
+        <Select
+          value={{ value: row.status || 'Present', label: row.status || 'Present' }}
+          onChange={(selected) => handleBulkAttendanceChange(index, 'status', selected?.value || 'Present')}
+          options={[
+            { value: 'Present', label: 'Present' },
+            { value: 'Late', label: 'Late' },
+            { value: 'Absent', label: 'Absent' },
+            { value: 'Leave', label: 'Leave' },
+            { value: 'Half-day', label: 'Half-day' },
+          ]}
+          styles={tinySelectStyles}
+          isSearchable={false}
+        />
+      ),
+    },
+    {
+      key: 'remarks',
+      label: 'Remarks',
+      render: (row, index) => (
+        <Select
+          value={remarksOptions.find((opt) => opt.value === row.remarks) || null}
+          onChange={(selected) => handleBulkAttendanceChange(index, 'remarks', selected?.value || '')}
+          options={remarksOptions}
+          placeholder="Select remark"
+          isClearable
+          isSearchable={false}
+          styles={tinySelectStyles}
+        />
+      ),
+    },
+    {
+      key: 'action',
+      label: 'Action',
+      render: (row, index) => {
+        const student = row.student_info || students[index] || {};
+        const rowBusy = !!rowSubmitting[index];
+        const done = !!rowSubmitted[index];
+        const studentUUID = row.student_uuid || row.student || getStudentUUID(student);
+        return (
+          <button
+            onClick={() => handleSubmitSingle(index)}
+            disabled={rowBusy || done || !studentUUID}
+            className={`px-3 py-1.5 rounded text-sm text-white ${
+              !studentUUID
+                ? 'bg-red-600 cursor-not-allowed'
+                : done
+                ? 'bg-green-600 cursor-default'
+                : rowBusy
+                ? 'bg-blue-400 cursor-wait'
+                : 'bg-blue-600 hover:bg-blue-700'
+            } disabled:opacity-60 disabled:cursor-not-allowed transition-colors duration-200`}
+            title={!studentUUID ? 'Missing UUID' : done ? 'Submitted' : 'Submit this row'}
+          >
+            {!studentUUID ? 'No UUID' : done ? 'Submitted' : rowBusy ? 'Submitting...' : 'Submit'}
+          </button>
+        );
+      },
+    },
+  ];
+
+  // Columns for Report Table
+  const reportColumns = [
+    {
+      key: 'index',
+      label: 'S.No',
+      render: (row, index) => (currentPage - 1) * pageSize + index + 1,
+    },
+    {
+      key: 'student_name',
+      label: 'Student Name',
+      render: (row) => row.student_name || 'N/A',
+    },
+    {
+      key: 'registration_number',
+      label: 'Registration Number',
+      render: (row) => row.registration_number || 'N/A',
+    },
+    {
+      key: 'class_name',
+      label: 'Class',
+      render: (row) => row.class_name || 'N/A',
+    },
+    {
+      key: 'subject',
+      label: 'Subject',
+      render: (row) => row.subject || 'N/A',
+    },
+    {
+      key: 'date',
+      label: 'Date',
+      render: (row) => row.date || 'N/A',
+    },
+    {
+      key: 'status',
+      label: 'Status',
+      render: (row) => row.status || 'N/A',
+    },
+    {
+      key: 'remarks',
+      label: 'Remarks',
+      render: (row) => row.remarks || '—',
+    },
+  ];
+
   const baseFont = isMobile ? '0.85rem' : '0.95rem';
   const compactFont = isMobile ? '0.75rem' : '0.85rem';
   const selectStyles = {
@@ -922,7 +998,6 @@ const AttendanceStd = () => {
         </div>
       </div>
 
-      {/* Class and Subject Selection for Marking Attendance */}
       {canAdd && showAttendanceForm && showClassSelection && !showExcelOptions && !showAttendanceTable && (
         <div className="mt-8 bg-white p-6 sm:p-8 rounded-xl shadow-md max-w-4xl mx-auto border border-gray-100">
           <h2 className="text-xl sm:text-2xl font-semibold text-gray-800 mb-6">Select Class and Subject for Attendance</h2>
@@ -977,7 +1052,6 @@ const AttendanceStd = () => {
         </div>
       )}
 
-      {/* Excel Options for Marking Attendance */}
       {canAdd && showAttendanceForm && showExcelOptions && !showAttendanceTable && (
         <div className="mt-8 bg-white p-6 sm:p-8 rounded-xl shadow-md max-w-4xl mx-auto border border-gray-100">
           <h2 className="text-xl sm:text-2xl font-semibold text-gray-800 mb-6">
@@ -1024,15 +1098,14 @@ const AttendanceStd = () => {
               </p>
               <button
                 onClick={() => {
-                  // Fix: Ensure bulkAttendanceData is properly initialized for manual entry
                   const manualBulkData = students.map((student) => {
                     const studentUUID = getStudentUUID(student);
                     return {
                       student: studentUUID,
-                      student_uuid: studentUUID, // KEY FIX: Ensure this is set
+                      student_uuid: studentUUID,
                       student_info: student,
-                      subject: selectedSubject?.value, // KEY FIX: Use selected subject
-                      class_schedule: selectedClass?.value, // KEY FIX: Use selected class
+                      subject: selectedSubject?.value,
+                      class_schedule: selectedClass?.value,
                       status: 'Present',
                       remarks: '',
                     };
@@ -1057,7 +1130,6 @@ const AttendanceStd = () => {
         </div>
       )}
 
-      {/* Attendance Table for Marking */}
       {canAdd && showAttendanceForm && showAttendanceTable && selectedClass && selectedSubject && (
         <div className="mt-8 bg-white p-6 sm:p-8 rounded-xl shadow-md border border-gray-100">
           <div className="flex justify-between items-center mb-6">
@@ -1071,7 +1143,6 @@ const AttendanceStd = () => {
             )}
           </div>
 
-          {/* Mobile Cards */}
           <div className="md:hidden space-y-4">
             {bulkAttendanceData.map((record, index) => {
               const student = record.student_info || students[index] || {};
@@ -1126,14 +1197,15 @@ const AttendanceStd = () => {
                     <button
                       onClick={() => handleSubmitSingle(index)}
                       disabled={rowBusy || done || !studentUUID}
-                      className={`px-4 py-2 rounded text-sm text-white ${!studentUUID
-                        ? 'bg-red-600 cursor-not-allowed'
-                        : done
+                      className={`px-4 py-2 rounded text-sm text-white ${
+                        !studentUUID
+                          ? 'bg-red-600 cursor-not-allowed'
+                          : done
                           ? 'bg-green-600 cursor-default'
                           : rowBusy
-                            ? 'bg-blue-400 cursor-wait'
-                            : 'bg-blue-600 hover:bg-blue-700'
-                        } disabled:opacity-60 disabled:cursor-not-allowed transition-colors duration-200`}
+                          ? 'bg-blue-400 cursor-wait'
+                          : 'bg-blue-600 hover:bg-blue-700'
+                      } disabled:opacity-60 disabled:cursor-not-allowed transition-colors duration-200`}
                       title={!studentUUID ? 'Missing UUID' : done ? 'Submitted' : 'Submit this student'}
                     >
                       {!studentUUID ? 'No UUID' : done ? 'Submitted' : rowBusy ? 'Submitting...' : 'Submit'}
@@ -1144,83 +1216,12 @@ const AttendanceStd = () => {
             })}
           </div>
 
-          {/* Desktop Table */}
           <div className="hidden md:block overflow-x-auto">
-            <table className="w-full border border-gray-200 bg-white rounded-lg">
-              <thead className="bg-gray-100">
-                <tr>
-                  <th className="border border-gray-200 p-3 text-left text-sm font-medium text-gray-700">S.No</th>
-                  <th className="border border-gray-200 p-3 text-left text-sm font-medium text-gray-700">Registration</th>
-                  <th className="border border-gray-200 p-3 text-left text-sm font-medium text-gray-700">First Name</th>
-                  <th className="border border-gray-200 p-3 text-left text-sm font-medium text-gray-700">Last Name</th>
-                  <th className="border border-gray-200 p-3 text-left text-sm font-medium text-gray-700">Status</th>
-                  <th className="border border-gray-200 p-3 text-left text-sm font-medium text-gray-700">Remarks</th>
-                  <th className="border border-gray-200 p-3 text-left text-sm font-medium text-gray-700">Action</th>
-                </tr>
-              </thead>
-              <tbody>
-                {bulkAttendanceData.map((record, index) => {
-                  const student = record.student_info || students[index] || {};
-                  const rowBusy = !!rowSubmitting[index];
-                  const done = !!rowSubmitted[index];
-                  const displayName = getStudentDisplayName(student);
-                  const regNumber = getStudentRegNumber(student);
-                  const studentUUID = record.student_uuid || record.student || getStudentUUID(student);
-
-                  return (
-                    <tr key={studentUUID || index} className="hover:bg-gray-50">
-                      <td className="border border-gray-200 p-3 text-sm">{index + 1}</td>
-                      <td className="border border-gray-200 p-3 text-sm">{regNumber}</td>
-                      <td className="border border-gray-200 p-3 text-sm">{student.first_name || ''}</td>
-                      <td className="border border-gray-200 p-3 text-sm">{student.last_name || ''}</td>
-                      <td className="border border-gray-200 p-3">
-                        <Select
-                          value={{ value: record.status || 'Present', label: reportFilters.studentId ? (record.status || 'Present') : (record.status || 'Present') }}
-                          onChange={(selected) => handleBulkAttendanceChange(index, 'status', selected?.value || 'Present')}
-                          options={[
-                            { value: 'Present', label: 'Present' },
-                            { value: 'Late', label: 'Late' },
-                            { value: 'Absent', label: 'Absent' },
-                            { value: 'Leave', label: 'Leave' },
-                            { value: 'Half-day', label: 'Half-day' },
-                          ]}
-                          styles={tinySelectStyles}
-                          isSearchable={false}
-                        />
-                      </td>
-                      <td className="border border-gray-200 p-3">
-                        <Select
-                          value={remarksOptions.find((opt) => opt.value === record.remarks) || null}
-                          onChange={(selected) => handleBulkAttendanceChange(index, 'remarks', selected?.value || '')}
-                          options={remarksOptions}
-                          placeholder="Select remark"
-                          isClearable
-                          isSearchable={false}
-                          styles={tinySelectStyles}
-                        />
-                      </td>
-                      <td className="border border-gray-200 p-3">
-                        <button
-                          onClick={() => handleSubmitSingle(index)}
-                          disabled={rowBusy || done || !studentUUID}
-                          className={`px-3 py-1.5 rounded text-sm text-white ${!studentUUID
-                            ? 'bg-red-600 cursor-not-allowed'
-                            : done
-                              ? 'bg-green-600 cursor-default'
-                              : rowBusy
-                                ? 'bg-blue-400 cursor-wait'
-                                : 'bg-blue-600 hover:bg-blue-700'
-                            } disabled:opacity-60 disabled:cursor-not-allowed transition-colors duration-200`}
-                          title={!studentUUID ? 'Missing UUID' : done ? 'Submitted' : 'Submit this row'}
-                        >
-                          {!studentUUID ? 'No UUID' : done ? 'Submitted' : rowBusy ? 'Submitting...' : 'Submit'}
-                        </button>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+            <TableComponent
+              data={bulkAttendanceData}
+              columns={attendanceColumns}
+              initialSort={{ key: 'registration', direction: 'asc' }}
+            />
           </div>
 
           <div className="mt-6 flex flex-col sm:flex-row gap-4 justify-between items-center">
@@ -1260,7 +1261,6 @@ const AttendanceStd = () => {
         </div>
       )}
 
-      {/* Report Filters */}
       {canView && showFilterForm && !showReport && (
         <div className="mt-8 bg-white p-6 sm:p-8 rounded-xl shadow-md max-w-4xl mx-auto border border-gray-100">
           <h2 className="text-xl sm:text-2xl font-semibold text-gray-800 mb-6">Generate Attendance Report</h2>
@@ -1286,10 +1286,6 @@ const AttendanceStd = () => {
                 value={filteredStudents.find(s => s.value === reportFilters.studentId) || null}
                 onChange={(selected) => {
                   handleReportFilterChange('studentId', selected?.value || '');
-                  // Optionally set type to Monthly if preferred for students
-                  // if (selected?.value) {
-                  //   handleReportFilterChange('type', 'Monthly');
-                  // }
                 }}
                 options={filteredStudents}
                 placeholder="Select Student"
@@ -1316,7 +1312,6 @@ const AttendanceStd = () => {
                 isDisabled={false}
               />
             </div>
-            {/* Conditionally render date fields based on report type, without studentId restriction */}
             {reportFilters.type === 'Daily' && (
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Select Date</label>
@@ -1386,7 +1381,6 @@ const AttendanceStd = () => {
         </div>
       )}
 
-      {/* Report Table */}
       {canView && showReport && (
         <div className="mt-8 p-6 sm:p-8 bg-white rounded-xl shadow-md max-w-5xl mx-auto border border-gray-100">
           <div className="flex flex-col sm:flex-row justify-between items-center mb-6 gap-4">
@@ -1412,34 +1406,11 @@ const AttendanceStd = () => {
           {attendanceData.length > 0 ? (
             <>
               <div className="hidden md:block overflow-x-auto">
-                <table className="w-full border border-gray-200 bg-white rounded-lg">
-                  <thead className="bg-gray-100">
-                    <tr>
-                      <th className="border border-gray-200 p-3 text-left text-sm font-medium text-gray-700">S.No</th>
-                      <th className="border border-gray-200 p-3 text-left text-sm font-medium text-gray-700">Student Name</th>
-                      <th className="border border-gray-200 p-3 text-left text-sm font-medium text-gray-700">Registration Number</th>
-                      <th className="border border-gray-200 p-3 text-left text-sm font-medium text-gray-700">Class</th>
-                      <th className="border border-gray-200 p-3 text-left text-sm font-medium text-gray-700">Subject</th>
-                      <th className="border border-gray-200 p-3 text-left text-sm font-medium text-gray-700">Date</th>
-                      <th className="border border-gray-200 p-3 text-left text-sm font-medium text-gray-700">Status</th>
-                      <th className="border border-gray-200 p-3 text-left text-sm font-medium text-gray-700">Remarks</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {paginatedData.map((rec, index) => (
-                      <tr key={rec.id || index} className="hover:bg-gray-50">
-                        <td className="border border-gray-200 p-3 text-sm">{(currentPage - 1) * pageSize + index + 1}</td>
-                        <td className="border border-gray-200 p-3 text-sm">{rec.student_name}</td>
-                        <td className="border border-gray-200 p-3 text-sm">{rec.registration_number}</td>
-                        <td className="border border-gray-200 p-3 text-sm">{rec.class_name}</td>
-                        <td className="border border-gray-200 p-3 text-sm">{rec.subject}</td>
-                        <td className="border border-gray-200 p-3 text-sm">{rec.date}</td>
-                        <td className="border border-gray-200 p-3 text-sm">{rec.status}</td>
-                        <td className="border border-gray-200 p-3 text-sm">{rec.remarks}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+                <TableComponent
+                  data={paginatedData}
+                  columns={reportColumns}
+                  initialSort={{ key: 'student_name', direction: 'asc' }}
+                />
               </div>
               <div className="md:hidden mt-4 space-y-4">
                 {paginatedData.map((rec, index) => (
@@ -1459,7 +1430,7 @@ const AttendanceStd = () => {
                   </div>
                 ))}
               </div>
-              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mt-6 gap-4">
+              {/* <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mt-6 gap-4">
                 <div className="flex items-center gap-3 w-full sm:w-auto">
                   <label className="text-sm font-medium text-gray-700 whitespace-nowrap">
                     Page Size:
@@ -1492,8 +1463,9 @@ const AttendanceStd = () => {
                     <button
                       key={p}
                       onClick={() => setCurrentPage(p)}
-                      className={`px-4 py-2 rounded-lg text-sm transition-colors duration-200 ${currentPage === p ? "bg-blue-600 text-white hover:bg-blue-700" : "bg-gray-200 hover:bg-gray-300"
-                        }`}
+                      className={`px-4 py-2 rounded-lg text-sm transition-colors duration-200 ${
+                        currentPage === p ? "bg-blue-600 text-white hover:bg-blue-700" : "bg-gray-200 hover:bg-gray-300"
+                      }`}
                     >
                       {p}
                     </button>
@@ -1506,7 +1478,7 @@ const AttendanceStd = () => {
                     Next
                   </button>
                 </div>
-              </div>
+              </div> */}
             </>
           ) : (
             <div className="text-center py-6">
@@ -1516,7 +1488,6 @@ const AttendanceStd = () => {
         </div>
       )}
 
-      {/* Loading Message */}
       {canView && loading && !showReport && (
         <div className="mt-8 p-6 bg-gray-50 rounded-xl shadow-md border border-gray-100 max-w-4xl mx-auto text-center">
           <p className="text-gray-500 text-lg font-medium">Loading attendance records...</p>

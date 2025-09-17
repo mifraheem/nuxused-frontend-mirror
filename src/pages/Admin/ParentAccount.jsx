@@ -3,8 +3,8 @@ import axios from "axios";
 import Cookies from "js-cookie";
 import { FiTrash, FiEdit, FiEye } from "react-icons/fi";
 import { Buttons } from "../../components";
-import Pagination from "../../components/Pagination";
 import Toaster from "../../components/Toaster"; // Import custom Toaster component
+import TableComponent from "../../components/TableComponent"; // Import reusable TableComponent
 
 const ParentAccount = () => {
   const [parents, setParents] = useState([]);
@@ -128,13 +128,10 @@ const ParentAccount = () => {
     if (Array.isArray(parent.linked_students)) {
       parent.linked_students.forEach(student => {
         if (typeof student === 'string') {
-          // If it's already a string (profile_id), use it directly
           linkedStudentIds.push(student);
         } else if (student && typeof student === 'object' && student.profile_id) {
-          // If it's an object with profile_id, extract the profile_id
           linkedStudentIds.push(student.profile_id);
         } else if (student && typeof student === 'object' && student.name) {
-          // If it's an object with name, try to find matching student by name
           const matchedStudent = students.find(s =>
             `${s.first_name} ${s.last_name}`.trim() === student.name.trim()
           );
@@ -167,7 +164,6 @@ const ParentAccount = () => {
       return;
     }
 
-    // Use the Toaster's built-in confirmation functionality
     confirmToast("Are you sure you want to delete this parent? This action cannot be undone.", id);
   };
 
@@ -183,7 +179,6 @@ const ParentAccount = () => {
 
       console.log("Delete response:", response);
 
-      // Update the parents list by removing the deleted parent
       setParents((prev) => {
         const updated = prev.filter((p) => p.user_id !== id);
         console.log("Parents before delete:", prev.length);
@@ -192,10 +187,7 @@ const ParentAccount = () => {
       });
 
       showToast("Parent deleted successfully.", "success");
-
-      // Refresh the list to ensure consistency
       fetchParents();
-
     } catch (error) {
       console.error("Error deleting parent:", error);
       console.error("Error response:", error.response?.data);
@@ -215,7 +207,6 @@ const ParentAccount = () => {
     }
   };
 
-
   const updateParent = async () => {
     if (!selectedParent?.user_id) {
       showToast("No parent selected.", "error");
@@ -233,10 +224,10 @@ const ParentAccount = () => {
         email: selectedParent.email || "",
         dob: selectedParent.dob || null,
         gender: selectedParent.gender || "",
-        children: selectedParent.children || [], // API expects "children", not "linked_students"
+        children: selectedParent.children || [],
       };
 
-      console.log("Sending payload:", payload); // Debug log
+      console.log("Sending payload:", payload);
 
       const response = await axios.patch(apiUrl, payload, {
         headers: { ...authHeaders(), "Content-Type": "application/json" },
@@ -244,7 +235,7 @@ const ParentAccount = () => {
 
       if (response.status === 200) {
         showToast("Parent updated successfully.", "success");
-        fetchParents(); // Refresh the parent list
+        fetchParents();
         setIsEditModalOpen(false);
       }
     } catch (error) {
@@ -267,27 +258,76 @@ const ParentAccount = () => {
 
     return linkedStudents.map(student => {
       if (typeof student === 'string') {
-        // If it's a string, find the student by profile_id
         const foundStudent = students.find(s => s.profile_id === student);
         return foundStudent ? `${foundStudent.first_name} ${foundStudent.last_name}`.trim() : student;
       } else if (student && typeof student === 'object') {
-        // If it's an object, check for name property or construct from first_name/last_name
         return student.name || `${student.first_name || ''} ${student.last_name || ''}`.trim();
       }
       return student;
     }).join(", ");
   };
 
+  // Table columns configuration
+  const columns = [
+    {
+      key: "index",
+      label: "No.",
+      render: (row, index) => (currentPage - 1) * pageSize + index + 1,
+    },
+    {
+      key: "full_name",
+      label: "Full Name",
+      render: (row) => `${row.first_name} ${row.last_name}`,
+    },
+    { key: "email", label: "Email", render: (row) => row.email || "N/A" },
+    { key: "phone_number", label: "Phone Number", render: (row) => row.phone_number || "N/A" },
+    { key: "address", label: "Address", render: (row) => row.address || "N/A" },
+    { key: "gender", label: "Gender", render: (row) => row.gender || "N/A" },
+    {
+      key: "linked_students",
+      label: "Linked Students",
+      render: (row) => getLinkedStudentNames(row.linked_students),
+    },
+    {
+      key: "actions",
+      label: "Actions",
+      render: (row) => (
+        <div className="flex items-center justify-center gap-2">
+          {canView && (
+            <FiEye
+              className="text-blue-500 cursor-pointer hover:text-blue-700"
+              size={18}
+              onClick={() => openViewModal(row)}
+            />
+          )}
+          {canEdit && (
+            <FiEdit
+              className="text-yellow-500 cursor-pointer hover:text-yellow-700"
+              size={18}
+              onClick={() => openEditModal(row)}
+            />
+          )}
+          {canDelete && (
+            <FiTrash
+              className="text-red-500 cursor-pointer hover:text-red-700"
+              size={18}
+              onClick={() => confirmDeleteParent(row.user_id)}
+            />
+          )}
+        </div>
+      ),
+    },
+  ];
 
   return (
     <div className="p-2 md:p-3 min-h-screen flex-1">
       <Toaster
         message={toaster.message}
         type={toaster.type}
-        duration={toaster.type === "confirmation" ? 10000 : 3000} // Longer duration for confirmations
+        duration={toaster.type === "confirmation" ? 10000 : 3000}
         onClose={() => setToaster({ message: "", type: "success" })}
-        onConfirm={toaster.onConfirm} // Pass the confirm handler
-        onCancel={toaster.onCancel}   // Pass the cancel handler
+        onConfirm={toaster.onConfirm}
+        onCancel={toaster.onCancel}
       />
 
       {/* Header */}
@@ -327,86 +367,17 @@ const ParentAccount = () => {
           />
 
           <div className="overflow-x-auto mt-2 max-w-full">
-            <table className="w-full border-collapse border border-gray-300 bg-white min-w-[500px] shadow-lg">
-              <thead className="bg-blue-900 text-white sticky top-0 z-10">
-                <tr>
-                  <th className="border border-gray-300 p-1 text-center text-xs">No.</th>
-                  <th className="border border-gray-300 p-1 text-center text-xs">Full Name</th>
-                  <th className="border border-gray-300 p-1 text-center text-xs">Email</th>
-                  <th className="border border-gray-300 p-1 text-center text-xs">Phone Number</th>
-                  <th className="border border-gray-300 p-1 text-center text-xs">Address</th>
-                  <th className="border border-gray-300 p-1 text-center text-xs">Gender</th>
-                  <th className="border border-gray-300 p-1 text-center text-xs">Linked Students</th>
-                  <th className="border border-gray-300 p-1 text-center text-xs">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {parents.length > 0 ? (
-                  parents.map((parent, index) => (
-                    <tr key={parent.user_id} className="hover:bg-gray-50">
-                      <td className="border border-gray-300 p-1 text-center text-xs">
-                        {(currentPage - 1) * pageSize + index + 1}
-                      </td>
-                      <td className="border border-gray-300 p-1 text-xs">{parent.first_name} {parent.last_name}</td>
-                      <td className="border border-gray-300 p-1 text-xs">{parent.email || "N/A"}</td>
-                      <td className="border border-gray-300 p-1 text-xs">{parent.phone_number || "N/A"}</td>
-                      <td className="border border-gray-300 p-1 text-xs">{parent.address || "N/A"}</td>
-                      <td className="border border-gray-300 p-1 text-xs">{parent.gender || "N/A"}</td>
-                      <td className="border border-gray-300 p-1 text-xs">
-                        {getLinkedStudentNames(parent.linked_students)}
-                      </td>
-                      <td className="border border-gray-300 p-1">
-                        <div className="flex items-center justify-center gap-2">
-                          {canView && (
-                            <FiEye
-                              className="text-blue-500 cursor-pointer hover:text-blue-700"
-                              size={18}
-                              onClick={() => openViewModal(parent)}
-                            />
-                          )}
-                          {canEdit && (
-                            <FiEdit
-                              className="text-yellow-500 cursor-pointer hover:text-yellow-700"
-                              size={18}
-                              onClick={() => openEditModal(parent)}
-                            />
-                          )}
-                          {canDelete && (
-                            <FiTrash
-                              className="text-red-500 cursor-pointer hover:text-red-700"
-                              size={18}
-                              onClick={() => confirmDeleteParent(parent.user_id)}
-                            />
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  ))
-                ) : (
-                  <tr>
-                    <td colSpan={11} className="border border-gray-300 p-2 text-center text-gray-500 text-sm">
-                      No parent accounts added yet.
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-
-          <div className="mt-2">
-            <Pagination
-              currentPage={currentPage}
-              totalPages={totalPages}
-              pageSize={pageSize}
-              onPageChange={(page) => setCurrentPage(page)}
-              onPageSizeChange={(size) => {
-                setPageSize(size);
-                setCurrentPage(1);
-              }}
-              totalItems={parents.length}
-              showPageSizeSelector={true}
-              showPageInfo={true}
-            />
+            {parents.length > 0 ? (
+              <TableComponent
+                data={parents}
+                columns={columns}
+                initialSort={{ key: "full_name", direction: "asc" }}
+              />
+            ) : (
+              <div className="border border-gray-300 p-2 text-center text-gray-500 text-sm bg-white rounded-lg shadow-lg">
+                No parent accounts added yet.
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -415,7 +386,6 @@ const ParentAccount = () => {
       {isViewModalOpen && selectedParent && (
         <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 px-4">
           <div className="bg-white w-full max-w-2xl rounded-xl shadow-2xl border border-gray-200 overflow-hidden">
-
             {/* Header */}
             <div className="px-6 py-4 bg-blue-600 text-white flex justify-between items-center">
               <h2 className="text-lg md:text-xl font-bold">Parent Details</h2>
@@ -430,7 +400,6 @@ const ParentAccount = () => {
             {/* Content */}
             <div className="p-6 overflow-y-auto max-h-[70vh]">
               <div className="flex flex-col md:flex-row gap-6 items-center">
-
                 {/* Profile Picture */}
                 <div className="flex flex-col items-center">
                   {selectedParent.profile_picture ? (
@@ -514,13 +483,10 @@ const ParentAccount = () => {
         </div>
       )}
 
-
-
       {/* Edit Modal (compact & scrollable) */}
       {isEditModalOpen && selectedParent && (
         <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-60 px-4 z-50">
           <div className="bg-white w-full max-w-2xl rounded-xl shadow-2xl border border-gray-200 overflow-hidden">
-
             {/* Header */}
             <div className="px-6 py-4 bg-blue-600 text-white flex justify-between items-center">
               <h2 className="text-lg md:text-xl font-bold">Edit Parent Profile</h2>
@@ -718,7 +684,6 @@ const ParentAccount = () => {
           </div>
         </div>
       )}
-
     </div>
   );
 };

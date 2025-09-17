@@ -4,7 +4,8 @@ import Cookies from "js-cookie";
 import { FiTrash, FiEdit, FiEye } from "react-icons/fi";
 import { Buttons } from "../../components";
 import Pagination from "../../components/Pagination";
-import Toaster from "../../components/Toaster"; // Import custom Toaster component
+import Toaster from "../../components/Toaster";
+import TableComponent from "../../components/TableComponent"; // Import reusable TableComponent
 
 const StaffDetails = () => {
   const [staff, setStaff] = useState([]);
@@ -15,7 +16,6 @@ const StaffDetails = () => {
   const [pageSize, setPageSize] = useState(10);
   const [totalPages, setTotalPages] = useState(1);
   const [toaster, setToaster] = useState({ message: "", type: "success" });
-  const [confirmResolve, setConfirmResolve] = useState(null);
 
   const API = import.meta.env.VITE_SERVER_URL;
   const API_URL = `${API}api/auth/users/list_profiles/staff/`;
@@ -44,42 +44,8 @@ const StaffDetails = () => {
   };
 
   const showToast = (message, type = "success") => {
-    setToaster({ message, type});
+    setToaster({ message, type });
   };
-
-  // const confirmToast = (message = "Delete this staff member?") => {
-  //   return new Promise((resolve) => {
-  //     setConfirmResolve(() => resolve); // Store the resolve function
-  //     setToaster({
-  //       message: (
-  //         <div className="flex flex-col gap-4">
-  //           <p className="text-lg font-medium">{message}</p>
-  //           <div className="flex justify-end gap-2">
-  //             <button
-  //               onClick={() => {
-  //                 setToaster({ message: "", type: "success" });
-  //                 resolve(true);
-  //               }}
-  //               className="px-3 py-1.5 rounded-md bg-red-600 text-white text-sm hover:bg-red-700"
-  //             >
-  //               Yes
-  //             </button>
-  //             <button
-  //               onClick={() => {
-  //                 setToaster({ message: "", type: "success" });
-  //                 resolve(false);
-  //               }}
-  //               className="px-3 py-1.5 rounded-md border border-gray-300 text-sm hover:bg-gray-50"
-  //             >
-  //               No
-  //             </button>
-  //           </div>
-  //         </div>
-  //       ),
-  //       type: "confirmation",
-  //     });
-  //   });
-  // };
 
   // Fetch
   const fetchStaff = async (page = currentPage, size = pageSize) => {
@@ -141,14 +107,14 @@ const StaffDetails = () => {
     });
   };
 
-
   const deleteStaff = async (id) => {
     try {
       await axios.delete(`${DELETE_URL}${id}/delete_user/`, {
         headers: authHeaders(),
       });
       showToast("Staff deleted successfully.", "success");
-      setStaff((prev) => prev.filter((s) => s.user_id != id));
+      setStaff((prev) => prev.filter((s) => s.user_id !== id));
+      fetchStaff(currentPage, pageSize);
     } catch (error) {
       console.error("Error deleting staff:", error.response?.data || error.message);
       showToast(
@@ -234,21 +200,104 @@ const StaffDetails = () => {
     }
   };
 
-  // UI
+  // Table columns configuration
+  const columns = [
+    {
+      key: "index",
+      label: "No.",
+      render: (row, index) => (currentPage - 1) * pageSize + index + 1,
+    },
+    {
+      key: "full_name",
+      label: "Full Name",
+      render: (row) => `${row.first_name} ${row.last_name}`,
+    },
+    {
+      key: "email",
+      label: "Email",
+      render: (row) => (
+        <span className="block max-w-[220px] truncate" title={row.email}>
+          {row.email || "N/A"}
+        </span>
+      ),
+    },
+    {
+      key: "phone_number",
+      label: "Phone",
+      render: (row) => row.phone_number || "N/A",
+    },
+    {
+      key: "address",
+      label: "Address",
+      render: (row) => row.address || "N/A",
+    },
+    {
+      key: "gender",
+      label: "Gender",
+      render: (row) => (row.gender ? row.gender.charAt(0).toUpperCase() + row.gender.slice(1) : "N/A"),
+    },
+    {
+      key: "registration_no",
+      label: "Registration No.",
+      render: (row) => row.registration_no || "N/A",
+    },
+    {
+      key: "salary",
+      label: "Salary",
+      render: (row) => (row.salary != null ? `Rs. ${row.salary}` : "N/A"),
+    },
+    {
+      key: "actions",
+      label: "Actions",
+      render: (row) => (
+        <div className="flex items-center justify-center gap-2">
+          {canView && (
+            <FiEye
+              className="text-blue-500 cursor-pointer hover:text-blue-700"
+              size={18}
+              onClick={() => {
+                setSelectedStaff(row);
+                setIsViewModalOpen(true);
+              }}
+              title="View"
+            />
+          )}
+          {canEdit && (
+            <FiEdit
+              className="text-yellow-500 cursor-pointer hover:text-yellow-700"
+              size={18}
+              onClick={() => {
+                setSelectedStaff(row);
+                setIsEditModalOpen(true);
+              }}
+              title="Edit"
+            />
+          )}
+          {canDelete && (
+            <FiTrash
+              className="text-red-500 cursor-pointer hover:text-red-700"
+              size={18}
+              onClick={() => confirmDelete(row.user_id)}
+              title="Delete"
+            />
+          )}
+        </div>
+      ),
+    },
+  ];
+
   return (
     <div className="p-2 md:p-3">
       <Toaster
         message={toaster.message}
         type={toaster.type}
-        // duration={toaster.type === "confirmation" ? 5000 : 3000}
-        duration={3000}
+        duration={toaster.type === "confirmation" ? 5000 : 3000}
         onClose={() => setToaster({ message: "", type: "success" })}
         onConfirm={toaster.onConfirm}
         onCancel={toaster.onCancel}
       />
 
-
-      {/* Header bar (compact) */}
+      {/* Header bar */}
       <div className="bg-blue-900 text-white rounded-md flex items-center justify-between px-2 py-2 mt-2">
         <h1 className="text-sm md:text-base font-bold">Manage Staff Details</h1>
       </div>
@@ -256,7 +305,6 @@ const StaffDetails = () => {
       <div className="mt-2 p-2">
         <Buttons
           data={staff.map((s, index) => ({
-            // "S.No": (page - 1) * pageSize + index + 1,
             Username: s.username,
             "First Name": s.first_name,
             "Last Name": s.last_name,
@@ -266,7 +314,6 @@ const StaffDetails = () => {
           }))}
           filename="Staff_Profiles"
           columns={[
-            // { label: "S.No", key: "S.No" },
             { label: "Username", key: "Username" },
             { label: "First Name", key: "First Name" },
             { label: "Last Name", key: "Last Name" },
@@ -276,92 +323,23 @@ const StaffDetails = () => {
           ]}
         />
 
-        {/* Table with safe horizontal scroll */}
+        {/* Table */}
         <div className="overflow-x-auto mt-2">
-          <table className="w-full border-collapse border border-gray-300 bg-white min-w-[700px]">
-            <thead className="bg-blue-900 text-white">
-              <tr>
-                <th className="border border-gray-300 p-1 text-center text-xs">No.</th>
-                <th className="border border-gray-300 p-1 text-center text-xs">Full Name</th>
-                <th className="border border-gray-300 p-1 text-center text-xs">Email</th>
-                <th className="border border-gray-300 p-1 text-center text-xs">Phone</th>
-                <th className="border border-gray-300 p-1 text-center text-xs">Address</th>
-                <th className="border border-gray-300 p-1 text-center text-xs">Gender</th>
-                <th className="border border-gray-300 p-1 text-center text-xs">Registration No.</th>
-                <th className="border border-gray-300 p-1 text-center text-xs">Salary</th>
-                <th className="border border-gray-300 p-1 text-center text-xs">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {staff.length > 0 ? (
-                staff.map((s, index) => (
-                  <tr key={s.id} className="hover:bg-gray-50">
-                    <td className="border border-gray-300 p-1 text-center text-xs">
-                      {(currentPage - 1) * pageSize + index + 1}
-                    </td>
-                    <td className="border border-gray-300 p-1 text-xs">{s.first_name} {s.last_name}</td>
-                    <td className="border border-gray-300 p-1 text-xs">
-                      <span className="block max-w-[220px] truncate" title={s.email}>
-                        {s.email}
-                      </span>
-                    </td>
-                    <td className="border border-gray-300 p-1 text-xs">{s.phone_number}</td>
-                    <td className="border border-gray-300 p-1 text-xs">{s.address}</td>
-                    <td className="border border-gray-300 p-1 text-xs">{s.gender}</td>
-                    <td className="border border-gray-300 p-1 text-xs">{s.registration_no}</td>
-                    <td className="border border-gray-300 p-1 text-xs">{s.salary}</td>
-                    <td className="border border-gray-300 p-1">
-                      <div className="flex items-center justify-center gap-2">
-                        {canView && (
-                          <FiEye
-                            className="text-blue-500 cursor-pointer hover:text-blue-700"
-                            size={18}
-                            onClick={() => {
-                              setSelectedStaff(s);
-                              setIsViewModalOpen(true);
-                            }}
-                            title="View"
-                          />
-                        )}
-                        {canEdit && (
-                          <FiEdit
-                            className="text-yellow-500 cursor-pointer hover:text-yellow-700"
-                            size={18}
-                            onClick={() => {
-                              setSelectedStaff(s);
-                              setIsEditModalOpen(true);
-                            }}
-                            title="Edit"
-                          />
-                        )}
-                        {canDelete && (
-                          <FiTrash
-                            className="text-red-500 cursor-pointer hover:text-red-700"
-                            size={18}
-                            onClick={() => confirmDelete(s.user_id)}
-                            title="Delete"
-                          />
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                ))
-              ) : (
-                <tr>
-                  <td
-                    colSpan={6}
-                    className="border border-gray-300 p-2 text-center text-gray-500 text-sm"
-                  >
-                    No staff profiles added yet.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
+          {staff.length > 0 ? (
+            <TableComponent
+              data={staff}
+              columns={columns}
+              initialSort={{ key: "full_name", direction: "asc" }}
+            />
+          ) : (
+            <div className="border border-gray-300 p-2 text-center text-gray-500 text-sm bg-white rounded-lg shadow-lg">
+              No staff profiles added yet.
+            </div>
+          )}
         </div>
 
         {/* Pagination */}
-        <div className="mt-2">
+        {/* <div className="mt-2">
           <Pagination
             currentPage={currentPage}
             totalPages={totalPages}
@@ -379,14 +357,13 @@ const StaffDetails = () => {
             showPageSizeSelector={true}
             showPageInfo={true}
           />
-        </div>
+        </div> */}
       </div>
 
-      {/* View Modal (compact & scrollable) */}
+      {/* View Modal */}
       {isViewModalOpen && selectedStaff && (
         <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 px-4">
           <div className="bg-white w-full max-w-2xl rounded-xl shadow-2xl border border-gray-200 overflow-hidden">
-
             {/* Header */}
             <div className="px-6 py-4 bg-blue-600 text-white flex justify-between items-center">
               <h2 className="text-lg md:text-xl font-bold">Staff Profile</h2>
@@ -401,7 +378,6 @@ const StaffDetails = () => {
             {/* Content */}
             <div className="p-6 overflow-y-auto max-h-[70vh]">
               <div className="flex flex-col md:flex-row gap-6 items-center">
-
                 {/* Profile Picture */}
                 <div className="flex flex-col items-center">
                   {selectedStaff.profile_picture ? (
@@ -470,12 +446,10 @@ const StaffDetails = () => {
         </div>
       )}
 
-
-      {/* Edit Modal (compact & scrollable) */}
+      {/* Edit Modal */}
       {isEditModalOpen && selectedStaff && (
         <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-60 px-4 z-50">
           <div className="bg-white w-full max-w-2xl rounded-xl shadow-2xl border border-gray-200 overflow-hidden">
-
             {/* Header */}
             <div className="px-6 py-4 bg-blue-600 text-white flex justify-between items-center">
               <h2 className="text-lg md:text-xl font-bold">Edit Staff Profile</h2>
@@ -489,7 +463,6 @@ const StaffDetails = () => {
 
             {/* Content */}
             <div className="px-6 py-4 overflow-y-auto max-h-[70vh] space-y-4">
-
               {/* Username */}
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-1">Username</label>
@@ -650,7 +623,6 @@ const StaffDetails = () => {
           </div>
         </div>
       )}
-
     </div>
   );
 };

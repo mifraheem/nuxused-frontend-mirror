@@ -5,7 +5,8 @@ import { MdDelete, MdVisibility } from "react-icons/md";
 import { Buttons } from "../../components";
 import Select from "react-select";
 import Pagination from "../../components/Pagination";
-import Toaster from "../../components/Toaster"; // Import the provided Toaster component
+import Toaster from "../../components/Toaster";
+import TableComponent from "../../components/TableComponent"; // Import reusable TableComponent
 
 const FeePayments = () => {
     const [classes, setClasses] = useState([]);
@@ -54,14 +55,11 @@ const FeePayments = () => {
             if (!token) {
                 throw new Error("No access token found. Please log in.");
             }
-            console.log("Fetching classes from:", CLASSES_URL);
             const res = await axios.get(CLASSES_URL, {
                 headers: { Authorization: `Bearer ${token}` },
             });
-            console.log("Classes response:", res.data);
             const classData = res.data?.data?.results || res.data.results || res.data || [];
             setClasses(classData);
-            console.log("Classes set:", classData);
             if (classData.length === 0) {
                 showToast("No classes found in the backend.", "error", null, null);
             }
@@ -91,14 +89,11 @@ const FeePayments = () => {
                 throw new Error("No access token found. Please log in.");
             }
             const url = `${API}classes/${classId}/students/`;
-            console.log("Fetching students from:", url);
             const res = await axios.get(url, {
                 headers: { Authorization: `Bearer ${token}` },
             });
-            console.log("Students response:", res.data);
             const studentData = res.data?.data?.results || res.data.results || res.data || [];
             setStudents(studentData);
-            console.log("Students set:", studentData);
             if (studentData.length === 0) {
                 showToast("No students found for this class.", "error", null, null);
             }
@@ -128,14 +123,11 @@ const FeePayments = () => {
                 throw new Error("No access token found. Please log in.");
             }
             const url = `${API}student-fees/${studentId}/by-student/`;
-            console.log("Fetching fees from:", url);
             const res = await axios.get(url, {
                 headers: { Authorization: `Bearer ${token}` },
             });
-            console.log("Fee response:", res.data);
             const result = res.data?.data || [];
             setStudentFees(result);
-            console.log("Fees set:", result);
             if (result.length === 0) {
                 showToast("No fees found for selected student.", "error", null, null);
             }
@@ -162,7 +154,6 @@ const FeePayments = () => {
             const res = await axios.get(`${API_URL}?page=${page}&page_size=${pageSize}`, {
                 headers: { Authorization: `Bearer ${token}` },
             });
-            console.log("Payments response:", res.data);
             const data = res.data?.data || res.data || {};
             if (Array.isArray(data.results)) {
                 setPayments(data.results);
@@ -239,8 +230,6 @@ const FeePayments = () => {
             if (!token) {
                 throw new Error("No access token found. Please log in.");
             }
-            console.log("Form data before submission:", formData);
-            console.log("Sending payment payload:", payload);
             if (editingPaymentId) {
                 const res = await axios.put(`${API_URL}${editingPaymentId}/`, payload, {
                     headers: { Authorization: `Bearer ${token}` },
@@ -304,7 +293,6 @@ const FeePayments = () => {
     useEffect(() => {
         getClasses();
         fetchPayments();
-        console.log("Classes state after fetch:", classes);
     }, [page, pageSize]);
 
     const permissions = JSON.parse(localStorage.getItem("user_permissions") || "[]");
@@ -312,27 +300,102 @@ const FeePayments = () => {
     const canDelete = permissions.includes("users.delete_feepayment");
     const canEdit = permissions.includes("users.change_feepayment");
 
+    // Columns for TableComponent
+    const tableColumns = [
+        {
+            key: "index",
+            label: "S.No",
+            render: (row, index) => (page - 1) * pageSize + index + 1,
+        },
+        {
+            key: "student_name",
+            label: "Student",
+            render: (row) => row.student_name || "—",
+        },
+        {
+            key: "fee_type",
+            label: "Fee Type",
+            render: (row) => row.fee_type || "—",
+        },
+        {
+            key: "class_name",
+            label: "Class",
+            render: (row) => row.class_name || "—",
+        },
+        {
+            key: "section",
+            label: "Section",
+            render: (row) => row.section || "—",
+        },
+        {
+            key: "session",
+            label: "Session",
+            render: (row) => row.session || "—",
+        },
+        {
+            key: "amount_paid",
+            label: "Amount Paid",
+            render: (row) => row.amount_paid ? `${row.amount_paid} PKR` : "—",
+        },
+        {
+            key: "is_fully_paid",
+            label: "Status",
+            render: (row) => row.is_fully_paid ? "✅ Paid" : "❌ Partial",
+        },
+        {
+            key: "actions",
+            label: "Actions",
+            render: (row) => (
+                <div className="flex justify-center gap-2">
+                    <button
+                        onClick={() => setViewModalData(row)}
+                        className="text-blue-600 hover:text-blue-800 transition-colors duration-200"
+                        title="View Details"
+                    >
+                        <MdVisibility size={18} />
+                    </button>
+                    {canDelete && (
+                        <button
+                            onClick={() => handleDelete(row.id)}
+                            className="text-red-600 hover:text-red-800 transition-colors duration-200"
+                            title="Delete Payment"
+                        >
+                            <MdDelete size={18} />
+                        </button>
+                    )}
+                </div>
+            ),
+        },
+    ];
+
     const selectStyles = {
         control: (provided) => ({
             ...provided,
-            minHeight: "2rem",
-            fontSize: "0.75rem",
+            minHeight: "2.25rem",
+            fontSize: "0.85rem",
+            borderRadius: "0.375rem",
+            borderColor: "#d1d5db",
+            boxShadow: "0 1px 2px 0 rgba(0, 0, 0, 0.05)",
         }),
         menu: (provided) => ({
             ...provided,
-            fontSize: "0.75rem",
-            maxHeight: "200px",
+            fontSize: "0.85rem",
+            maxHeight: "220px",
             overflowY: "auto",
+            borderRadius: "0.375rem",
+            zIndex: 20,
         }),
         option: (provided) => ({
             ...provided,
-            fontSize: "0.75rem",
-            padding: "0.5rem",
+            fontSize: "0.85rem",
+            padding: "0.5rem 0.75rem",
+            backgroundColor: provided.isSelected ? "#3b82f6" : provided.isFocused ? "#eff6ff" : "white",
+            color: provided.isSelected ? "white" : "#1f2937",
         }),
     };
 
     return (
-        <div className="p-2">
+        <div className="min-h-screen p-4 sm:p-6">
             <Toaster
                 message={toaster.message}
                 type={toaster.type}
@@ -342,32 +405,35 @@ const FeePayments = () => {
                 onCancel={toaster.onCancel}
                 allowNoDataErrors={true}
             />
-            <div className="bg-blue-900 text-white py-1 px-2 rounded-md flex justify-between items-center mt-2">
-                <h1 className="text-lg font-bold">Manage Fee Payments</h1>
+            <div className="bg-gradient-to-r from-blue-900 to-blue-900 text-white py-3 px-4 sm:px-6 rounded-xl flex justify-between items-center mt-5 shadow-lg">
+                <h1 className="text-lg sm:text-xl font-bold">Manage Fee Payments</h1>
                 {canAdd && (
                     <button
                         onClick={() => (showForm ? resetForm() : setShowForm(true))}
-                        className="flex items-center px-2 py-1 bg-cyan-400 text-white font-semibold rounded-md shadow-md hover:bg-cyan-500 text-sm"
+                        className="flex items-center px-3 py-2 bg-cyan-500 text-white font-semibold rounded-lg shadow-md hover:bg-cyan-600 text-sm sm:text-base transition-colors duration-200"
                     >
-                        <span className="text-base font-bold mr-1">{showForm ? "-" : "+"}</span>
+                        <div className="flex items-center justify-center w-8 h-8 bg-gray-800 rounded-full mr-2">
+                            <span className="text-cyan-400 text-xl font-bold">
+                                {showForm ? "-" : "+"}
+                            </span>
+                        </div>
                         {showForm ? "Close Form" : "Add Payment"}
                     </button>
                 )}
             </div>
 
             {showForm && canAdd && (
-                <div className="p-2 bg-white rounded-md shadow-md border border-gray-200 max-w-2xl mx-auto mb-2">
-                    <h2 className="text-base font-semibold text-blue-800 mb-2">
+                <div className="p-4 sm:p-6 bg-white rounded-xl shadow-md border border-gray-200 max-w-2xl mx-auto mb-6">
+                    <h2 className="text-lg font-semibold text-blue-900 mb-4">
                         {editingPaymentId ? "Update Fee Payment" : "Create Fee Payment"}
                     </h2>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
-                            <label className="block text-xs font-medium text-gray-700 mb-0.5">Select Class</label>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Select Class</label>
                             <Select
                                 value={classes.find((c) => (c.id || c.uuid) === formData.class_id) || null}
                                 onChange={(selected) => {
                                     const id = selected?.id || selected?.uuid || selected?.class_id || "";
-                                    console.log("Selected class:", selected);
                                     setFormData({
                                         ...formData,
                                         class_id: id,
@@ -392,13 +458,11 @@ const FeePayments = () => {
                             />
                         </div>
                         <div>
-                            <label className="block text-xs font-medium text-gray-700 mb-0.5">Select Student</label>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Select Student</label>
                             <Select
                                 value={students.find((s) => s.std_id === formData.student_id) || null}
                                 onChange={(selected) => {
                                     const id = selected?.std_id || "";
-                                    console.log("Selected student:", selected);
-                                    console.log("Setting student_id to:", id);
                                     setFormData({
                                         ...formData,
                                         student_id: id,
@@ -425,11 +489,10 @@ const FeePayments = () => {
                         </div>
                         {formData.student_id && (
                             <div>
-                                <label className="block text-xs font-medium text-gray-700 mb-0.5">Select Fee</label>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Select Fee</label>
                                 <Select
                                     value={studentFees.find((f) => f.id === formData.student_fee_id) || null}
                                     onChange={(selected) => {
-                                        console.log("Selected fee:", selected);
                                         setFormData({
                                             ...formData,
                                             student_fee_id: selected?.id || "",
@@ -447,26 +510,26 @@ const FeePayments = () => {
                             </div>
                         )}
                         <div>
-                            <label className="block text-xs font-medium text-gray-700 mb-0.5">Amount Paid</label>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Amount Paid</label>
                             <input
                                 type="number"
                                 value={formData.amount_paid}
                                 onChange={(e) => setFormData({ ...formData, amount_paid: e.target.value })}
                                 placeholder="e.g. 1000"
-                                className="w-full px-2 py-1 border border-gray-300 rounded-md text-xs focus:ring-2 focus:ring-blue-500"
+                                className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
                             />
                         </div>
                         <div>
-                            <label className="block text-xs font-medium text-gray-700 mb-0.5">Payment Date</label>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Payment Date</label>
                             <input
                                 type="date"
                                 value={formData.payment_date}
                                 onChange={(e) => setFormData({ ...formData, payment_date: e.target.value })}
-                                className="w-full px-2 py-1 border border-gray-300 rounded-md text-xs focus:ring-2 focus:ring-blue-500"
+                                className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
                             />
                         </div>
                         <div>
-                            <label className="block text-xs font-medium text-gray-700 mb-0.5">Payment Method</label>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Payment Method</label>
                             <Select
                                 value={{
                                     value: formData.payment_method,
@@ -494,7 +557,7 @@ const FeePayments = () => {
                             />
                         </div>
                         <div className="md:col-span-2">
-                            <label className="block text-xs font-medium text-gray-700 mb-0.5">
+                            <label className="block text-sm font-medium text-gray-700 mb-1">
                                 Reference Number (Optional)
                             </label>
                             <input
@@ -502,40 +565,40 @@ const FeePayments = () => {
                                 value={formData.reference_number}
                                 onChange={(e) => setFormData({ ...formData, reference_number: e.target.value })}
                                 placeholder="e.g. TXN123456"
-                                className="w-full px-2 py-1 border border-gray-300 rounded-md text-xs focus:ring-2 focus:ring-blue-500"
+                                className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
                             />
                         </div>
                         <div>
-                            <label className="block text-xs font-medium text-gray-700 mb-0.5">Discount Amount (Optional)</label>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Discount Amount (Optional)</label>
                             <input
                                 type="number"
                                 value={formData.discount_amount}
                                 onChange={(e) => setFormData({ ...formData, discount_amount: e.target.value })}
                                 placeholder="e.g. 200"
-                                className="w-full px-2 py-1 border border-gray-300 rounded-md text-xs focus:ring-2 focus:ring-blue-500"
+                                className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
                             />
                         </div>
                         <div>
-                            <label className="block text-xs font-medium text-gray-700 mb-0.5">Late Fine (Optional)</label>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Late Fine (Optional)</label>
                             <input
                                 type="number"
                                 value={formData.late_fine_amount}
                                 onChange={(e) => setFormData({ ...formData, late_fine_amount: e.target.value })}
                                 placeholder="e.g. 50"
-                                className="w-full px-2 py-1 border border-gray-300 rounded-md text-xs focus:ring-2 focus:ring-blue-500"
+                                className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
                             />
                         </div>
                     </div>
-                    <div className="mt-2 flex justify-end gap-1">
+                    <div className="mt-4 flex justify-end gap-2">
                         <button
                             onClick={resetForm}
-                            className="bg-gray-500 hover:bg-gray-700 text-white px-2 py-1 rounded-md text-xs shadow-sm"
+                            className="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded-lg text-sm shadow-sm transition-colors duration-200"
                         >
                             Cancel
                         </button>
                         <button
                             onClick={handleSavePayment}
-                            className="bg-green-600 hover:bg-green-800 text-white px-3 py-1 rounded-md text-xs shadow-sm"
+                            className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-sm shadow-sm transition-colors duration-200"
                         >
                             {editingPaymentId ? "Update Payment" : "Save Payment"}
                         </button>
@@ -543,128 +606,82 @@ const FeePayments = () => {
                 </div>
             )}
 
-            <div className="mt-2">
-                <Buttons
-                    data={payments.map((p, index) => ({
-                        Sequence: (page - 1) * pageSize + index + 1,
-                        Student: p.student_name,
-                        "Fee Type": p.fee_type,
-                        Class: p.class_name,
-                        Section: p.section,
-                        Session: p.session,
-                        "Amount Paid": `${p.amount_paid} PKR`,
-                        Discount: `${p.applied_discount || 0} PKR`,
-                        "Late Fine": `${p.applied_late_fine || 0} PKR`,
-                        "Total Paid": `${p.total_paid || 0} PKR`,
-                        "Remaining Balance": `${p.remaining_balance || 0} PKR`,
-                        "Payment Date": p.payment_date,
-                    }))}
-                    columns={[
-                        { label: "S.No", key: "Sequence" },
-                        { label: "Student", key: "Student" },
-                        { label: "Fee Type", key: "Fee Type" },
-                        { label: "Class", key: "Class" },
-                        { label: "Section", key: "Section" },
-                        { label: "Session", key: "Session" },
-                        { label: "Amount Paid", key: "Amount Paid" },
-                        { label: "Discount", key: "Discount" },
-                        { label: "Late Fine", key: "Late Fine" },
-                        { label: "Total Paid", key: "Total Paid" },
-                        { label: "Remaining Balance", key: "Remaining Balance" },
-                        { label: "Payment Date", key: "Payment Date" },
-                    ]}
-                    filename="Fee_Payment_Records"
-                />
-
-                <h2 className="text-base font-semibold text-white px-2 py-0.5 rounded-t-md bg-blue-900">Payment Records</h2>
-                <div className="overflow-x-auto">
-                    <table className="w-full border border-gray-300 min-w-[400px]">
-                        <thead className="bg-gray-300">
-                            <tr>
-                                <th className="border p-0.5 text-center text-xs">S.No</th>
-                                <th className="border p-0.5 text-center text-xs">Student</th>
-                                <th className="border p-0.5 text-center text-xs">Fee Type</th>
-                                <th className="border p-0.5 text-center text-xs">Class</th>
-                                <th className="border p-0.5 text-center text-xs">Section</th>
-                                <th className="border p-0.5 text-center text-xs">Session</th>
-                                <th className="border p-0.5 text-center text-xs">Amount Paid</th>
-                                <th className="border p-0.5 text-center text-xs">Status</th>
-                                <th className="border p-0.5 text-center text-xs">Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody className="bg-white">
-                            {payments.length > 0 ? (
-                                payments.map((payment, index) => (
-                                    <tr key={payment.id}>
-                                        <td className="border p-0.5 text-center text-xs">{(page - 1) * pageSize + index + 1}</td>
-                                        <td className="border p-0.5 text-center text-xs">{payment.student_name || "—"}</td>
-                                        <td className="border p-0.5 text-center text-xs">{payment.fee_type || "—"}</td>
-                                        <td className="border p-0.5 text-center text-xs">{payment.class_name || "—"}</td>
-                                        <td className="border p-0.5 text-center text-xs">{payment.section || "—"}</td>
-                                        <td className="border p-0.5 text-center text-xs">{payment.session || "—"}</td>
-                                        <td className="border p-0.5 text-center text-xs">{payment.amount_paid}</td>
-                                        <td className="border p-0.5 text-center text-xs">
-                                            {payment.is_fully_paid ? "✅ Paid" : "❌ Partial"}
-                                        </td>
-                                        <td className="border p-0.5 text-center flex gap-1 justify-center text-xs">
-                                            <button
-                                                onClick={() => setViewModalData(payment)}
-                                                className="text-blue-600 hover:text-blue-800"
-                                            >
-                                                <MdVisibility size={18} />
-                                            </button>
-                                            {canDelete && (
-                                                <button
-                                                    onClick={() => handleDelete(payment.id)}
-                                                    className="text-red-600 hover:text-red-800"
-                                                >
-                                                    <MdDelete size={18} />
-                                                </button>
-                                            )}
-                                        </td>
-                                    </tr>
-                                ))
-                            ) : (
-                                <tr>
-                                    <td colSpan="9" className="border p-1 text-center text-gray-500 text-xs">
-                                        No payment records available.
-                                    </td>
-                                </tr>
-                            )}
-                        </tbody>
-                    </table>
+            <div className="mt-6">
+                <div className=" mb-4 gap-3">
+                    {/* <h2 className="text-lg font-semibold text-white px-4 py-2 rounded-t-lg bg-blue-900">
+                        Payment Records
+                    </h2> */}
+                    <Buttons
+                        data={payments.map((p, index) => ({
+                            Sequence: (page - 1) * pageSize + index + 1,
+                            Student: p.student_name,
+                            "Fee Type": p.fee_type,
+                            Class: p.class_name,
+                            Section: p.section,
+                            Session: p.session,
+                            "Amount Paid": `${p.amount_paid} PKR`,
+                            Discount: `${p.applied_discount || 0} PKR`,
+                            "Late Fine": `${p.applied_late_fine || 0} PKR`,
+                            "Total Paid": `${p.total_paid || 0} PKR`,
+                            "Remaining Balance": `${p.remaining_balance || 0} PKR`,
+                            "Payment Date": p.payment_date,
+                        }))}
+                        columns={[
+                            { label: "S.No", key: "Sequence" },
+                            { label: "Student", key: "Student" },
+                            { label: "Fee Type", key: "Fee Type" },
+                            { label: "Class", key: "Class" },
+                            { label: "Section", key: "Section" },
+                            { label: "Session", key: "Session" },
+                            { label: "Amount Paid", key: "Amount Paid" },
+                            { label: "Discount", key: "Discount" },
+                            { label: "Late Fine", key: "Late Fine" },
+                            { label: "Total Paid", key: "Total Paid" },
+                            { label: "Remaining Balance", key: "Remaining Balance" },
+                            { label: "Payment Date", key: "Payment Date" },
+                        ]}
+                        filename="Fee_Payment_Records"
+                    />
                 </div>
-                <Pagination
+                <div className="overflow-x-auto">
+                    <TableComponent
+                        data={payments}
+                        columns={tableColumns}
+                        initialSort={{ key: "student_name", direction: "asc" }}
+                    />
+                </div>
+                {/* <Pagination
                     currentPage={page}
                     totalPages={totalPages}
                     pageSize={pageSize}
-                    onPageChange={(newPage) => setPage(newPage)}
+                    onPageChange={(newPage) => {
+                        setPage(newPage);
+                        fetchPayments();
+                    }}
                     onPageSizeChange={(size) => {
                         setPageSize(size);
                         setPage(1);
+                        fetchPayments();
                     }}
                     totalItems={payments.length}
                     showPageSizeSelector={true}
                     showPageInfo={true}
-                />
+                /> */}
             </div>
 
             {viewModalData && (
-                <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 px-3">
-                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md max-h-[80vh] overflow-y-auto border border-gray-200 p-5 animate-fadeIn">
-                        {/* Header */}
+                <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 px-4">
+                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md max-h-[80vh] overflow-y-auto border border-gray-200 p-6 animate-fadeIn">
                         <div className="border-b pb-3 mb-4 text-center">
-                            <h3 className="text-xl font-bold text-blue-700 flex items-center justify-center gap-2">
+                            <h3 className="text-xl font-bold text-blue-900 flex items-center justify-center gap-2">
                                 📄 Fee Payment Details
                             </h3>
                         </div>
-
-                        {/* Student Information */}
-                        <div className="space-y-2">
+                        <div className="space-y-3">
                             <h4 className="text-sm font-semibold text-blue-900 border-b pb-1">
                                 👤 Student Information
                             </h4>
-                            <div className="grid grid-cols-2 gap-x-2 gap-y-1 text-sm text-gray-700">
+                            <div className="grid grid-cols-2 gap-x-3 gap-y-2 text-sm text-gray-700">
                                 <div><span className="font-medium">Name:</span> {viewModalData.student_name}</div>
                                 <div><span className="font-medium">Fee Type:</span> {viewModalData.fee_type}</div>
                                 <div><span className="font-medium">Class:</span> {viewModalData.class_name || "—"}</div>
@@ -672,13 +689,11 @@ const FeePayments = () => {
                                 <div><span className="font-medium">Session:</span> {viewModalData.session || "—"}</div>
                             </div>
                         </div>
-
-                        {/* Payment Information */}
-                        <div className="space-y-2 mt-4">
+                        <div className="space-y-3 mt-4">
                             <h4 className="text-sm font-semibold text-blue-900 border-b pb-1">
                                 💵 Payment Information
                             </h4>
-                            <div className="grid grid-cols-2 gap-x-2 gap-y-1 text-sm text-gray-700">
+                            <div className="grid grid-cols-2 gap-x-3 gap-y-2 text-sm text-gray-700">
                                 <div><span className="font-medium">Amount Paid:</span> {viewModalData.amount_paid} PKR</div>
                                 <div><span className="font-medium">Discount:</span> {viewModalData.applied_discount || "0"} PKR</div>
                                 <div><span className="font-medium">Late Fine:</span> {viewModalData.applied_late_fine || "0"} PKR</div>
@@ -697,12 +712,10 @@ const FeePayments = () => {
                                 )}
                             </div>
                         </div>
-
-                        {/* Footer */}
-                        <div className="mt-5 flex justify-center">
+                        <div className="mt-6 flex justify-center">
                             <button
                                 onClick={() => setViewModalData(null)}
-                                className="px-5 py-2 bg-blue-600 text-white rounded-lg font-medium shadow hover:bg-blue-700 transition-all text-sm"
+                                className="px-5 py-2 bg-indigo-600 text-white rounded-lg font-medium shadow hover:bg-indigo-700 transition-colors duration-200 text-sm"
                             >
                                 Close
                             </button>
@@ -710,7 +723,6 @@ const FeePayments = () => {
                     </div>
                 </div>
             )}
-
         </div>
     );
 };
