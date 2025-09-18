@@ -10,6 +10,7 @@ export function AdminRegistration() {
     first_name: "",
     last_name: "",
     email: "",
+    phone_number: "", // Added phone number field
     password: "",
     role: "",
     class_id: "",
@@ -99,8 +100,9 @@ export function AdminRegistration() {
   const handleRegistration = async (e) => {
     e.preventDefault();
 
-    if (!formData.username || !formData.email || !formData.password || !formData.role) {
-      showToast("All fields are required!", "error");
+    // Only require username, password, and role; email and phone_number are optional for all roles
+    if (!formData.username || !formData.password || !formData.role) {
+      showToast("Username, password, and role are required!", "error");
       return;
     }
 
@@ -115,7 +117,8 @@ export function AdminRegistration() {
       requestData.append("username", formData.username);
       requestData.append("first_name", formData.first_name);
       requestData.append("last_name", formData.last_name);
-      requestData.append("email", formData.email);
+      if (formData.email) requestData.append("email", formData.email); // Optional
+      if (formData.phone_number) requestData.append("phone_number", formData.phone_number); // Optional
       requestData.append("password", formData.password);
       requestData.append("role", formData.role);
       if (formData.profile_picture) {
@@ -138,7 +141,8 @@ export function AdminRegistration() {
         username: formData.username,
         first_name: formData.first_name,
         last_name: formData.last_name,
-        email: formData.email,
+        email: formData.email, // Optional, but included if provided
+        phone_number: formData.phone_number, // Optional, but included if provided
         password: formData.password,
         role: formData.role,
       };
@@ -159,6 +163,7 @@ export function AdminRegistration() {
           first_name: "",
           last_name: "",
           email: "",
+          phone_number: "", // Reset phone number
           password: "",
           role: "",
           class_id: "",
@@ -191,7 +196,6 @@ export function AdminRegistration() {
         setClassOptions(response.data?.data?.results || []);
       } catch (error) {
         console.error("Failed to fetch classes:", error);
-        // Suppress toast for non-action errors (e.g., no classes found)
         if (error.response?.status !== 404 && error.response?.status !== 204) {
           const errorMessage = error.response?.data?.detail || error.message;
           if (
@@ -219,7 +223,6 @@ export function AdminRegistration() {
         setParentOptions(response.data?.data?.results || []);
       } catch (error) {
         console.error("Failed to fetch parents:", error);
-        // Suppress toast for non-action errors (e.g., no parents found)
         if (error.response?.status !== 404 && error.response?.status !== 204) {
           const errorMessage = error.response?.data?.detail || error.message;
           if (
@@ -299,7 +302,7 @@ export function AdminRegistration() {
                 />
               </div>
 
-              {/* Email */}
+              {/* Email - Optional for all roles, including student */}
               <div>
                 <label className="block text-gray-700 font-semibold mb-2">Email:</label>
                 <input
@@ -307,9 +310,23 @@ export function AdminRegistration() {
                   name="email"
                   value={formData.email}
                   onChange={handleChange}
-                  required
+                  // Removed required attribute
                   className="w-full p-2 sm:p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm sm:text-base"
-                  placeholder="Enter email"
+                  placeholder="Enter email (optional)"
+                />
+              </div>
+
+              {/* Phone Number - Optional for all roles, including student */}
+              <div>
+                <label className="block text-gray-700 font-semibold mb-2">Phone Number:</label>
+                <input
+                  type="text"
+                  name="phone_number"
+                  value={formData.phone_number}
+                  onChange={handleChange}
+                  // No required attribute
+                  className="w-full p-2 sm:p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm sm:text-base"
+                  placeholder="Enter phone number (optional)"
                 />
               </div>
 

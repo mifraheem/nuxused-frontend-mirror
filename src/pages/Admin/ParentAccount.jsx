@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
 import Cookies from "js-cookie";
-import { FiTrash, FiEdit, FiEye } from "react-icons/fi";
+import { FiTrash, FiEdit, FiEye, FiPlus, FiSearch, FiX } from "react-icons/fi";
 import { Buttons } from "../../components";
 import Toaster from "../../components/Toaster"; // Import custom Toaster component
 import TableComponent from "../../components/TableComponent"; // Import reusable TableComponent
@@ -18,12 +18,20 @@ const ParentAccount = () => {
   const [toaster, setToaster] = useState({ message: "", type: "success" });
   const [confirmResolve, setConfirmResolve] = useState(null);
 
+  // Student search states
+  const [showStudentSearch, setShowStudentSearch] = useState(false);
+  const [searchRegistrationNo, setSearchRegistrationNo] = useState("");
+  const [searchedStudent, setSearchedStudent] = useState(null);
+  const [isSearching, setIsSearching] = useState(false);
+  const [linkedStudentsList, setLinkedStudentsList] = useState([]);
+
   // ✅ safe API base with fallback
   const API = import.meta.env.VITE_SERVER_URL;
   const API_URL = `${API}api/auth/users/list_profiles/parent/`;
   const UPDATE_URL = `${API}api/auth/update-parent-profile/`;
   const DELETE_URL = `${API}api/auth/users/`;
   const STUDENT_LIST_URL = `${API}api/auth/users/list_profiles/student/`;
+  const STUDENT_SEARCH_URL = `${API}api/auth/search/`;
 
   // Permissions
   const permissions = JSON.parse(localStorage.getItem("user_permissions") || "[]");
@@ -65,6 +73,102 @@ const ParentAccount = () => {
         setToaster({ message: "", type: "success" }); // Clear toaster
       }
     });
+  };
+
+  // Search student by registration number
+  const searchStudentByRegistrationNo = async (registrationNo) => {
+    if (!registrationNo.trim()) {
+      showToast("Please enter a registration number", "error");
+      return;
+    }
+
+    setIsSearching(true);
+    try {
+      const response = await axios.get(`${STUDENT_SEARCH_URL}?registration_no=${registrationNo}`, {
+        headers: authHeaders(),
+      });
+
+      if (response.data && response.data.data && response.data.data.results) {
+        const results = response.data.data.results;
+        if (results.length > 0) {
+          // Get the first result (should be only one for exact registration number match)
+          const student = results[0];
+          // Transform the API response to match our expected format
+          const transformedStudent = {
+            profile_id: student.profile_id,
+            user_id: student.user_id,
+            first_name: student.full_name.split(' ')[0] || '',
+            last_name: student.full_name.split(' ').slice(1).join(' ') || '',
+            full_name: student.full_name,
+            registration_no: student.registration_no,
+            school: student.school,
+            class_name: student.class_name || '', // May not be in search response
+            email: student.email || '', // May not be in search response
+            user_type: student.user_type,
+            role: student.role
+          };
+          setSearchedStudent(transformedStudent);
+          showToast("Student found successfully", "success");
+        } else {
+          setSearchedStudent(null);
+          showToast("No student found with this registration number", "error");
+        }
+      } else {
+        setSearchedStudent(null);
+        showToast("No student found with this registration number", "error");
+      }
+    } catch (error) {
+      console.error("Error searching student:", error);
+      setSearchedStudent(null);
+      showToast(
+        "Failed to search student: " + (error.response?.data?.message || error.message),
+        "error"
+      );
+    } finally {
+      setIsSearching(false);
+    }
+  };
+
+  // Link student to parent
+  const linkStudentToParent = (student) => {
+    if (!student || !student.profile_id) {
+      showToast("Invalid student data", "error");
+      return;
+    }
+
+    // Check if student is already linked
+    const isAlreadyLinked = linkedStudentsList.some(s => s.profile_id === student.profile_id);
+    if (isAlreadyLinked) {
+      showToast("Student is already linked to this parent", "error");
+      return;
+    }
+
+    // Add student to linked list
+    const updatedList = [...linkedStudentsList, student];
+    setLinkedStudentsList(updatedList);
+
+    // Update selected parent's children array
+    const childrenIds = updatedList.map(s => s.profile_id);
+    setSelectedParent({ ...selectedParent, children: childrenIds });
+
+    // Clear search
+    setSearchedStudent(null);
+    setSearchRegistrationNo("");
+    setShowStudentSearch(false);
+
+    showToast("Student linked successfully", "success");
+  };
+
+  // Remove student from linked list
+  const removeLinkedStudent = (studentId) => {
+    const updatedList = linkedStudentsList.filter(s => s.profile_id !== studentId);
+    setLinkedStudentsList(updatedList);
+
+    // Update selected parent's children array
+    const childrenIds = updatedList.map(s => s.profile_id);
+    setSelectedParent({ ...selectedParent, children: childrenIds });
+
+    showToast("Student unlinked successfully", "success");
   };
 
   // Fetch parents
@@ -124,19 +228,27 @@ const ParentAccount = () => {
   const openEditModal = (parent) => {
     // Extract profile_ids from linked_students for the multiselect
     const linkedStudentIds = [];
+    const linkedStudentsData = [];
 
     if (Array.isArray(parent.linked_students)) {
       parent.linked_students.forEach(student => {
         if (typeof student === 'string') {
           linkedStudentIds.push(student);
+          // Find student data from students array
+          const foundStudent = students.find(s => s.profile_id === student);
+          if (foundStudent) {
+            linkedStudentsData.push(foundStudent);
+          }
         } else if (student && typeof student === 'object' && student.profile_id) {
           linkedStudentIds.push(student.profile_id);
+          linkedStudentsData.push(student);
         } else if (student && typeof student === 'object' && student.name) {
           const matchedStudent = students.find(s =>
             `${s.first_name} ${s.last_name}`.trim() === student.name.trim()
           );
           if (matchedStudent) {
             linkedStudentIds.push(matchedStudent.profile_id);
+            linkedStudentsData.push(matchedStudent);
           }
         }
       });
@@ -146,7 +258,16 @@ const ParentAccount = () => {
       ...parent,
       children: linkedStudentIds,
     });
+    setLinkedStudentsList(linkedStudentsData);
     setIsEditModalOpen(true);
+  };
+
+  const closeEditModal = () => {
+    setIsEditModalOpen(false);
+    setShowStudentSearch(false);
+    setSearchedStudent(null);
+    setSearchRegistrationNo("");
+    setLinkedStudentsList([]);
   };
 
   const closeViewModal = () => setIsViewModalOpen(false);
@@ -236,7 +357,7 @@ const ParentAccount = () => {
       if (response.status === 200) {
         showToast("Parent updated successfully.", "success");
         fetchParents();
-        setIsEditModalOpen(false);
+        closeEditModal();
       }
     } catch (error) {
       console.error("Error updating parent:", error.response?.data || error.message);
@@ -486,12 +607,12 @@ const ParentAccount = () => {
       {/* Edit Modal (compact & scrollable) */}
       {isEditModalOpen && selectedParent && (
         <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-60 px-4 z-50">
-          <div className="bg-white w-full max-w-2xl rounded-xl shadow-2xl border border-gray-200 overflow-hidden">
+          <div className="bg-white w-full max-w-3xl rounded-xl shadow-2xl border border-gray-200 overflow-hidden">
             {/* Header */}
             <div className="px-6 py-4 bg-blue-600 text-white flex justify-between items-center">
               <h2 className="text-lg md:text-xl font-bold">Edit Parent Profile</h2>
               <button
-                onClick={() => setIsEditModalOpen(false)}
+                onClick={closeEditModal}
                 className="text-white hover:text-gray-200 text-2xl font-bold"
               >
                 ×
@@ -499,7 +620,7 @@ const ParentAccount = () => {
             </div>
 
             {/* Content */}
-            <div className="px-6 py-4 overflow-y-auto max-h-[70vh] space-y-4">
+            <div className="px-6 py-4 overflow-y-auto max-h-[60vh] space-y-4">
               {/* Username */}
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-1">
@@ -623,53 +744,170 @@ const ParentAccount = () => {
                 </div>
               </div>
 
-              {/* Children with checkboxes */}
+              {/* Linked Children Section */}
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
-                  Linked Children
-                </label>
-                <div className="space-y-2 max-h-40 overflow-y-auto border rounded-md p-3 bg-gray-50">
-                  {students.map((s) => {
-                    const isChecked = (selectedParent.children || []).includes(s.profile_id);
-                    return (
-                      <label
-                        key={s.profile_id}
-                        className="flex items-start space-x-2 cursor-pointer"
-                      >
-                        <input
-                          type="checkbox"
-                          checked={isChecked}
-                          onChange={(e) => {
-                            let updated = [...(selectedParent.children || [])];
-                            if (e.target.checked) {
-                              updated.push(s.profile_id);
-                            } else {
-                              updated = updated.filter((id) => id !== s.profile_id);
-                            }
-                            setSelectedParent({ ...selectedParent, children: updated });
-                          }}
-                          className="mt-1"
-                        />
-                        <span className="text-sm">
-                          <span className="font-semibold">{s.first_name} {s.last_name}</span>{" "}
-                          {s.registration_no && (
-                            <span className="text-gray-600">(Reg: {s.registration_no})</span>
-                          )}{" "}
-                          {s.class_name && (
-                            <span className="text-blue-700 font-medium">– {s.class_name}</span>
-                          )}
-                        </span>
-                      </label>
-                    );
-                  })}
+                <div className="flex justify-between items-center mb-3">
+                  <label className="block text-sm font-semibold text-gray-700">
+                    Linked Children
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => setShowStudentSearch(true)}
+                    className="flex items-center gap-1 px-3 py-1 bg-green-600 hover:bg-green-700 text-white text-sm rounded-md font-medium"
+                  >
+                    <FiPlus size={14} />
+                    Link More Students
+                  </button>
                 </div>
+
+                {/* Already Linked Students */}
+                <div className="space-y-2 mb-4">
+                  {linkedStudentsList.length > 0 ? (
+                    linkedStudentsList.map((student) => (
+                      <div
+                        key={student.profile_id}
+                        className="flex items-center justify-between p-3 bg-blue-50 border border-blue-200 rounded-lg"
+                      >
+                        <div>
+                          <p className="font-medium text-gray-900">
+                            {student.name || `${student.first_name || ''} ${student.last_name || ''}`.trim()}
+                          </p>
+                          <div className="flex gap-4 text-sm text-gray-600">
+                            {student.registration_no && (
+                              <span>Reg: {student.registration_no}</span>
+                            )}
+                            {student.class_name && (
+                              <span>Class: {student.class_name}</span>
+                            )}
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => removeLinkedStudent(student.profile_id)}
+                          className="text-red-500 hover:text-red-700 p-1"
+                        >
+                          <FiX size={16} />
+                        </button>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="text-center py-4 text-gray-500 bg-gray-50 border border-gray-200 rounded-lg">
+                      No students linked yet
+                    </div>
+                  )}
+                </div>
+
+                {/* Student Search Modal */}
+                {showStudentSearch && (
+                  <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+                    <div className="bg-white rounded-lg p-6 w-full max-w-md mx-4">
+                      <div className="flex justify-between items-center mb-4">
+                        <h3 className="text-lg font-semibold">Search Student</h3>
+                        <button
+                          onClick={() => {
+                            setShowStudentSearch(false);
+                            setSearchedStudent(null);
+                            setSearchRegistrationNo("");
+                          }}
+                          className="text-gray-400 hover:text-gray-600"
+                        >
+                          <FiX size={20} />
+                        </button>
+                      </div>
+
+                      {/* Search Input */}
+                      <div className="mb-4">
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Registration Number
+                        </label>
+                        <div className="flex gap-2">
+                          <input
+                            type="text"
+                            value={searchRegistrationNo}
+                            onChange={(e) => setSearchRegistrationNo(e.target.value)}
+                            placeholder="Enter registration number"
+                            className="flex-1 border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+                            onKeyPress={(e) => {
+                              if (e.key === 'Enter') {
+                                searchStudentByRegistrationNo(searchRegistrationNo);
+                              }
+                            }}
+                          />
+                          <button
+                            type="button"
+                            onClick={() => searchStudentByRegistrationNo(searchRegistrationNo)}
+                            disabled={isSearching}
+                            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-300 text-white rounded-md text-sm font-medium flex items-center gap-1"
+                          >
+                            {isSearching ? (
+                              <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent" />
+                            ) : (
+                              <FiSearch size={16} />
+                            )}
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Search Result */}
+                      {searchedStudent && (
+                        <div className="mb-4">
+                          <h4 className="text-sm font-medium text-gray-700 mb-2">Search Result:</h4>
+                          <div className="p-3 border border-gray-300 rounded-lg bg-gray-50">
+                            <div className="flex items-center justify-between">
+                              <div>
+                                <p className="font-medium">
+                                  {searchedStudent.full_name}
+                                </p>
+                                <div className="text-sm text-gray-600">
+                                  <p>Reg: {searchedStudent.registration_no}</p>
+                                  {searchedStudent.school && (
+                                    <p>School: {searchedStudent.school}</p>
+                                  )}
+                                  {searchedStudent.class_name && (
+                                    <p>Class: {searchedStudent.class_name}</p>
+                                  )}
+                                  {searchedStudent.email && (
+                                    <p>Email: {searchedStudent.email}</p>
+                                  )}
+                                  <p>Role: {searchedStudent.role}</p>
+                                </div>
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => linkStudentToParent(searchedStudent)}
+                                className="px-3 py-1 bg-green-600 hover:bg-green-700 text-white text-sm rounded-md font-medium"
+                              >
+                                Link
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Modal Actions */}
+                      <div className="flex justify-end gap-2">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setShowStudentSearch(false);
+                            setSearchedStudent(null);
+                            setSearchRegistrationNo("");
+                          }}
+                          className="px-4 py-2 bg-gray-300 hover:bg-gray-400 text-gray-700 rounded-md text-sm font-medium"
+                        >
+                          Close
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
 
             {/* Footer */}
             <div className="flex justify-end gap-3 px-6 py-4 bg-gray-50">
               <button
-                onClick={() => setIsEditModalOpen(false)}
+                onClick={closeEditModal}
                 className="px-5 py-2 bg-gray-200 hover:bg-gray-300 text-gray-800 rounded-md text-sm font-medium"
               >
                 Cancel
