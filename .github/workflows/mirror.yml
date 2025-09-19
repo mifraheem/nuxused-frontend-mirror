@@ -17,7 +17,7 @@ jobs:
 
       - name: Push main branch to personal repo
         env:
-          PAT: ${{ secrets.PERSONAL_TOKEN }}
+          PAT: ${{ secrets.PAT }}
         run: |
           echo "🔍 Testing connection to personal repo..."
           git ls-remote https://mifraheem:${PAT}@github.com/mifraheem/nuxused-frontend-mirror.git
