@@ -7,8 +7,8 @@ on:
 
 jobs:
   mirror:
+    if: github.repository == 'BarqiBazar/nuxused-frontend'
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout source repo
         uses: actions/checkout@v3
