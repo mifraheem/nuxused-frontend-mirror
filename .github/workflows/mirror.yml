@@ -1,4 +1,5 @@
-name: Mirror to personal repo
+# .github/workflows/mirror.yml
+name: Mirror main branch to personal repo
 
 on:
   push:
@@ -11,28 +12,17 @@ jobs:
     steps:
       - name: Checkout source repo
         uses: actions/checkout@v3
+        with:
+          fetch-depth: 0   # fetch full history
 
-      - name: Debug URL
+      - name: Push main branch to personal repo
         env:
           PAT: ${{ secrets.PERSONAL_TOKEN }}
         run: |
-          echo "🔎 Testing repo access"
-          echo "URL (masked): https://mifraheem:${PAT:0:4}***@github.com/mifraheem/nuxused-frontend-mirror.git"
+          echo "🔍 Testing connection to personal repo..."
+          git ls-remote https://mifraheem:${PAT}@github.com/mifraheem/nuxused-frontend-mirror.git
 
-      - name: List refs in personal repo
-        env:
-          PAT: ${{ secrets.PERSONAL_TOKEN }}
-        run: |
-          echo "🔍 Trying ls-remote..."
-          git ls-remote https://mifraheem:${PAT}@github.com/mifraheem/nuxused-frontend-mirror.git || echo "❌ Still not found"
-
-      - name: Push to personal repo
-        if: success()   # only run if above succeeded
-        env:
-          PAT: ${{ secrets.PERSONAL_TOKEN }}
-        run: |
-          echo "🚀 Pushing all branches and tags..."
+          echo "🚀 Pushing main branch..."
           git config user.name "GitHub Action"
           git config user.email "actions@github.com"
-          git push https://mifraheem:${PAT}@github.com/mifraheem/nuxused-frontend-mirror.git --all --force
-          git push https://mifraheem:${PAT}@github.com/mifraheem/nuxused-frontend-mirror.git --tags --force
+          git push https://mifraheem:${PAT}@github.com/mifraheem/nuxused-frontend-mirror.git main --force
