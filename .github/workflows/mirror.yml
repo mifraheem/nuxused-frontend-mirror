@@ -1,5 +1,4 @@
-# .github/workflows/mirror.yml
-name: Mirror main branch to personal repo
+name: Mirror to personal repo
 
 on:
   push:
@@ -9,20 +8,19 @@ on:
 jobs:
   mirror:
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout source repo
         uses: actions/checkout@v3
         with:
-          fetch-depth: 0   # fetch full history
+          fetch-depth: 0
 
-      - name: Push main branch to personal repo
-        env:
-          PAT: ${{ secrets.PAT }}
+      - name: Setup SSH
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.MIRROR_KEY }}
+
+      - name: Push to personal repo
         run: |
-          echo "🔍 Testing connection to personal repo..."
-          git ls-remote https://mifraheem:${PAT}@github.com/mifraheem/nuxused-frontend-mirror.git
-
-          echo "🚀 Pushing main branch..."
-          git config user.name "GitHub Action"
-          git config user.email "actions@github.com"
-          git push https://mifraheem:${PAT}@github.com/mifraheem/nuxused-frontend-mirror.git main --force
+          git remote add mirror git@github.com:mifraheem/nuxused-frontend-mirror.git
+          git push mirror main --force
