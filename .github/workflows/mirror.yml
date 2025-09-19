@@ -3,7 +3,7 @@ name: Mirror to personal repo
 on:
   push:
     branches:
-      - main   # change if your default branch is not "main"
+      - main
 
 jobs:
   mirror:
@@ -12,24 +12,27 @@ jobs:
       - name: Checkout source repo
         uses: actions/checkout@v3
 
-      - name: Test PAT access
+      - name: Debug URL
         env:
           PAT: ${{ secrets.PERSONAL_TOKEN }}
         run: |
-          echo "🔍 Testing connection to personal repo..."
-          git ls-remote https://mifraheem:${PAT}@github.com/mifraheem/nuxused-frontend-mirror.git || exit 1
-          echo "✅ PAT is valid and repo is accessible"
+          echo "🔎 Testing repo access"
+          echo "URL (masked): https://mifraheem:${PAT:0:4}***@github.com/mifraheem/nuxused-frontend-mirror.git"
+
+      - name: List refs in personal repo
+        env:
+          PAT: ${{ secrets.PERSONAL_TOKEN }}
+        run: |
+          echo "🔍 Trying ls-remote..."
+          git ls-remote https://mifraheem:${PAT}@github.com/mifraheem/nuxused-frontend-mirror.git || echo "❌ Still not found"
 
       - name: Push to personal repo
+        if: success()   # only run if above succeeded
         env:
           PAT: ${{ secrets.PERSONAL_TOKEN }}
         run: |
-          echo "🚀 Pushing all branches and tags to personal repo..."
+          echo "🚀 Pushing all branches and tags..."
           git config user.name "GitHub Action"
           git config user.email "actions@github.com"
-
-          # Push all branches
           git push https://mifraheem:${PAT}@github.com/mifraheem/nuxused-frontend-mirror.git --all --force
-
-          # Push all tags
           git push https://mifraheem:${PAT}@github.com/mifraheem/nuxused-frontend-mirror.git --tags --force
