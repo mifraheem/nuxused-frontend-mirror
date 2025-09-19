@@ -11,11 +11,12 @@ jobs:
     steps:
       - name: Checkout source repo
         uses: actions/checkout@v3
-
+        
       - name: Push to personal repo
+        env:
+          PAT: ${{ secrets.PERSONAL_TOKEN }}
         run: |
           git config user.name "GitHub Action"
           git config user.email "actions@github.com"
-          git remote add personal https://mifraheem:${{ secrets.PERSONAL_TOKEN }}@github.com/mifraheem/nuxused-frontend-mirror.git
-          git push personal --all --force
-          git push personal --tags --force
+          git push https://mifraheem:${PAT}@github.com/mifraheem/nuxused-frontend-mirror.git main --force
+          git push https://mifraheem:${PAT}@github.com/mifraheem/nuxused-frontend-mirror.git --tags --force
