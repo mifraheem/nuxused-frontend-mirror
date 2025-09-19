@@ -13,13 +13,11 @@ const Pagination = ({
   totalItems = 0,
   className = "",
 }) => {
-  // Convert page size options to react-select format
   const pageSizeSelectOptions = pageSizeOptions.map(size => ({
     value: size,
-    label: size.toString()
+    label: size.toString(),
   }));
 
-  // Compact styles for pagination dropdown
   const paginationSelectStyles = {
     control: (provided) => ({
       ...provided,
@@ -36,7 +34,11 @@ const Pagination = ({
       fontSize: '0.75rem',
       maxHeight: '120px',
       width: '60px',
-      zIndex: 1000,
+      zIndex: 9999,
+    }),
+    menuPortal: (provided) => ({
+      ...provided,
+      zIndex: 9999, // Ensure portal menu is above other elements
     }),
     option: (provided) => ({
       ...provided,
@@ -69,12 +71,10 @@ const Pagination = ({
     }
   };
 
-  // Don't render if there's no data
   if (totalPages === 0) return null;
 
   const renderPageNumbers = () => {
     if (totalPages <= 5) {
-      // Show all pages if 5 or fewer
       return [...Array(totalPages)].map((_, index) => (
         <button
           key={index}
@@ -91,9 +91,7 @@ const Pagination = ({
       ));
     }
 
-    // Smart pagination for many pages
     const pages = [];
-
     if (currentPage > 3) {
       pages.push(
         <button
@@ -115,7 +113,6 @@ const Pagination = ({
       }
     }
 
-    // Show current page and surrounding pages
     const startPage = Math.max(1, currentPage - 2);
     const endPage = Math.min(totalPages, currentPage + 2);
 
@@ -165,9 +162,7 @@ const Pagination = ({
 
   return (
     <div className={`flex flex-col sm:flex-row justify-between items-start sm:items-center mt-4 gap-3 sm:gap-4 ${className}`}>
-      {/* Left side - Page Size Selector and Page Info */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-4 w-full sm:w-auto">
-        {/* Page Size Selector */}
         {showPageSizeSelector && (
           <div className="flex items-center gap-2">
             <label className="text-xs sm:text-sm font-medium text-gray-700 whitespace-nowrap">
@@ -181,20 +176,14 @@ const Pagination = ({
                 styles={paginationSelectStyles}
                 isSearchable={false}
                 menuPlacement="auto"
+                menuPortalTarget={document.body} // Render menu in a portal
+                menuShouldBlockScroll={true} // Optional: Prevent scrolling
               />
             </div>
           </div>
         )}
-
-        {/* Page Info */}
-        {/* {showPageInfo && totalItems > 0 && (
-          <div className="text-xs sm:text-sm text-gray-600">
-            Showing {startItem} to {endItem} of {totalItems} entries
-          </div>
-        )} */}
       </div>
 
-      {/* Right side - Pagination Buttons */}
       <div className="flex flex-wrap justify-center sm:justify-end gap-1 sm:gap-2 w-full sm:w-auto">
         <button
           onClick={() => handlePageChange(currentPage - 1)}

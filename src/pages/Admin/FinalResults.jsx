@@ -19,7 +19,7 @@ const FinalResults = () => {
   const [toaster, setToaster] = useState({ message: "", type: "success" });
 
   const API = import.meta.env.VITE_SERVER_URL;
-  const API_URL = `${API}/final-results/`;
+  const API_URL = `${API}final-results/`;
 
   const permissions = JSON.parse(localStorage.getItem("user_permissions") || "[]");
   const canView = permissions.includes("users.view_finalresult");
@@ -67,7 +67,7 @@ const FinalResults = () => {
         showToast("User is not authenticated.", "error");
         return;
       }
-      const response = await axios.get(`${API}/api/auth/users/list_profiles/student/`, {
+      const response = await axios.get(`${API}api/auth/users/list_profiles/student/`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       const data = response.data.data?.results || [];
@@ -85,7 +85,7 @@ const FinalResults = () => {
         showToast("User is not authenticated.", "error");
         return;
       }
-      const response = await axios.get(`${API}/classes/`, {
+      const response = await axios.get(`${API}classes/`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       const data = response.data.data?.results || [];
@@ -103,7 +103,7 @@ const FinalResults = () => {
         showToast("User is not authenticated.", "error");
         return;
       }
-      const response = await axios.get(`${API}/exams/`, {
+      const response = await axios.get(`${API}exams/`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       const data = response.data.results || [];

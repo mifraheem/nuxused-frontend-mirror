@@ -104,7 +104,7 @@ const ClassTasks = () => {
         showToast("No authentication token found. Please log in again.", "error");
         return;
       }
-      const res = await axios.get(`${API}/classes/`, {
+      const res = await axios.get(`${API}classes/`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       const classes = res.data?.data?.results || res.data?.results || [];

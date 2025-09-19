@@ -78,7 +78,7 @@ const StaffIDCardPage = () => {
     try {
       const token = getToken();
       if (!token) return;
-      const res = await fetch(`${API}/api/auth/users/list_profiles/staff/`, {
+      const res = await fetch(`${API}api/auth/users/list_profiles/staff/`, {
         headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
       });
       if (!res.ok) throw new Error();

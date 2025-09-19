@@ -170,7 +170,7 @@ const Sidebar = ({ isSidebarOpen, toggleSidebar, activeTab, setActiveTab }) => {
                                     tabKey="teacher"
                                     activeTab={activeTab}
                                     toggleTab={toggleTab}
-                                    items={[
+                                    items={[ // Fixed: Wrapped array in curly braces
                                         { to: "/admin/manage-teacher-details", label: "Teacher Information" },
                                         { to: "/admin/generate-teacher-id-cards", label: "Teacher ID Cards" },
                                     ].filter(item => !searchQuery || item.label.toLowerCase().includes(searchQuery.toLowerCase()))}
@@ -382,6 +382,15 @@ const Sidebar = ({ isSidebarOpen, toggleSidebar, activeTab, setActiveTab }) => {
                                     to="/admin/subscription"
                                     icon="pi pi-credit-card"
                                     label="Subscription"
+                                    currentPath={location.pathname}
+                                    isSidebarOpen={isSidebarOpen}
+                                />
+                            )}
+                            {(!searchQuery || filterItems("Profile")) && (
+                                <SidebarLink
+                                    to="/admin/profile"
+                                    icon="pi pi-user"
+                                    label="Profile"
                                     currentPath={location.pathname}
                                     isSidebarOpen={isSidebarOpen}
                                 />

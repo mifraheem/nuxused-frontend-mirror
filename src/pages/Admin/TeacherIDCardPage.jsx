@@ -45,7 +45,7 @@ const TeacherIDCard = () => {
     try {
       const token = getToken();
       if (!token) return;
-      const res = await fetch(`${API}/classes/`, {
+      const res = await fetch(`${API}classes/`, {
         headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
       });
       if (!res.ok) throw new Error();
@@ -67,7 +67,7 @@ const TeacherIDCard = () => {
     try {
       const token = getToken();
       if (!token) return;
-      const res = await fetch(`${API}/api/auth/users/list_profiles/teacher/`, {
+      const res = await fetch(`${API}api/auth/users/list_profiles/teacher/`, {
         headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
       });
       if (!res.ok) throw new Error();

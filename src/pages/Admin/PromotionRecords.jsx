@@ -19,7 +19,7 @@ const PromotionRecords = () => {
   const [toaster, setToaster] = useState({ message: "", type: "success" });
 
   const API = import.meta.env.VITE_SERVER_URL;
-  const API_URL = `${API}/promotion-records/`;
+  const API_URL = `${API}promotion-records/`;
 
   const showToast = (message, type = "success") => {
     setToaster({ message, type });
@@ -32,7 +32,7 @@ const PromotionRecords = () => {
         showToast("User is not authenticated.", "error");
         return;
       }
-      const res = await axios.get(`${API}/classes/`, {
+      const res = await axios.get(`${API}classes/`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       const data = res.data?.data?.results || [];
@@ -194,67 +194,7 @@ const PromotionRecords = () => {
             initialSort={{ key: "student_name", direction: "asc" }}
           />
 
-          {/* Pagination controls */}
-          {/* <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mt-2">
-            <div className="flex items-center gap-2">
-              <label className="text-xs font-medium text-gray-700">Page Size:</label>
-              <select
-                value={pageSize}
-                onChange={(e) => {
-                  setPageSize(Number(e.target.value));
-                  fetchRecords(1, Number(e.target.value));
-                }}
-                className="border border-gray-300 rounded px-2 py-1 text-xs bg-white"
-              >
-                {[5, 10, 25, 50].map((size) => (
-                  <option key={size} value={size}>
-                    {size}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div className="flex flex-wrap gap-1">
-              <button
-                onClick={() => {
-                  if (currentPage > 1) {
-                    setCurrentPage(currentPage - 1);
-                    fetchRecords(currentPage - 1, pageSize);
-                  }
-                }}
-                disabled={currentPage === 1}
-                className="px-2 py-1 bg-gray-200 rounded text-xs disabled:opacity-50"
-              >
-                Prev
-              </button>
-              {[...Array(totalPages)].map((_, idx) => (
-                <button
-                  key={idx}
-                  onClick={() => {
-                    setCurrentPage(idx + 1);
-                    fetchRecords(idx + 1, pageSize);
-                  }}
-                  className={`px-2 py-1 rounded text-xs ${
-                    currentPage === idx + 1 ? "bg-blue-600 text-white" : "bg-gray-200"
-                  }`}
-                >
-                  {idx + 1}
-                </button>
-              ))}
-              <button
-                onClick={() => {
-                  if (currentPage < totalPages) {
-                    setCurrentPage(currentPage + 1);
-                    fetchRecords(currentPage + 1, pageSize);
-                  }
-                }}
-                disabled={currentPage === totalPages}
-                className="px-2 py-1 bg-gray-200 rounded text-xs disabled:opacity-50"
-              >
-                Next
-              </button>
-            </div>
-          </div> */}
+          
         </div>
       )}
 
